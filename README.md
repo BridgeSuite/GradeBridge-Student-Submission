@@ -5,7 +5,7 @@ Complete academic assignments with LaTeX support and generate professional PDFs 
 ![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-**[Live Demo](https://veriqai.github.io/GradeBridge-Student-Submission/)** 
+**[Live Demo](https://bridgesuite.github.io/GradeBridge-Student-Submission/)** 
 
 ---
 
@@ -15,17 +15,11 @@ Complete academic assignments with LaTeX support and generate professional PDFs 
 
 **GradeBridge workflow:** Guided, structured submission forms that auto-generate perfectly formatted PDFs.
 
-**The GradeBridge AI ecosystem (two parallel pipelines):**
+**The GradeBridge apps:**
 
-This app is part of the **lab pipeline**, for lab reports, mini-projects, and homework:
-1. **[Assignment Maker](https://github.com/VeriQAi/GradeBridge-Assignment-Maker)** - Instructors create structured assignments
+This app handles lab reports, mini-projects, and homework:
+1. **[Assignment Maker](https://github.com/BridgeSuite/GradeBridge-Assignment-Maker)** - Instructors create structured assignments
 2. **Student Submission** (this app) - Students complete work and generate grading-ready PDFs
-
-A **second pipeline** handles timed multiple-choice quizzes drawn from a SQLite question bank (useful for pre-lecture reading checks):
-- **[MQ Assignment Maker](https://github.com/VeriQAi/GradeBridge-MQ-Assignment-Maker)** - Instructor filters question bank, sets time limit, exports encrypted assignment
-- **[MQ Student Submission](https://github.com/VeriQAi/GradeBridge-MQ-Student-Submission)** - Student takes a timed quiz, signs the honor pledge, downloads encrypted ZIP for Gradescope
-
-If you accidentally load an MQ quiz file in this app (or vice versa), each app detects the mismatch and offers a one-click redirect to the correct app.
 
 **Result:** No more "my formatting broke" excuses. Consistent submissions that make grading 50% faster.
 
@@ -47,7 +41,7 @@ If you accidentally load an MQ quiz file in this app (or vice versa), each app d
 ## Quick Start
 
 ### Try It Now
-1. Go to the [Live Demo](https://veriqai.github.io/GradeBridge-Student-Submission/)
+1. Go to the [Live Demo](https://bridgesuite.github.io/GradeBridge-Student-Submission/)
 2. Click **"Try Demo Assignment"** in the sidebar
 3. Click **"LaTeX Math Help"** for math notation reference
 
@@ -61,7 +55,7 @@ If you accidentally load an MQ quiz file in this app (or vice versa), each app d
 
 ### Local Development
 ```bash
-git clone https://github.com/VeriQAi/GradeBridge-Student-Submission.git
+git clone https://github.com/BridgeSuite/GradeBridge-Student-Submission.git
 cd GradeBridge-Student-Submission
 npm install
 npm run dev
@@ -71,7 +65,7 @@ npm run dev
 
 ## Assignment JSON Format
 
-Assignments are created using the **[Assignment Maker](https://github.com/VeriQAi/GradeBridge-Assignment-Maker)**:
+Assignments are created using the **[Assignment Maker](https://github.com/BridgeSuite/GradeBridge-Assignment-Maker)**:
 
 ```json
 {
@@ -147,7 +141,7 @@ The PDF is designed to match Assignment Maker templates:
 - Consistent headers on all pages
 - Image answers get dedicated pages
 
-See the [Assignment Maker README](https://github.com/VeriQAi/GradeBridge-Assignment-Maker#readme) for technical details on the grading rubric format.
+See the [Assignment Maker README](https://github.com/BridgeSuite/GradeBridge-Assignment-Maker#readme) for technical details on the grading rubric format.
 
 ---
 
@@ -193,12 +187,12 @@ MIT License - Free for personal and commercial use.
 
 ## Links
 
-- **Live App**: [veriqai.github.io/GradeBridge-Student-Submission](https://veriqai.github.io/GradeBridge-Student-Submission/)
-- **Assignment Maker**: [veriqai.github.io/GradeBridge-Assignment-Maker](https://veriqai.github.io/GradeBridge-Assignment-Maker/)
-- **Issues**: [GitHub Issues](https://github.com/VeriQAi/GradeBridge-Student-Submission/issues)
+- **Live App**: [bridgesuite.github.io/GradeBridge-Student-Submission](https://bridgesuite.github.io/GradeBridge-Student-Submission/)
+- **Assignment Maker**: [bridgesuite.github.io/GradeBridge-Assignment-Maker](https://bridgesuite.github.io/GradeBridge-Assignment-Maker/)
+- **Issues**: [GitHub Issues](https://github.com/BridgeSuite/GradeBridge-Student-Submission/issues)
 
 ---
 
 Built with React, TypeScript, [KaTeX](https://katex.org/), [html2canvas](https://html2canvas.hertzen.com/), [jsPDF](https://github.com/parallax/jsPDF), [JSZip](https://stuk.github.io/jszip/), and [Lucide](https://lucide.dev/).
 
-Provided free by **[VeriQAi](https://github.com/VeriQAi)**.
+MIT License · © 2026 The Regents of the University of California · Provided free by **UC Davis**.
