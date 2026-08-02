@@ -141,7 +141,7 @@ const App: React.FC = () => {
             "Click Cancel to stay here and try a different file."
           )) {
             window.open(
-              'https://veriqai.github.io/GradeBridge-MQ-Student-Submission/',
+              'https://bridgesuite.github.io/GradeBridge-MQ-Student-Submission/',
               '_blank',
               'noopener'
             );
