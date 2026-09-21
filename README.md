@@ -129,7 +129,6 @@ Every field below is one this app actually reads; the shape is `types.ts`.
   "updatedAt": 1756944000000,
   "inputMode": "handwritten",
   "aiFeedback": false,
-  "coursePublicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkq...\n-----END PUBLIC KEY-----\n",
   "problems": [
     {
       "id": "p1",
@@ -167,7 +166,7 @@ Every field below is one this app actually reads; the shape is `types.ts`.
 ```
 
 **Assignment level.** `id`, `courseCode`, `title`, `preamble`, `problems`,
-`createdAt` and `updatedAt` are always present. Three are written only when the
+`createdAt` and `updatedAt` are always present. Two are written only when the
 assignment carries them, so a spec from before a field existed is byte-for-byte
 what it was:
 
@@ -175,7 +174,9 @@ what it was:
 |---|---|
 | `inputMode` | `"electronic"` or `"handwritten"`. Absent means electronic. |
 | `aiFeedback` | Per-assignment AI-feedback flag, carried through to Gradescope. Absent means off. |
-| `coursePublicKey` | RSA public key (SPKI PEM) for the course. When present the submission is sealed with `gb2:` instead of `gb1:` — see [Submission encoding](#submission-encoding-gb1-and-gb2). **Never a private key**; this app never holds one. |
+
+`coursePublicKey` is no longer read (v4.0.0). A spec that still carries one loads
+and builds exactly the same submission as one that does not.
 
 **Problem level.** `id`, `name`, `description`, `subsections` — all required.
 
@@ -258,14 +259,30 @@ instructor's and the institution's choice.
 - **You see exactly what will be submitted, before you download it.** The review
   step shows every image that will be sent — one per answer, cut from your
   pages — and you confirm each one.
+- **You confirm that none of your answers shows who you are.** Below the answers
+  there is one box: *"I have looked at every answer above. None of them shows my
+  name, my student ID, my email address, or anyone else's."* The download waits
+  for it. It is never ticked for you, and it unticks itself if you retake a
+  page, retake an answer, replace an image or edit a typed answer afterwards,
+  because the tick covered what was on screen when you gave it. The same box
+  appears under a typed assignment, where it matters more: an uploaded
+  photograph is not cut down to an answer region, so your own check is the only
+  one.
 
 ### What this app cannot do, stated plainly
 
-- **Confirming each image is not enforced, on purpose.** You can download and
-  submit without confirming anything, and nothing blocks you: a student part-way
-  through sixteen pages at a deadline must still be able to hand in what they
-  have. Whether you confirmed each answer is *recorded* in the submission for
-  your grader to see, rather than being a gate in front of you.
+- **Signing off each image is not enforced, on purpose, and neither is
+  completeness.** You can download with answers unreviewed or missing: a student
+  part-way through sixteen pages at a deadline must still be able to hand in
+  what they have. Whether you signed off each answer is *recorded* for your
+  grader, and a missing answer is *shown* to you before the download, but
+  neither stops you.
+- **The personal-information box is the one thing that does block the
+  download**, and the difference is deliberate. Completeness is a judgement you
+  are entitled to make against advice; the box is a single tick you can always
+  give truthfully, after retaking an answer if you need to. If you press
+  Download without it, the page says so and takes you to the box. The
+  submission records that you ticked it, and which wording you ticked.
 - **It cannot read your handwriting, so it cannot detect identifying information
   you write on the page.** The instruction and the review step are the controls;
   the app does not screen the content of an image. Downstream processing may
@@ -273,20 +290,15 @@ instructor's and the institution's choice.
   asks for your name and you check what is sent.
 - **A page photograph is the whole frame.** Whatever else is in shot is in the
   image. Photograph the page on a plain surface.
-- **`gb1:` encoding is tamper resistance, not confidentiality.** The key is in
-  the shipped JavaScript, deliberately: it exists to stop casual editing of an
-  assignment file between download and submission, not to keep secrets. This is
-  only acceptable because no identity field is in the payload, which is enforced
-  by test. Where a course supplies a public key, `gb2:` provides real
-  confidentiality — only the holder of the course private key can open it, and
-  this app never holds one.
-- **On a `gb2:` course the photographs, the crops and the PDF are encrypted
-  too.** Every entry in the archive beyond the JSON's own envelope is sealed
-  individually and named `.gb2`. This matters most on a handwritten assignment,
-  where the JSON holds no answers at all — the answers are the images. **On a
-  course with no key nothing is encrypted beyond the JSON**, and such a
-  submission is as readable as it has always been. See the
-  [changelog](#changelog) for when this changed and what it replaced.
+- **The submission is not encrypted, and does not claim to be.** Since v4.0.0
+  it is plain JSON and plain JPEGs (and, for a typed assignment, a PDF). Earlier
+  versions encoded the JSON with a key that shipped inside this public app, so
+  the encoding kept nothing secret and stopped nobody editing it. What protects
+  you instead is what the file contains: no identity field (the app refuses to
+  build one that has one), no metadata in the photographs, and your own
+  confirmation that no answer names you. The assignment file you load is still
+  `gb1:`-encoded by the Assignment Maker; that is tamper resistance for the
+  question paper, not confidentiality.
 - **Your work is in browser storage and can be lost.** Clearing site data
   deletes it. Use *Save Backup*.
 
@@ -296,20 +308,21 @@ instructor's and the institution's choice.
 
 | Issue | Solution |
 |-------|----------|
-| Assignment won't load | Verify JSON was exported from Assignment Maker (encrypted `.json` file) |
+| Assignment won't load | Verify the file was exported from the Assignment Maker (a `gb1:`-encoded `.json` file) |
 | LaTeX not rendering | Refresh the page. KaTeX is bundled, so this is not a connection problem |
 | Single `$...$` shows as raw text | Check the `$` signs are paired and the expression is valid LaTeX (see [Math notation](#math-notation-latex)) |
 | PDF generation fails | Refresh and try again. Everything needed is bundled; the app makes no network requests |
 | Lost work | Use "Save Backup" regularly; restore with "Load Work" |
 | Images too large | Files over 4 MB are rejected; compress or use JPG instead of PNG |
 | Word count displayed | Shows current word count as guidance — no minimum or maximum is enforced |
+| Download says "One check before you download" | Tick the personal-information box below your answers, then press Download again. If you changed an answer after ticking it, it has unticked itself — look again and re-tick |
 
 ---
 
 ## The submission package
 
 The download button produces a single ZIP. For a typed assignment it contains:
-- `*_submission.json` — encrypted answer data (text responses, image counts)
+- `*_submission.json` — the answer data (text responses, image counts), as plain JSON
 - `*_submission.pdf` — formatted PDF matching the instructor template (one page per subsection)
 - `p{N}s{N}_image_{N}.jpg` — one file per uploaded image, downsampled for fast loading
 
@@ -317,40 +330,37 @@ For a handwritten assignment it contains the JSON, `page_{n}.jpg` for each page
 you photographed, and `crops/{region}.jpg` for each answer cut out of them. There
 is no PDF.
 
-**On a course with a public key every entry but the JSON gains a `.gb2` suffix**
-— `page_1.jpg.gb2`, `crops/p1a.jpg.gb2`, `p0s1_image_0.jpg.gb2` and
-`*_submission.pdf.gb2` — because it is an encrypted envelope rather than a JPEG
-or a PDF, and a file that is not one should not be named as one. The payload
-lists them under `encrypted_entries`, and `pdf_filename` names the sealed entry.
+### The payload is plain JSON
 
-### Submission encoding: gb1 and gb2
+Since v4.0.0 the `*_submission.json` entry is UTF-8 JSON, two-space indented,
+read with `JSON.parse` or Python's `json.loads` and nothing else. **No prefix,
+no envelope, no key.** Every other entry is exactly what it always was: the same
+names, the same order, the same bytes, the same DEFLATE level. The archive also
+holds a `crops/` directory entry, as it always has; a consumer that iterates the
+archive should skip entries ending in `/`.
 
-The submission JSON is encoded in one of two formats. The autograder detects which by prefix; the choice is driven entirely by the assignment file:
+**The payload's keys are a closed list**, held by `tests/package-plain-tests.mjs`
+so a new one cannot arrive unnoticed:
 
-| Spec field | Format | Confidentiality |
-|---|---|---|
-| no `coursePublicKey` | `gb1:` — shared-key AES-256-GCM | Tamper resistance only. The key ships in the JavaScript. |
-| `coursePublicKey` present | `gb2:` — public-key envelope | Real. Only the course private key opens it, and this app never holds one. |
+| path | keys |
+|---|---|
+| electronic | `course_code`, `assignment_id`, `pdf_filename`, `ai_feedback`, `submission_data`, `last_saved`, `personal_info_confirmed`, `personal_info_wording` |
+| handwritten | `course_code`, `assignment_id`, `ai_feedback`, `submission_data`, `last_saved`, `personal_info_confirmed`, `personal_info_wording`, `input_mode`, `layout_id`, `pages`, `crops` |
 
-**Neither format carries an identity field.** The payload has had no
-`student_name` since v3.9.0 — before that `gb2:` stripped it (v3.6.0) while
-`gb1:` still carried it — and it never carried an email or a student ID. `gb2:`
-still strips those four keys on the way out, which is belt and braces rather
-than the mechanism: if one ever returned to the payload by accident, the `gb2:`
-path would still remove it.
+`personal_info_confirmed` is always `true` in a built package — the app refuses
+to build one otherwise — and `personal_info_wording` names the sentence the
+student ticked (`pi-1`). **Nothing in the payload is a fact about the student
+that a consumer should trust**: every value in it is something the student's
+browser wrote and the student could have edited.
 
-`gb2:` wraps a random AES-256-GCM content key with the course RSA public key (RSA-OAEP, SHA-256/MGF1-SHA256, empty label) and lays out the envelope as `wrappedKeyLen[uint16 BE] | wrappedKey | iv[12] | ciphertext+tag`, standard-base64 encoded. Only the course private key — held by the autograder, never by this app — can open it.
+**No identity field, enforced rather than stripped.** `services/identityGuard.ts`
+refuses to build a package whose payload carries an identity-shaped key at any
+depth — `student_name`, `email`, `sid`, `student_id`, `name`, `netid` and their
+spellings — on both paths. It used to be a four-field strip on one encoding
+path; a strip hides the defect that put the field there, and a refusal names it.
 
-**Each sealed entry is the same envelope over its raw bytes**, with its own
-content key and its own IV, written into the ZIP unencoded: base64 would add a
-third to a multi-megabyte archive for nothing. The overhead per file is set by
-the course key size — **286 bytes with an RSA-2048 key** (258 wrapped key, 12
-IV, 16 tag) and **542 with an RSA-4096 one** (514, 12, 16). The live ENG17 Fall
-key is 4096-bit. Measured at **+2.15%** on a real handwritten two-page
-submission and **+2.41%** on a typed one carrying a real PDF, both at 2048. The full
-interface, including how to open one by hand, is `AUTOGRADER_ZIP_SPEC.md` v6.0.
-
-Identity comes from the authenticated upload to your institution's LMS, not from anything in the file. If a spec carries a `coursePublicKey` that cannot be read, the submission fails with an error rather than downgrading to `gb1:`.
+Identity comes from the authenticated upload to your institution's LMS, not from
+anything in the file. The full interface is `AUTOGRADER_ZIP_SPEC.md` v7.0.
 
 The PDF is designed to match Assignment Maker templates:
 - One page per subsection
@@ -392,31 +402,38 @@ detection table. **That set is synthetic and is not the evidence the work order
 asks for** — see `tests/captures/README.md`, and drop real photographs into
 `tests/captures/real/` to have them scored alongside.
 
-**The encryption is exercised wherever the suite runs.** The envelope
-assertions — prefix, base64 alphabet, envelope geometry, round trip, tamper
-response and de-identification of the decrypted payload — are properties of the
-format, so they run against a 2048-bit keypair generated in-process on every
-run, including CI.
-
-One check needs the verified test fixture and cannot be faked: `sample_gb2_string`
-is a `gb2:` envelope produced by the **autograder's** Python implementation, and
-decoding it is the only evidence the two implementations agree rather than that
-this one is self-consistent. That needs a fixed keypair and a fixed ciphertext.
-
-The fixture is deliberately **not** committed — it contains a private key. The
-runner looks for `../Encryption/gb2_test_fixture.json` relative to the repo, or
-wherever `GB2_FIXTURE` points:
-```bash
-GB2_FIXTURE=/path/to/gb2_test_fixture.json npm test
-```
-Without it the suite reports **two loud skips** and says which is which: the
-fixture-keypair pass over the same body (covered by the ephemeral run), and the
-interop check (**covered by nothing else**). With it, 45 checks pass and none
-skip; without it, 33 pass and 2 skip.
+**The submission package needs no fixture and no key**, since v4.0.0.
+`tests/package-plain-tests.mjs` holds the plain archive, the identity guard and
+the closed list of payload keys; `tests/personal-info-tests.mjs` holds the
+personal-information confirmation; `tests/run-tests.mjs` holds that
+`cryptoService.ts` decodes an assignment spec and can no longer encode anything.
+The cross-language check — Python reading a real archive with the standard
+library alone — is `tests/interop-emit.mjs` plus `tests/interop-check.py`; see
+`tests/README.md`.
 
 ---
 
 ## Changelog
+
+### v4.0.0 — a plain submission, and a confirmation the student gives
+**Breaking for anything that reads the archive.** One change, not two:
+- **The payload is plain JSON.** It was `gb1:`-encoded by default, with a key
+  that ships inside this public app, so the encoding kept nothing secret and
+  stopped nobody editing a payload. Integrity comes from a hash the relay
+  computes. A consumer now needs no key at all.
+- **The per-course public-key envelope is gone entirely** — the sealed JSON, the
+  sealed images and PDF, the `.gb2` entry names, `image_encryption`,
+  `encrypted_entries` and the `coursePublicKey` spec field. Entries are back to
+  `page_1.jpg`, `crops/p1a.jpg`, `p0s1_image_0.jpg` and `{stem}.pdf`. Measured on
+  the milestone-zero capture and on the sixteen-page ENG17 run: every entry but
+  the JSON is byte-identical to what v3.9.1 wrote for a course with no key.
+- **The student confirms that no answer shows who they are**, once, below the
+  answers, on both paths, before any download. Never pre-ticked; unticked again
+  by any change to what it covered; recorded as `personal_info_confirmed` and
+  `personal_info_wording`. This is the only step in the app that blocks a
+  download; completeness still informs and never blocks.
+- **An identity-shaped key in the payload now stops the build** instead of being
+  stripped from one path.
 
 ### v3.9.1 — a sheet to print and one file to upload
 - **The spec can carry the layout map inside it**, as `layoutCsvName` and
@@ -437,6 +454,8 @@ skip; without it, 33 pass and 2 skip.
   pages before discovering their answers could not be cut out.
 
 ### v3.9.0 — the submission carries no identity, and a keyed course seals everything
+*Sealing was removed in v4.0.0, and the payload is no longer encoded at all. Kept as history.*
+
 - **`student_name` is gone from the payload and from every filename.** There was
   never a field to type it into; the app was carrying a value it had inferred.
   Identity is the authenticated upload to your institution's LMS and nothing
@@ -496,7 +515,7 @@ skip; without it, 33 pass and 2 skip.
   and `N` from its own QR) and `crops`. `ai_feedback` is unchanged.
 
 ### v3.6.0
-- **`gb2:` hardened submission encoding.** When the loaded assignment spec carries a `coursePublicKey` (SPKI PEM), the submission JSON is encoded as a public-key envelope and de-identified — `student_name`, `email`, `sid`, and `student_id` are stripped from the payload. Specs without that field are unaffected and still produce `gb1:`. See [The submission package](#submission-encoding-gb1-and-gb2).
+- **`gb2:` hardened submission encoding.** When the loaded assignment spec carries a `coursePublicKey` (SPKI PEM), the submission JSON is encoded as a public-key envelope and de-identified — `student_name`, `email`, `sid`, and `student_id` are stripped from the payload. Specs without that field are unaffected and still produce `gb1:`. *(Removed in v4.0.0.)*
 - A spec whose `coursePublicKey` cannot be imported now fails the download with a clear message instead of silently falling back to `gb1:`.
 - PDF, ZIP filename, and image files are unchanged in both paths.
 - Added `npm test` — a dependency-free `cryptoService` suite covering the gb2 round trip, envelope layout, de-identification, key-failure handling, and gb1 regression.

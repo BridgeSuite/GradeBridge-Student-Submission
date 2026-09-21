@@ -24,7 +24,7 @@
  * fractions 0..1 to four decimal places.
  *
  * Naming caution: the page-format QR tag `GB1` has nothing to do with the
- * submission-JSON encryption prefixes `gb1:` / `gb2:`. Same letters, different
+ * `gb1:` prefix of an encoded assignment spec. Same letters, different
  * namespaces.
  */
 

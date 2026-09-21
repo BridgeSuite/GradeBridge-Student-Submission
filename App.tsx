@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import Sidebar from './components/Sidebar';
@@ -17,9 +17,15 @@ import { downloadBlob } from './downloadFile';
 import { clearPageBlobs, deletePageBlob, getPageBlob, putPageBlob, pruneExcept } from './pageStore';
 import { DEMO_ASSIGNMENT, DEMO_LOADED_MESSAGE } from './demoAssignment';
 import { AlertTriangle, Download, ChevronLeft, Info, X, Monitor, Smartphone, Save } from 'lucide-react';
-import { isEncoded, decryptJson, GB2_KEY_ERROR } from './cryptoService';
+import { isEncoded, decryptJson } from './cryptoService';
 import { BundleError, chooseLayoutSource, loadAssignmentBundle } from './services/assignmentBundle';
 import CompletenessGate from './components/CompletenessGate';
+import PersonalInfoConfirmation, { PERSONAL_INFO_ANCHOR_ID } from './components/PersonalInfoConfirmation';
+import PersonalInfoRequired from './components/PersonalInfoRequired';
+import {
+  INITIAL_PERSONAL_INFO_CONFIRMATION, PERSONAL_INFO_UNCONFIRMED, PersonalInfoConfirmation as PersonalInfoConfirmationState,
+  confirmPersonalInfo, isConfirmationCurrent, newCaptureId,
+} from './services/personalInfo';
 import {
   CompletenessNotice, completenessNotice, submissionCompleteness,
 } from './services/completeness';
@@ -111,10 +117,57 @@ const App: React.FC = () => {
    */
   const [shortfallGate, setShortfallGate] = useState<CompletenessNotice | null>(null);
 
+  /**
+   * The personal-information confirmation (work order 2026-09-21 §6).
+   *
+   * Starts unticked, and lives here rather than in `AppState` so it is never
+   * autosaved and never restored from a backup: it is a statement by the
+   * student looking at the screen now. It is a fingerprint of what was on
+   * screen, not a boolean, so it stops counting by itself the moment an answer
+   * it covered changes — see `services/personalInfo.ts`.
+   */
+  const [personalInfo, setPersonalInfo] =
+    useState<PersonalInfoConfirmationState>(INITIAL_PERSONAL_INFO_CONFIRMATION);
+  /** Download was pressed without a current confirmation. */
+  const [personalInfoPrompt, setPersonalInfoPrompt] = useState(false);
+
   /** region_id currently being re-cut, so the review row can say so. */
   const [cropBusy, setCropBusy] = useState<string | null>(null);
 
   const isHandwritten = state.assignment?.inputMode === 'handwritten';
+
+  // Whether the tick still covers what is on screen. Recomputed only when an
+  // answer, a page or a crop actually changes (reference identity), which is
+  // exactly when it could stop being true.
+  const personalInfoCurrent = useMemo(() => !!state.assignment && isConfirmationCurrent(personalInfo, {
+    assignment: state.assignment,
+    submissionData: state.submissionData,
+    pages: state.pages,
+    crops: state.crops,
+  }), [personalInfo, state.assignment, state.submissionData, state.pages, state.crops]);
+
+  // A different assignment, or restored work, is not what the student ticked
+  // for. Cleared outright rather than left to read as "an answer changed".
+  useEffect(() => { setPersonalInfo(null); }, [state.assignment]);
+
+  const handlePersonalInfoChange = (checked: boolean): void => {
+    if (!state.assignment || !checked) { setPersonalInfo(null); return; }
+    setPersonalInfo(confirmPersonalInfo({
+      assignment: state.assignment,
+      submissionData: state.submissionData,
+      pages: state.pages,
+      crops: state.crops,
+    }));
+  };
+
+  const goToPersonalInfoConfirmation = (): void => {
+    setPersonalInfoPrompt(false);
+    setState(s => (s.viewMode === 'edit' ? s : { ...s, viewMode: 'edit' }));
+    // After the edit view has rendered, if it was not already showing.
+    setTimeout(() => {
+      document.getElementById(PERSONAL_INFO_ANCHOR_ID)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
 
   const setPageUrl = useCallback((id: string, blob: Blob) => {
     const previous = pageUrlsRef.current[id];
@@ -352,6 +405,7 @@ const App: React.FC = () => {
         height: c.height,
         bytes: c.blob.size,
         fromPage: pageId,
+        captureId: newCaptureId(),
       };
     }
 
@@ -378,7 +432,8 @@ const App: React.FC = () => {
           bytes: ingested.bytes,
           sourceName: ingested.sourceName,
           warnings: ingested.warnings,
-          registration: { status: 'pending' }
+          registration: { status: 'pending' },
+          captureId: newCaptureId(),
         }
       ])
     }));
@@ -400,7 +455,8 @@ const App: React.FC = () => {
             bytes: ingested.bytes,
             sourceName: ingested.sourceName,
             warnings: ingested.warnings,
-            registration: { status: 'pending' }
+            registration: { status: 'pending' },
+            captureId: newCaptureId(),
           }
         : page)
     }));
@@ -426,7 +482,7 @@ const App: React.FC = () => {
         pages: prev.pages.map(page => page.id === id
           ? {
               ...page, width: rotated.width, height: rotated.height, bytes: rotated.bytes,
-              registration: { status: 'pending' }
+              registration: { status: 'pending' }, captureId: newCaptureId(),
             }
           : page)
       }));
@@ -526,6 +582,7 @@ const App: React.FC = () => {
             width: result.page.width,
             height: result.page.height,
             bytes: result.page.bytes,
+            captureId: newCaptureId(),
           },
         },
       }));
@@ -973,6 +1030,21 @@ const App: React.FC = () => {
    */
   const runSubmissionDownload = async (acknowledgedShortfall: boolean) => {
     if (!state.assignment) return;
+
+    // Phase 0: the personal-information confirmation (work order 2026-09-21
+    // §6). **The one step that blocks a download**, and first, so a student who
+    // has not ticked it does not wait through a PDF render to be told.
+    //
+    // Refused in the page, never through a dialog: a suppressed dialog would be
+    // a silent refusal, and a silent refusal of a download is a zero. The panel
+    // says nothing was downloaded, says why, and takes the student to the box.
+    // `buildSubmissionPackage` refuses too, so this cannot be skipped by a
+    // caller that forgets it.
+    if (!personalInfoCurrent) {
+      setPersonalInfoPrompt(true);
+      return;
+    }
+
     setPdfProgress({ active: true, phase: 'pdf', current: 0, total: 0 });
     setStatusMessage("Generating submission package...");
 
@@ -1013,6 +1085,7 @@ const App: React.FC = () => {
           layoutId: state.layout?.computedLayoutId ?? null,
           pages: state.pages,
           crops: state.crops,
+          personalInfoConfirmation: personalInfo,
         },
         { pdfBytes, readBlob: getPageBlob, downsampleImage },
       );
@@ -1079,11 +1152,12 @@ const App: React.FC = () => {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error("Submission package error:", error);
-      // A bad course encryption key is not something the student can retry
-      // their way out of — show the instruction on its own.
-      if (error instanceof Error && error.name === GB2_KEY_ERROR) {
-        setStatusMessage("Assignment file problem — submission not created.");
-        alert(msg);
+      // The builder's own refusal of an unconfirmed package. The check above
+      // should have caught it first; if it did not, the student still gets the
+      // in-page panel and its way through, not an error to retry.
+      if (error instanceof Error && error.name === PERSONAL_INFO_UNCONFIRMED) {
+        setStatusMessage('');
+        setPersonalInfoPrompt(true);
       } else {
         setStatusMessage("Error generating submission.");
         alert(`There was an error generating your submission:\n\n${msg}\n\nPlease refresh the page and try again.`);
@@ -1138,6 +1212,14 @@ const App: React.FC = () => {
           notice={shortfallGate}
           onDownloadAnyway={handleDownloadAnyway}
           onGoBack={handleGoBackToAnswers}
+        />
+      )}
+
+      {/* Download pressed before the personal-information box was ticked. */}
+      {personalInfoPrompt && (
+        <PersonalInfoRequired
+          onGoToConfirmation={goToPersonalInfoConfirmation}
+          onClose={() => setPersonalInfoPrompt(false)}
         />
       )}
 
@@ -1322,6 +1404,18 @@ const App: React.FC = () => {
                    />
                  )}
 
+                 {/* The personal-information confirmation, once, where the
+                     student has just looked at every answer: after the crops on
+                     the handwritten path, after the problems on the electronic
+                     one. Work order 2026-09-21 §6. */}
+                 {isHandwritten && (
+                   <PersonalInfoConfirmation
+                     confirmed={personalInfoCurrent}
+                     stale={personalInfo !== null && !personalInfoCurrent}
+                     onChange={handlePersonalInfoChange}
+                   />
+                 )}
+
                  <div>
                    {state.assignment.problems.map((problem, idx) => (
                      <ProblemRenderer
@@ -1333,6 +1427,14 @@ const App: React.FC = () => {
                      />
                    ))}
                  </div>
+
+                 {!isHandwritten && (
+                   <PersonalInfoConfirmation
+                     confirmed={personalInfoCurrent}
+                     stale={personalInfo !== null && !personalInfoCurrent}
+                     onChange={handlePersonalInfoChange}
+                   />
+                 )}
 
                  {/* Floating Bottom Bar — wraps to two rows on a phone rather
                      than letting the buttons spill outside the bar. */}

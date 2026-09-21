@@ -16,7 +16,7 @@
  * same import shape as there. Do not "improve" any of the three.
  *
  * Naming caution: `GB1` here is the page-format tag. It is unrelated to the
- * `gb1:` / `gb2:` submission-JSON encryption prefixes.
+ * `gb1:` prefix of an encoded assignment spec.
  */
 
 import { fmt4 } from './pageFormat';

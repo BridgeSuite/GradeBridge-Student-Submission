@@ -37,7 +37,6 @@
 import { webcrypto } from 'node:crypto';
 globalThis.crypto ??= webcrypto;
 
-import { createPrivateKey, privateDecrypt, constants as cryptoConstants } from 'node:crypto';
 import {
   cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
@@ -103,6 +102,17 @@ const pkgSvc = await loadModule('services/submissionPackage.ts', 'mz_pkg.mjs');
 const cryptoSvc = await loadModule('cryptoService.ts', 'mz_crypto.mjs');
 const constants = await loadModule('constants.ts', 'mz_const.mjs');
 const pageCropsConst = await loadModule('services/pageCrops.ts', 'mz_pagecrops.mjs');
+const piSvc = await loadModule('services/personalInfo.ts', 'mz_pi.mjs');
+const idSvc = await loadModule('services/identityGuard.ts', 'mz_id.mjs');
+
+// The decoder is WebAssembly, built once and asynchronously, and `loadModule`
+// gives each service bundle its own copy of it — so the copy inside the gate
+// bundle, which is the one that registers, is the one to initialise. This
+// harness predates the 2026-09-08 decoder merge and never did it: from then
+// until 2026-09-21 every photograph here failed with "QR decoder not built",
+// and the package it wrote held no pages and no crops while most of its checks
+// still passed.
+await gateSvc.initQrReader();
 
 console.log('\nMilestone zero — one sheet, photographed, to a package that opens\n');
 
@@ -313,17 +323,30 @@ console.log('\n  3. no PDF (handwritten)');
 console.log('\n  4. the submission package');
 
 const assignment = spec;
+const packageSources = {
+  assignment,
+  submissionData: {},
+  isHandwritten: assignment.inputMode === 'handwritten',
+  layoutId: layout.computedLayoutId,
+  pages,
+  crops,
+};
+// The student ticks the personal-information box after looking at the crops,
+// as the UI requires before any download (work order 2026-09-21 §6).
+packageSources.personalInfoConfirmation = piSvc.confirmPersonalInfo(packageSources);
+
+let refusedUnconfirmed = null;
+try {
+  await pkgSvc.buildSubmissionPackage({ ...packageSources, personalInfoConfirmation: null },
+    { readBlob: async (key) => blobStore.get(key) ?? null, downsampleImage: async (uri) => uri });
+} catch (err) { refusedUnconfirmed = err; }
+check('without the personal-information confirmation, no package is built',
+  refusedUnconfirmed?.name === piSvc.PERSONAL_INFO_UNCONFIRMED, String(refusedUnconfirmed?.name));
+
 let built = null;
 try {
   built = await pkgSvc.buildSubmissionPackage(
-    {
-      assignment,
-      submissionData: {},
-      isHandwritten: assignment.inputMode === 'handwritten',
-      layoutId: layout.computedLayoutId,
-      pages,
-      crops,
-    },
+    packageSources,
     {
       readBlob: async (key) => blobStore.get(key) ?? null,
       downsampleImage: async (uri) => uri,
@@ -403,12 +426,15 @@ console.log('\n  6. the payload');
 
 const jsonEntry = manifest.find(m => m.name.endsWith('.json'));
 const jsonText = await reopened.file(jsonEntry.name).async('string');
-const envelope = jsonText.slice(0, 4);
-check('the payload is an encoded envelope', cryptoSvc.isEncoded(jsonText), envelope);
-check(`the envelope is ${built.format}`, jsonText.startsWith(`${built.format}:`), envelope);
+// **Plain JSON since 2026-09-21** (work order §4). No envelope, no prefix, no
+// key: the entry is read with `JSON.parse` and nothing else.
+check('the payload is not an encoded envelope', !cryptoSvc.isEncoded(jsonText), jsonText.slice(0, 4));
+check('the payload carries no gb1: prefix, and begins as a JSON object',
+  !jsonText.includes('gb1:') && jsonText.trimStart().startsWith('{'), jsonText.slice(0, 8));
 
-const payload = await cryptoSvc.decryptJson(jsonText);
-check('the payload decrypts', payload !== null && typeof payload === 'object');
+let payload = null;
+try { payload = JSON.parse(jsonText); } catch (err) { fatal(`JSON.parse failed on the payload: ${err.message}`); }
+check('JSON.parse reads the payload directly', payload !== null && typeof payload === 'object');
 check('it names the assignment', typeof payload.assignment_id === 'string' && payload.assignment_id.length > 0,
   String(payload.assignment_id));
 check('it carries the layout_id', payload.layout_id === EXPECTED_LAYOUT_ID, String(payload.layout_id));
@@ -457,94 +483,49 @@ for (const [label, re] of FORBIDDEN) {
 }
 
 // =====================================================
-// 6b. The same package with a course key — real photographs, sealed
+// 6b. The archive is plain, and the crops say what they are
 // =====================================================
-// `workorders/WORKORDER_STUDENT_ENCRYPT_IMAGES_2026-09-03.md`. The ENG17 spec
-// carries no `coursePublicKey`, so what this archive shows is the gb1 case; the
-// gb2 case is built here from the same bytes with a keypair generated for this
-// run and never written down.
-//
-// **This is the honest size measurement.** `full-assignment.mjs` runs on pages
-// RENDERED from the PDF, and a render deflates to about half its size inside
-// the ZIP, so sealing it — ciphertext does not compress — nearly doubles that
-// archive. These two are real phone photographs, which is what a student
-// actually uploads.
-console.log('\n  6b. the same package, sealed with a test course key');
+// `WORKORDER_SS_PIPELINE_RECALIBRATION_2026-09-21` acceptance 3, 4 and 7, on
+// real photographs of a real ENG17 sheet. This section used to build the same
+// package again with a test course key and check that every entry was sealed;
+// the course key is gone, so what is checked instead is that nothing is.
+console.log('\n  6b. plain entries, identified crops, no identity');
 
-const mzPair = await webcrypto.subtle.generateKey(
-  { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
-  true, ['encrypt', 'decrypt']);
-const mzPem = (label, der) =>
-  `-----BEGIN ${label}-----\n${Buffer.from(der).toString('base64').replace(/(.{64})/g, '$1\n').trimEnd()}\n-----END ${label}-----\n`;
-const MZ_PUBLIC = mzPem('PUBLIC KEY', await webcrypto.subtle.exportKey('spki', mzPair.publicKey));
-const MZ_PRIVATE = mzPem('PRIVATE KEY', await webcrypto.subtle.exportKey('pkcs8', mzPair.privateKey));
+check('no entry is named .gb2', !manifest.some(m => /\.gb2$/i.test(m.name)),
+  manifest.filter(m => /\.gb2$/i.test(m.name)).map(m => m.name).join(', '));
+check('the payload declares no sealed entries', !('encrypted_entries' in payload) && !('image_encryption' in payload));
+check('every page and crop the payload names is in the archive, under that name',
+  payload.pages.every(p => manifest.some(m => m.name === p.file)) &&
+  Object.values(payload.crops).every(c => manifest.some(m => m.name === c.file)));
+const unidentified = Object.entries(payload.crops).filter(([key, c]) =>
+  c.region_id !== key || typeof c.part_id !== 'string' || !c.part_id ||
+  !Number.isInteger(c.page_k) || c.page_k < 1);
+check('every crop carries region_id, part_id and page_k',
+  unidentified.length === 0, unidentified.map(([k]) => k).join(', '));
+check('every crop\'s identifiers agree with its map row', Object.values(payload.crops).every(c => {
+  const row = layout.rows.find(r => r.regionId === c.region_id);
+  return row && row.partId === c.part_id && row.pageK === c.page_k;
+}));
+check('the payload records the personal-information confirmation',
+  payload.personal_info_confirmed === true &&
+  payload.personal_info_wording === piSvc.PERSONAL_INFO_WORDING_VERSION,
+  `${payload.personal_info_confirmed} / ${payload.personal_info_wording}`);
+check('no identity-shaped key anywhere in the payload',
+  idSvc.identityKeysIn(payload).length === 0, idSvc.identityKeysIn(payload).join(', '));
 
-const mzOpen = async (raw) => {
-  const wrappedKeyLen = (raw[0] << 8) | raw[1];
-  const iv = raw.subarray(2 + wrappedKeyLen, 2 + wrappedKeyLen + 12);
-  const contentKey = privateDecrypt(
-    { key: createPrivateKey(MZ_PRIVATE), padding: cryptoConstants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' },
-    Buffer.from(raw.subarray(2, 2 + wrappedKeyLen)));
-  const key = await webcrypto.subtle.importKey('raw', contentKey, { name: 'AES-GCM' }, false, ['decrypt']);
-  return {
-    iv: Buffer.from(iv).toString('hex'),
-    bytes: new Uint8Array(await webcrypto.subtle.decrypt(
-      { name: 'AES-GCM', iv }, key, raw.subarray(2 + wrappedKeyLen + 12))),
-  };
-};
-
-const sealedBuild = await pkgSvc.buildSubmissionPackage(
-  {
-    assignment: { ...assignment, coursePublicKey: MZ_PUBLIC },
-    submissionData: {},
-    isHandwritten: assignment.inputMode === 'handwritten',
-    layoutId: layout.computedLayoutId,
-    pages,
-    crops,
-  },
+// A spec from before 2026-09-21 may still carry a course public key. It must
+// load, and it must change nothing: same entries, same payload keys.
+const legacyBuilt = await pkgSvc.buildSubmissionPackage(
+  (() => {
+    const src = { ...packageSources, assignment: { ...assignment, coursePublicKey: '-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n' } };
+    return { ...src, personalInfoConfirmation: piSvc.confirmPersonalInfo(src) };
+  })(),
   { readBlob: async (key) => blobStore.get(key) ?? null, downsampleImage: async (uri) => uri },
 );
-const sealedZip = await sealedBuild.zip.generateAsync({
-  type: 'nodebuffer', ...pkgSvc.SUBMISSION_ZIP_OPTIONS });
-const sealedOpened = await JSZip.loadAsync(sealedZip);
-const sealedManifest = [];
-const sealedIvs = new Set();
-let sealedMismatch = [];
-for (const name of Object.keys(sealedOpened.files).sort()) {
-  if (sealedOpened.files[name].dir) continue;
-  const bytes = await sealedOpened.files[name].async('nodebuffer');
-  sealedManifest.push({ name, bytes: bytes.length });
-  if (!name.endsWith('.gb2')) continue;
-  const opened = await mzOpen(new Uint8Array(bytes));
-  sealedIvs.add(opened.iv);
-  const plain = manifest.find(m => m.name === name.replace(/\.gb2$/, ''));
-  const plainBytes = await reopened.file(name.replace(/\.gb2$/, '')).async('nodebuffer');
-  if (!plain || Buffer.compare(Buffer.from(opened.bytes), plainBytes) !== 0) {
-    sealedMismatch.push(name);
-  }
-}
-const sealedImages = sealedManifest.filter(m => m.name.endsWith('.gb2'));
-check('every page and crop is sealed', sealedImages.length === 5, `${sealedImages.length} of 5`);
-check('no plain .jpg survives', !sealedManifest.some(m => m.name.endsWith('.jpg')),
-  sealedManifest.filter(m => m.name.endsWith('.jpg')).map(m => m.name).join(', '));
-check('each decrypts to the byte-identical JPEG of the plain build',
-  sealedMismatch.length === 0, sealedMismatch.join(', '));
-check('no IV repeats', sealedIvs.size === sealedImages.length, `${sealedIvs.size} distinct`);
-
-const sealedJson = sealedManifest.find(m => m.name.endsWith('.json'));
-const sealedJsonText = await sealedOpened.file(sealedJson.name).async('string');
-check('the payload is a gb2 envelope', sealedJsonText.startsWith('gb2:'), sealedJsonText.slice(0, 4));
-const sealedPayload = JSON.parse(Buffer.from((await mzOpen(
-  new Uint8Array(Buffer.from(sealedJsonText.slice(4), 'base64')))).bytes).toString('utf8'));
-check('it declares gb2 image encryption', sealedPayload.image_encryption === 'gb2',
-  String(sealedPayload.image_encryption));
-check('the declared list matches the archive',
-  JSON.stringify([...sealedPayload.encrypted_entries].sort()) ===
-  JSON.stringify(sealedImages.map(m => m.name).sort()),
-  `${sealedPayload.encrypted_entries.length} declared, ${sealedImages.length} present`);
-check('every page and crop names an entry that is in the archive',
-  sealedPayload.pages.every(p => sealedManifest.some(m => m.name === p.file)) &&
-  Object.values(sealedPayload.crops).every(c => sealedManifest.some(m => m.name === c.file)));
+check('a spec still carrying a course public key builds the same plain archive',
+  JSON.stringify(legacyBuilt.entries.slice(1)) === JSON.stringify(built.entries.slice(1)) &&
+  JSON.stringify(Object.keys(legacyBuilt.submissionJson)) === JSON.stringify(Object.keys(payload)),
+  legacyBuilt.entries.join(', '));
 
 // =====================================================
 // 7. Report
@@ -553,19 +534,16 @@ console.log('\n=== ZIP MANIFEST ===');
 for (const m of manifest) console.log(`  ${String(m.bytes).padStart(9)}  ${m.name}`);
 console.log(`  ${String(zipBytes.length).padStart(9)}  (the archive itself)`);
 
-console.log('\n=== THE SAME PACKAGE, SEALED (test key, gb2) ===');
-for (const m of sealedManifest) console.log(`  ${String(m.bytes).padStart(9)}  ${m.name}`);
-console.log(`  ${String(sealedZip.length).padStart(9)}  (the archive itself)`);
-console.log(`\n  archive ${zipBytes.length.toLocaleString()} -> ${sealedZip.length.toLocaleString()} bytes ` +
-  `(${sealedZip.length - zipBytes.length >= 0 ? '+' : ''}${(sealedZip.length - zipBytes.length).toLocaleString()}, ` +
-  `${((sealedZip.length - zipBytes.length) / zipBytes.length * 100).toFixed(2)}%)`);
-console.log(`  per file 286 bytes: 258 wrapped key + 12 IV + 16 tag`);
-console.log(`  encryption step ${sealedBuild.sealMs} ms for ` +
-  `${(sealedBuild.sealedPlainBytes / 1048576).toFixed(2)} MB of image bytes`);
 console.log(`  peak RSS ${(process.memoryUsage().rss / 1048576).toFixed(1)} MB at the end of the run`);
 
+console.log('\n=== ENTRY NAMES, IN ARCHIVE ORDER ===');
+for (const name of built.entries) console.log(`  ${name}`);
+
+console.log('\n=== PAYLOAD KEYS ===');
+console.log(`  ${Object.keys(payload).join(', ')}`);
+
 console.log('\n=== PAYLOAD ===');
-console.log(`  envelope: ${built.format}`);
+console.log('  plain JSON, read with JSON.parse');
 const shape = (v, depth = 0) => {
   if (Array.isArray(v)) return `array[${v.length}]`;
   if (v && typeof v === 'object') {
@@ -617,9 +595,9 @@ writeFileSync(join(OUT_DIR, 'README.txt'),
       `${layout.rows.length} regions, ${totalPoints} points`,
     `photographs: cap01 (page 2), cap11 (page 3) — 2 of 16 pages, a deliberate partial submission`,
     `student    : none — the package carries no name (${HARNESS_LABEL} harness)`,
-    `envelope   : ${built.format}`,
+    'payload    : plain JSON (no encoding since 2026-09-21)',
     '',
-    'Re-run this harness for the manifest, the decrypted payload,',
+    'Re-run this harness for the manifest, the payload,',
     'crop measurements, what moved out of App.tsx, and three findings.',
     '',
     'LOOK AT THE CROPS. Whether crops/p1a.jpg, p1b.jpg and p1c.jpg actually contain',

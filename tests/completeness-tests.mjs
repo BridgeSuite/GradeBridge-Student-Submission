@@ -50,6 +50,7 @@ const assertEqual = (actual, expected, msg) => {
 const cmp = await loadModule('services/completeness.ts', 'cm_completeness.mjs');
 const lay = await loadModule('services/layoutMap.ts', 'cm_layout.mjs');
 const pkg = await loadModule('services/submissionPackage.ts', 'cm_pkg.mjs');
+const pi = await loadModule('services/personalInfo.ts', 'cm_pi.mjs');
 
 console.log('\ncompleteness — the number, before the download\n');
 
@@ -274,10 +275,9 @@ const jpegish = (seed, length) => {
 };
 
 const REGIONS = layout.rows.slice(0, 4);   // p1a, p1b, p1c, p1d
-const sources = (coursePublicKey) => ({
+const unconfirmedSources = () => ({
   assignment: {
     id: 'a1', courseCode: 'ENG17', title: 'Homework 1', inputMode: 'handwritten',
-    ...(coursePublicKey ? { coursePublicKey } : {}),
     problems: [{ id: 'p0', title: 'P', description: '', subsections: [] }],
   },
   submissionData: {},
@@ -292,44 +292,43 @@ const sources = (coursePublicKey) => ({
     file: cropFile(r.regionId), width: 800, height: 300, bytes: 600 + i,
   }])),
 });
+/** Confirmed, as every download is since 2026-09-21. */
+const sources = () => {
+  const s = unconfirmedSources();
+  return { ...s, personalInfoConfirmation: pi.confirmPersonalInfo(s) };
+};
 
 /** The bitmap for p1c is gone — the store has nothing under its key. */
 const readBlobMissingP1c = async (key) =>
   key === pkg.cropBlobKey('p1c') ? null : jpegish(7, 600);
 
 await checkAsync('a real package: the unreadable crop is named, with its page', async () => {
-  const built = await pkg.buildSubmissionPackage(sources(null),
+  const built = await pkg.buildSubmissionPackage(sources(),
     { readBlob: readBlobMissingP1c, downsampleImage: async (d) => d });
   assert(!built.entries.includes(cropFile('p1c')),
     'the fixture did not actually drop p1c from the archive');
-  const c = cmp.submissionCompleteness({ rows: REGIONS }, sources(null).crops, built.entries);
+  const c = cmp.submissionCompleteness({ rows: REGIONS }, sources().crops, built.entries);
   assertEqual([c.expected, c.present, c.missing.map(m => [m.partId, m.pageK])],
     [4, 3, [['1(c)', 3]]], 'the package-derived count is wrong');
 });
 
 await checkAsync('a real package, complete: no statement is produced', async () => {
-  const built = await pkg.buildSubmissionPackage(sources(null),
+  const built = await pkg.buildSubmissionPackage(sources(),
     { readBlob: async () => jpegish(7, 600), downsampleImage: async (d) => d });
-  const c = cmp.submissionCompleteness({ rows: REGIONS }, sources(null).crops, built.entries);
+  const c = cmp.submissionCompleteness({ rows: REGIONS }, sources().crops, built.entries);
   assert(cmp.completenessNotice(c) === null,
     `a complete real package produced: ${JSON.stringify(cmp.completenessNotice(c))}`);
 });
 
-await checkAsync('a sealed archive: gb2 entry names still count as present', async () => {
-  const pair = await webcrypto.subtle.generateKey(
-    { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
-    true, ['encrypt', 'decrypt']);
-  const PUB = `-----BEGIN PUBLIC KEY-----\n${Buffer
-    .from(await webcrypto.subtle.exportKey('spki', pair.publicKey))
-    .toString('base64').replace(/(.{64})/g, '$1\n').trimEnd()}\n-----END PUBLIC KEY-----\n`;
-
-  const built = await pkg.buildSubmissionPackage(sources(PUB),
-    { readBlob: readBlobMissingP1c, downsampleImage: async (d) => d });
-  assert(built.entries.some(e => e.endsWith(pkg.ENCRYPTED_ENTRY_SUFFIX)),
-    'the sealed fixture produced no sealed entries');
-  const c = cmp.submissionCompleteness({ rows: REGIONS }, sources(PUB).crops, built.entries);
-  assertEqual([c.expected, c.present, c.missing.map(m => m.partId)], [4, 3, ['1(c)']],
-    'sealing the archive broke the presence test — a .gb2 entry read as a different file');
+// Until 2026-09-21 a sealed entry was `crops/p1c.jpg.gb2` and the check had to
+// strip the suffix to match it. Nothing is sealed now, so presence is the exact
+// name — and a name that merely STARTS with the crop's is a different file.
+check('presence is the exact entry name, not a prefix of it', () => {
+  const crops = sources().crops;
+  const entries = ['sub.json', ...REGIONS.map(r => cropFile(r.regionId))
+    .map(f => (f === cropFile('p1c') ? `${f}.old` : f))];
+  const c = cmp.submissionCompleteness({ rows: REGIONS }, crops, entries);
+  assertEqual(c.missing.map(m => m.partId), ['1(c)'], 'a suffixed name counted as the crop');
 });
 
 // =====================================================

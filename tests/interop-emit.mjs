@@ -1,79 +1,99 @@
 // =====================================================
-// Emit gb2: strings for the Python interop check
+// Emit real submission archives for the Python interop check
 // =====================================================
-// Produces gb2 strings using the ACTUAL app cryptoService.ts, so the Python
-// side is verifying browser output rather than a re-implementation.
-// Writes a JSON bundle to stdout; interop-check.py consumes it.
+// Builds a handwritten and an electronic submission with the ACTUAL app
+// `services/submissionPackage.ts`, writes both archives to a folder, and prints
+// a manifest of what they must contain. `interop-check.py` then opens them with
+// Python's standard library alone.
 //
-//   node tests/interop-emit.mjs > emitted.json
+//   node tests/interop-emit.mjs <out-dir> > emitted.json
 //   python tests/interop-check.py emitted.json
 //
-// See tests/README.md.
+// **What this proves since 2026-09-21.** It used to prove that the autograder's
+// Python decryptor opened what this app sealed. Nothing is sealed or encoded
+// now (`WORKORDER_SS_PIPELINE_RECALIBRATION_2026-09-21` §3, §4), so the claim
+// worth holding across the language boundary is the new one: a Python consumer
+// with no key, no fixture and no third-party package reads the whole archive —
+// `zipfile` and `json` and nothing else. Unlike its predecessor this needs no
+// private key, so it can run anywhere. See tests/README.md.
 // =====================================================
 
-import { build } from 'esbuild';
 import { webcrypto } from 'node:crypto';
-import { readFileSync, existsSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '..');
-
 globalThis.crypto ??= webcrypto;
 
-const fixturePath = process.env.GB2_FIXTURE
-  ? resolve(process.env.GB2_FIXTURE)
-  : resolve(REPO, '..', 'Encryption', 'gb2_test_fixture.json');
-if (!existsSync(fixturePath)) {
-  console.error(`gb2 fixture not found at ${fixturePath}\nSet GB2_FIXTURE to its location.`);
-  process.exit(2);
-}
-const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { loadModule } from './captureSet.mjs';
 
-const outFile = join(mkdtempSync(join(tmpdir(), 'gb-interop-')), 'cryptoService.mjs');
-await build({
-  entryPoints: [join(REPO, 'cryptoService.ts')],
-  outfile: outFile,
-  format: 'esm',
-  target: 'es2022',
-  logLevel: 'silent',
-});
-const svc = await import(pathToFileURL(outFile).href);
+const OUT = resolve(process.argv[2] ?? mkdtempSync(join(tmpdir(), 'gb-interop-')));
+mkdirSync(OUT, { recursive: true });
 
-// **This deliberately carries `student_name`, which App.tsx no longer emits.**
-//
-// Since 2026-09-03 the app builds no such field: identity is Gradescope's
-// authenticated submitter. `deidentifyForGb2` is kept anyway, and so is this
-// fixture, because the stripper is the belt to that decision's braces — if the
-// field ever returns by accident, the gb2 path must still remove it. Feeding it
-// a payload that already lacks the field would prove nothing.
-const appPayload = svc.deidentifyForGb2({
-  student_name: 'Jane Smith',
-  course_code: 'TEST',
-  assignment_id: 'TEST_ASSIGNMENT_1',
-  pdf_filename: 'TEST_ASSIGNMENT_1_submission_20260810-0000.pdf',
-  submission_data: {
-    p0s0: { answer: 'The quick brown fox', images_submitted: 0 },
-    p1s0: { answer: '42', images_submitted: 1 },
+const pkg = await loadModule('services/submissionPackage.ts', 'ie_pkg.mjs');
+const pi = await loadModule('services/personalInfo.ts', 'ie_pi.mjs');
+
+const jpeg = (seed, n) => {
+  const b = new Uint8Array(n);
+  b.set([0xff, 0xd8, 0xff, 0xe0]);
+  for (let i = 4; i < n; i++) b[i] = (seed * 31 + i * 7) & 0xff;
+  return b;
+};
+const blobs = { pg0: jpeg(1, 3000), crop_p1a: jpeg(2, 800), crop_p1b: jpeg(3, 900) };
+const image = jpeg(4, 1500);
+const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a]);
+
+const confirmed = (s) => ({ ...s, personalInfoConfirmation: pi.confirmPersonalInfo(s) });
+
+const handwritten = confirmed({
+  assignment: { id: 'a1', courseCode: 'TEST', title: 'Handwritten 1', inputMode: 'handwritten',
+    problems: [{ id: 'p0', title: 'P', description: '', subsections: [
+      { id: 's0', title: 'a', description: '', points: 5, submissionType: 'Handwritten' },
+      { id: 's1', title: 'b', description: '', points: 5, submissionType: 'Handwritten' }] }] },
+  submissionData: {},
+  isHandwritten: true,
+  layoutId: '95438EDF',
+  now: '2026-09-21T10:00:00.000Z',
+  pages: [{ id: 'pg0', file: 'page_1.jpg', width: 1650, height: 2200,
+    registration: { status: 'ok', k: 2, n: 16, marksFound: 4, marksDetected: ['NW', 'NE', 'SW', 'SE'],
+      marksDeclined: [], residualMm: 0.4, heldOutMm: 0 } }],
+  crops: {
+    p1a: { regionId: 'p1a', partId: '1(a)', pageK: 2, isDrawing: false, maxPoints: 5,
+      cropSource: 'registration', review: 'signed_off', qualityFlags: [], file: 'crops/p1a.jpg',
+      width: 800, height: 300, bytes: 800, fromPage: 'pg0' },
+    p1b: { regionId: 'p1b', partId: '1(b)', pageK: 2, isDrawing: true, maxPoints: 5,
+      cropSource: 'direct_capture', review: 'flagged', qualityFlags: ['blur'], file: 'crops/p1b.jpg',
+      width: 900, height: 400, bytes: 900 },
   },
-  last_saved: '2026-08-10T00:00:00.000Z',
 });
 
-const clean = await svc.encryptJsonGb2(appPayload, fixture.public_key_spki_pem);
-const fixtureExact = await svc.encryptJsonGb2(fixture.plaintext_submission, fixture.public_key_spki_pem);
+const electronic = confirmed({
+  assignment: { id: 'a2', courseCode: 'TEST', title: 'Electronic 1',
+    problems: [{ id: 'p0', title: 'P', description: '', subsections: [
+      { id: 's0', title: 'a', description: '', points: 50, submissionType: 'Text' },
+      { id: 's1', title: 'b', description: '', points: 50, submissionType: 'Text and Image' }] }] },
+  submissionData: {
+    p0_s0: { textAnswer: 'The quick brown fox — with $V_s = 1.2$ V and ünïcode' },
+    p0_s1: { textAnswer: 'See the photograph.', imageAnswers: [`data:image/jpeg;base64,${Buffer.from(image).toString('base64')}`] },
+  },
+  isHandwritten: false,
+  layoutId: null,
+  now: '2026-09-21T10:00:00.000Z',
+  pages: [],
+  crops: {},
+});
 
-// Flip one byte inside ciphertext+tag.
-const raw = Buffer.from(clean.slice(4), 'base64');
-raw[raw.length - 1] ^= 0xff;
-const tampered = 'gb2:' + raw.toString('base64');
+const assets = {
+  pdfBytes: pdf,
+  readBlob: async (key) => blobs[key] ?? null,
+  downsampleImage: async (uri) => uri,
+};
 
-process.stdout.write(JSON.stringify({
-  fixturePath,
-  clean,
-  fixtureExact,
-  tampered,
-  appPayload,
-  fixturePlaintext: fixture.plaintext_submission,
-}));
+const out = { outDir: OUT, archives: [] };
+for (const [label, sources] of [['handwritten', handwritten], ['electronic', electronic]]) {
+  const built = await pkg.buildSubmissionPackage(sources, assets);
+  const bytes = await built.zip.generateAsync({ type: 'nodebuffer', ...pkg.SUBMISSION_ZIP_OPTIONS });
+  const path = join(OUT, `${built.baseName}.zip`);
+  writeFileSync(path, bytes);
+  out.archives.push({ label, path, entries: built.entries, payload: built.submissionJson });
+}
+process.stdout.write(JSON.stringify(out, null, 2));

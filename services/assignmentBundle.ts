@@ -97,10 +97,10 @@ const baseName = (path: string): string => path.split('/').pop() ?? path;
 // directly rather than being reachable only through `loadAssignmentBundle`.
 
 /**
- * The `gb1:` envelope prefix. Deliberately NOT `gb2:`: this app holds no gb2
- * private key and `cryptoService.ts` exports no gb2 decrypt, so a gb2 file is
- * not something the loader could go on to open. Accepting one here would only
- * move the failure later and make it less clear.
+ * The `gb1:` envelope prefix, and only that one. `cryptoService.ts` decodes
+ * gb1 and nothing else, so any other envelope is not something the loader could
+ * go on to open. Accepting one here would only move the failure later and make
+ * it less clear.
  */
 const GB1_PREFIX = 'gb1:';
 const PDF_MAGIC = '%PDF-';

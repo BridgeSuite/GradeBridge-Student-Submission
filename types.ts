@@ -51,12 +51,10 @@ export interface Assignment {
   problems: Problem[];
   createdAt: number;
   updatedAt: number;
-  /**
-   * RSA public key (SPKI PEM) for the course/term, set by the instructor in
-   * the Assignment Maker. When present, the submission JSON is encoded as a
-   * de-identified gb2: envelope instead of gb1:. Never a private key.
-   */
-  coursePublicKey?: string;
+  // No course public key, deliberately (removed 2026-09-21). A spec may still
+  // carry one from before that date; it loads, and nothing reads it. The
+  // submission is plain JSON and plain JPEGs, bounded by what goes into it
+  // rather than by sealing it. `WORKORDER_SS_PIPELINE_RECALIBRATION_2026-09-21`.
   /**
    * Per-assignment AI-feedback flag, set in the Assignment Maker. Absent means
    * off. The app is pass-through only: it carries the flag to Gradescope, which
@@ -136,6 +134,13 @@ export interface PageRef {
   sourceName?: string;
   warnings?: string[];
   registration?: PageRegistrationInfo;
+  /**
+   * Changes whenever the stored bitmap does: upload, replace, rotate. Local
+   * only — never exported. It is what makes the personal-information
+   * confirmation stop counting when a page is retaken, even at the same size.
+   * See `services/personalInfo.ts`.
+   */
+  captureId?: string;
 }
 
 /**
@@ -170,6 +175,8 @@ export interface CropRef {
   bytes: number;
   /** PageRef.id this was cut from. Absent for a direct capture. */
   fromPage?: string;
+  /** New on every cut and every direct capture. Local only; see `PageRef.captureId`. */
+  captureId?: string;
 }
 
 export interface SubmissionData {

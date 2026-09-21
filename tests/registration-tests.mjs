@@ -63,7 +63,8 @@ const bundle = await loadModule('services/assignmentBundle.ts', 'assignmentBundl
 const ras = await loadModule('services/raster.ts', 'raster.mjs');
 const mdet = await loadModule('services/markDetect.ts', 'markDetect.mjs');
 const pkg = await loadModule('services/submissionPackage.ts', 'submissionPackage.mjs');
-const crypto = await loadModule('cryptoService.ts', 'cryptoService2.mjs');
+const pi = await loadModule('services/personalInfo.ts', 'personalInfo.mjs');
+const idg = await loadModule('services/identityGuard.ts', 'identityGuard.mjs');
 
 // Each bundle carries its own copy of the decoder's module state, so both the
 // one that decodes directly and the one that registers have to be built. See
@@ -690,6 +691,15 @@ const zipStart = pkgSrc.indexOf('const zip = new JSZip()');
 const zipEnd = pkgSrc.indexOf('return { zip', zipStart);
 const zipBlock = pkgSrc.slice(zipStart, zipEnd);
 
+/**
+ * Build as the app builds: with the student's personal-information
+ * confirmation over exactly these sources, which the builder has required
+ * since 2026-09-21. `personal-info-tests.mjs` covers the refusal; here every
+ * package is one a student has confirmed.
+ */
+const buildConfirmed = (sources, assets) => pkg.buildSubmissionPackage(
+  { ...sources, personalInfoConfirmation: pi.confirmPersonalInfo(sources) }, assets);
+
 // **These two were source-level and are now behavioural**, because on
 // 2026-09-03 the image writes moved: the builder collects the pages and the
 // crops before it opens the ZIP, so that the payload can list the entries it
@@ -736,7 +746,7 @@ const fixtureAssets = {
 };
 
 await checkAsync('the ZIP builder writes the page images', async () => {
-  const built = await pkg.buildSubmissionPackage(packageFixture(), fixtureAssets);
+  const built = await buildConfirmed(packageFixture(), fixtureAssets);
   for (const [name, key] of [['page_1.jpg', 'pg0'], ['page_2.jpg', 'pg1']]) {
     const entry = built.zip.file(name);
     assert(entry !== null, `${name} is not in the archive — the pages do not ship`);
@@ -746,7 +756,7 @@ await checkAsync('the ZIP builder writes the page images', async () => {
 });
 
 await checkAsync('the ZIP builder writes the crop images', async () => {
-  const built = await pkg.buildSubmissionPackage(packageFixture(), fixtureAssets);
+  const built = await buildConfirmed(packageFixture(), fixtureAssets);
   const entry = built.zip.file('crops/p1a.jpg');
   assert(entry !== null, 'crops/p1a.jpg is not in the archive — the crops do not ship');
   const bytes = await entry.async('uint8array');
@@ -764,7 +774,8 @@ check('the builder still reads the pages and the crops from the sources', () => 
 });
 
 check('the ZIP always carries the JSON', () => {
-  assert(zipBlock.includes('.json`, encoded.bytes)'), 'the ZIP builder does not write the JSON');
+  assert(zipBlock.includes('.json`, serialiseSubmissionJson(submissionJson))'),
+    'the ZIP builder does not write the JSON');
 });
 
 await checkAsync('a handwritten submission carries no PDF', async () => {
@@ -777,7 +788,7 @@ await checkAsync('a handwritten submission carries no PDF', async () => {
   // inside the ZIP block; the PDF write moved out of that block when the PDF
   // started being sealed with everything else, and the check would have failed
   // on a builder that gets this exactly right.
-  const built = await pkg.buildSubmissionPackage(packageFixture(), fixtureAssets);
+  const built = await buildConfirmed(packageFixture(), fixtureAssets);
   const names = Object.keys(built.zip.files);
   assert(!names.some(n => n.toLowerCase().endsWith('.pdf')),
     `a handwritten archive carries a PDF: ${names.join(', ')}`);
@@ -786,7 +797,7 @@ await checkAsync('a handwritten submission carries no PDF', async () => {
 
   // ...and the electronic path still writes one, or the check above passes for
   // the wrong reason.
-  const electronic = await pkg.buildSubmissionPackage(
+  const electronic = await buildConfirmed(
     {
       ...packageFixture(), isHandwritten: false, layoutId: null, pages: [], crops: {},
       assignment: { ...packageFixture().assignment, inputMode: undefined },
@@ -867,7 +878,7 @@ await checkAsync('a legacy backup restores, and its package carries no student_n
   };
   assert(!('studentName' in restored), 'the restore path reintroduced a student name');
 
-  const built = await pkg.buildSubmissionPackage(
+  const built = await buildConfirmed(
     {
       assignment: {
         id: 'a1', courseCode: 'EEC1', title: 'Lab 1',
@@ -892,11 +903,11 @@ await checkAsync('a legacy backup restores, and its package carries no student_n
     },
   );
 
-  // Asserted on the decrypted object. A grep of the gb1 envelope would pass
-  // whatever the payload said.
+  // Asserted on the parsed object, not by grepping the text: a key and a value
+  // are different things, and only the parse can tell them apart.
   const jsonEntry = Object.keys(built.zip.files).find(n => n.endsWith('.json'));
   const text = await built.zip.file(jsonEntry).async('string');
-  const payload = await crypto.decryptJson(text);
+  const payload = JSON.parse(text);
 
   assert(!('student_name' in payload),
     `student_name survived a legacy restore: ${Object.keys(payload).join(', ')}`);
@@ -959,17 +970,15 @@ await checkAsync('the filename carries the assignment and the moment, not a pers
 
   // **The filename and the payload must agree about when the submission was
   // made.** It used to be enough to derive the archive name back out of the
-  // finished payload, and this checked for that expression. Sealing the PDF
-  // needed the name BEFORE the payload — the payload has to list the sealed
-  // entries — so the identity is computed once up front and `now` is pinned
-  // onto the sources instead. That is a different expression and the same
+  // finished payload, and this checked for that expression. The identity is
+  // now computed once up front and `now` is pinned onto the sources instead. That is a different expression and the same
   // guarantee, so the check is now the guarantee: built with a real clock, the
   // archive stem is exactly what the payload's own two fields produce.
   const { now, ...noClock } = packageFixture();
   void now;
-  const built = await pkg.buildSubmissionPackage(noClock, fixtureAssets);
+  const built = await buildConfirmed(noClock, fixtureAssets);
   const jsonEntry = Object.keys(built.zip.files).find(n => n.endsWith('.json'));
-  const payload = await crypto.decryptJson(await built.zip.file(jsonEntry).async('string'));
+  const payload = JSON.parse(await built.zip.file(jsonEntry).async('string'));
   assert(pkg.submissionBaseName(payload.assignment_id, payload.last_saved) === built.baseName,
     `the archive is named ${built.baseName} but the payload says ` +
     `${pkg.submissionBaseName(payload.assignment_id, payload.last_saved)} — two clock reads`);
@@ -978,12 +987,13 @@ await checkAsync('the filename carries the assignment and the moment, not a pers
     `the stem carries something that is not the assignment and the moment: ${built.baseName}`);
 });
 
-check('GB2_PII_FIELDS still strips student_name', () => {
-  // The belt to this work order's braces. If the field ever comes back by
-  // accident, the gb2 path removes it anyway. Do not shorten this list.
-  const code = stripComments(readFileSync(join(REPO, 'cryptoService.ts'), 'utf8'));
+check('the identity guard still refuses student_name, email, sid and student_id', () => {
+  // The belt to this work order's braces. The four-field strip that lived in
+  // cryptoService until 2026-09-21 is now a refusal in identityGuard.ts, which
+  // runs on every path. If the field ever comes back by accident, the build
+  // stops. Do not shorten this list.
   for (const f of ['student_name', 'email', 'sid', 'student_id']) {
-    assert(new RegExp(`'${f}'`).test(code), `GB2_PII_FIELDS no longer lists ${f}`);
+    assert(idg.isIdentityKey(f), `the identity guard no longer refuses ${f}`);
   }
 });
 

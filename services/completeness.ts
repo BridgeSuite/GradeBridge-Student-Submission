@@ -46,7 +46,6 @@
  */
 
 import { OrderableRegion, inAssignmentOrder } from './layoutMap';
-import { ENCRYPTED_ENTRY_SUFFIX } from './submissionPackage';
 
 /** One declared answer the archive does not carry. */
 export interface MissingAnswer {
@@ -69,15 +68,9 @@ export interface Completeness {
 /** The crop fields this check needs. Structural, so `CropRef` satisfies it. */
 export interface CroppedEntry {
   regionId: string;
-  /** Name inside the submission ZIP, before any seal suffix. */
+  /** Name inside the submission ZIP. */
   file: string;
 }
-
-/** A sealed entry is `crops/p1a.jpg.gb2`; the crop record still calls it `crops/p1a.jpg`. */
-const unsealed = (entry: string): string =>
-  entry.endsWith(ENCRYPTED_ENTRY_SUFFIX)
-    ? entry.slice(0, -ENCRYPTED_ENTRY_SUFFIX.length)
-    : entry;
 
 /**
  * Compare what the map declares against what the archive holds.
@@ -91,12 +84,12 @@ export const submissionCompleteness = (
   entries: readonly string[],
 ): Completeness => {
   const rows = layout ? inAssignmentOrder(layout.rows) : [];
-  const written = new Set(entries.map(unsealed));
+  const written = new Set(entries);
 
   const missing: MissingAnswer[] = [];
   for (const row of rows) {
     const crop = crops[row.regionId];
-    if (crop && written.has(unsealed(crop.file))) continue;
+    if (crop && written.has(crop.file)) continue;
     missing.push({ regionId: row.regionId, partId: row.partId, pageK: row.pageK });
   }
 

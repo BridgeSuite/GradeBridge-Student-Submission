@@ -42,6 +42,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadModule } from './captureSet.mjs';
+import { encodeGb1 } from './gb1Encode.mjs';
 
 globalThis.crypto ??= webcrypto;
 
@@ -178,7 +179,7 @@ console.log('\n  3. ENG17 Homework 1, both routes');
 // --- the old way: a zip with the map beside the spec ---
 const oldZip = new JSZip();
 oldZip.file('assignment.pdf', new Uint8Array([0x25, 0x50, 0x44, 0x46]));
-oldZip.file('assignment_spec.json', await cryptoSvc.encryptJson(specObject()));
+oldZip.file('assignment_spec.json', await encodeGb1(specObject()));
 oldZip.file(CSV_NAME, CSV_TEXT);
 const oldBytes = await oldZip.generateAsync({ type: 'uint8array' });
 
@@ -188,7 +189,7 @@ const oldSource = bundle.chooseLayoutSource(oldLoaded.layout, oldSpec);
 const oldMap = await lay.parseLayoutCsv(oldSource.text, oldSource.name);
 
 // --- the new way: one file, gb1-encoded, the map inside it ---
-const newSpecText = await cryptoSvc.encryptJson(
+const newSpecText = await encodeGb1(
   specObject({ layoutCsvName: CSV_NAME, layoutCsv: CSV_TEXT }));
 const newLoaded = await bundle.loadAssignmentBundle(
   asFile(new TextEncoder().encode(newSpecText)));

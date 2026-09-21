@@ -29,7 +29,6 @@
 import { webcrypto } from 'node:crypto';
 globalThis.crypto ??= webcrypto;
 
-import { createPrivateKey, privateDecrypt, constants as cryptoConstants } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -95,6 +94,13 @@ const pkgSvc = await loadModule('services/submissionPackage.ts', 'fa_pkg.mjs');
 const cryptoSvc = await loadModule('cryptoService.ts', 'fa_crypto.mjs');
 const constants = await loadModule('constants.ts', 'fa_const.mjs');
 const pageCropsConst = await loadModule('services/pageCrops.ts', 'fa_pagecrops.mjs');
+const piSvc = await loadModule('services/personalInfo.ts', 'fa_pi.mjs');
+const idSvc = await loadModule('services/identityGuard.ts', 'fa_id.mjs');
+
+// The decoder is WebAssembly and each bundle carries its own copy; the gate's
+// copy is the one that registers. Missing since the 2026-09-08 decoder merge,
+// as in milestone-zero.mjs: without it every page is refused at page_code.
+await gateSvc.initQrReader();
 
 // =====================================================
 // 1. The assignment
@@ -243,12 +249,15 @@ check('every page is inside the 1.0 mm residual budget', worst < 1.0, `worst ${w
 console.log('\n  3. the submission package');
 let built = null;
 try {
+  const sources = {
+    assignment: spec, submissionData: {},
+    isHandwritten: spec.inputMode === 'handwritten',
+    layoutId: layout.computedLayoutId, pages, crops,
+  };
+  // The student ticks the personal-information box after the seventeen crops,
+  // as the UI requires before any download (work order 2026-09-21 §6).
   built = await pkgSvc.buildSubmissionPackage(
-    {
-      assignment: spec, submissionData: {},
-      isHandwritten: spec.inputMode === 'handwritten',
-      layoutId: layout.computedLayoutId, pages, crops,
-    },
+    { ...sources, personalInfoConfirmation: piSvc.confirmPersonalInfo(sources) },
     { readBlob: async (key) => blobStore.get(key) ?? null, downsampleImage: async (uri) => uri },
   );
 } catch (err) {
@@ -266,7 +275,10 @@ const archive = await JSZip.loadAsync(zipBytes);
 const entries = Object.keys(archive.files).filter(n => !archive.files[n].dir).sort();
 const jsonName = entries.find(n => n.endsWith('.json'));
 const jsonText = await archive.file(jsonName).async('string');
-const payload = await cryptoSvc.decryptJson(jsonText);
+// Plain JSON since 2026-09-21: read with JSON.parse and nothing else.
+check('the payload is plain JSON, not an encoded envelope',
+  !cryptoSvc.isEncoded(jsonText) && jsonText.trimStart().startsWith('{'), jsonText.slice(0, 8));
+const payload = JSON.parse(jsonText);
 
 check('the archive holds 16 pages', entries.filter(n => /^page_\d+\.jpg$/.test(n)).length === 16,
   String(entries.filter(n => /^page_\d+\.jpg$/.test(n)).length));
@@ -283,12 +295,17 @@ check('submission_data covers all 17 regions',
   String(Object.keys(payload.submission_data ?? {}).length));
 check('every crop is signed off', Object.values(payload.crops).every(c => c.student_review === 'signed_off'));
 
-// **Asserted on the decrypted object, not on a grep of the envelope.** A
-// substring search over gb1 ciphertext would pass for the wrong reason.
-check('the payload carries no student_name key',
-  !('student_name' in payload), Object.keys(payload).join(', '));
-check('...and no other identity field either',
-  !['email', 'sid', 'student_id'].some(f => f in payload));
+// Asserted on the parsed object, at every depth, with the app's own guard.
+check('the payload carries no identity-shaped key at any depth',
+  idSvc.identityKeysIn(payload).length === 0, idSvc.identityKeysIn(payload).join(', '));
+check('no entry is named as sealed', !entries.some(n => /\.gb\d$/i.test(n)),
+  entries.filter(n => /\.gb\d$/i.test(n)).join(', '));
+check('every crop carries region_id, part_id and page_k',
+  Object.entries(payload.crops).every(([k, c]) =>
+    c.region_id === k && typeof c.part_id === 'string' && c.part_id && Number.isInteger(c.page_k)));
+check('the payload records the personal-information confirmation',
+  payload.personal_info_confirmed === true &&
+  payload.personal_info_wording === piSvc.PERSONAL_INFO_WORDING_VERSION);
 // The filename identifies the assignment and the moment, and nothing else.
 check('the archive is named for the assignment and the time, not a person',
   /^ENG17_Homework_1_submission_\d{8}-\d{4}$/.test(built.baseName), built.baseName);
@@ -298,119 +315,6 @@ const zipPath = join(OUT_DIR, `${built.baseName}.zip`);
 writeFileSync(zipPath, zipBytes);
 
 // =====================================================
-// 3b. The same package, with a course key: every image sealed
-// =====================================================
-// `workorders/WORKORDER_STUDENT_ENCRYPT_IMAGES_2026-09-03.md` ITEM 6 asks for
-// measurement rather than prediction — archive bytes before and after, the
-// wall clock of the encryption step, and peak memory — on the full sixteen-page
-// run and not on a fixture.
-//
-// **The keypair is generated here and never written anywhere.** The real course
-// key is the autograder author's; nothing this harness produces may be mistaken
-// for one. The sealed archive is measured and opened in memory and deliberately
-// NOT written to disk: nobody could open it after this process exits, and a
-// file in CaptureSet that nobody can read is a support question waiting to
-// happen.
-console.log('\n  3b. the same package, sealed with a test course key');
-
-const testPair = await webcrypto.subtle.generateKey(
-  { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
-  true, ['encrypt', 'decrypt']);
-const pemOf = (label, der) =>
-  `-----BEGIN ${label}-----\n${Buffer.from(der).toString('base64').replace(/(.{64})/g, '$1\n').trimEnd()}\n-----END ${label}-----\n`;
-const TEST_PUBLIC = pemOf('PUBLIC KEY', await webcrypto.subtle.exportKey('spki', testPair.publicKey));
-const TEST_PRIVATE = pemOf('PRIVATE KEY', await webcrypto.subtle.exportKey('pkcs8', testPair.privateKey));
-
-/** The autograder's side of the contract, over raw bytes. */
-const openSealed = async (raw) => {
-  const wrappedKeyLen = (raw[0] << 8) | raw[1];
-  const contentKey = privateDecrypt(
-    { key: createPrivateKey(TEST_PRIVATE), padding: cryptoConstants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha256' },
-    Buffer.from(raw.subarray(2, 2 + wrappedKeyLen)));
-  const key = await webcrypto.subtle.importKey('raw', contentKey, { name: 'AES-GCM' }, false, ['decrypt']);
-  return {
-    iv: Buffer.from(raw.subarray(2 + wrappedKeyLen, 2 + wrappedKeyLen + 12)).toString('hex'),
-    contentKey: contentKey.toString('hex'),
-    bytes: new Uint8Array(await webcrypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: raw.subarray(2 + wrappedKeyLen, 2 + wrappedKeyLen + 12) },
-      key, raw.subarray(2 + wrappedKeyLen + 12))),
-  };
-};
-
-let sealedBuilt = null;
-try {
-  sealedBuilt = await pkgSvc.buildSubmissionPackage(
-    {
-      assignment: { ...spec, coursePublicKey: TEST_PUBLIC }, submissionData: {},
-      isHandwritten: spec.inputMode === 'handwritten',
-      layoutId: layout.computedLayoutId, pages, crops,
-    },
-    { readBlob: async (key) => blobStore.get(key) ?? null, downsampleImage: async (uri) => uri },
-  );
-} catch (err) {
-  fatal(`the sealed package could not be built: ${err.message}`);
-}
-sampleRss();
-const sealedZipBytes = await sealedBuilt.zip.generateAsync({
-  type: 'nodebuffer', ...pkgSvc.SUBMISSION_ZIP_OPTIONS });
-sampleRss();
-
-const sealedArchive = await JSZip.loadAsync(sealedZipBytes);
-const sealedEntries = Object.keys(sealedArchive.files).filter(n => !sealedArchive.files[n].dir).sort();
-const sealedBlobs = new Map();
-for (const name of sealedEntries) sealedBlobs.set(name, await sealedArchive.file(name).async('uint8array'));
-
-check('the sealed archive holds the same 33 images, all named as encrypted',
-  sealedEntries.filter(n => n.endsWith('.gb2')).length === 33,
-  `${sealedEntries.filter(n => n.endsWith('.gb2')).length} sealed of 33`);
-check('no plain .jpg survives in the sealed archive',
-  !sealedEntries.some(n => n.endsWith('.jpg')),
-  sealedEntries.filter(n => n.endsWith('.jpg')).join(', '));
-
-// The acceptance: decrypting with the private key returns byte-identical JPEGs
-// to the plain build. Asserted on the bytes, entry by entry, all 33.
-const plainBlobs = new Map();
-for (const name of entries) plainBlobs.set(name, await archive.file(name).async('uint8array'));
-const ivs = new Set();
-const contentKeys = new Set();
-let mismatched = [];
-for (const name of sealedEntries) {
-  if (!name.endsWith('.gb2')) continue;
-  const opened = await openSealed(sealedBlobs.get(name));
-  ivs.add(opened.iv);
-  contentKeys.add(opened.contentKey);
-  const plainName = name.replace(/\.gb2$/, '');
-  const expected = plainBlobs.get(plainName);
-  if (!expected || Buffer.compare(Buffer.from(opened.bytes), Buffer.from(expected)) !== 0) {
-    mismatched.push(plainName);
-  }
-}
-check('all 33 decrypt to the plain build\'s bytes, byte for byte',
-  mismatched.length === 0, mismatched.join(', '));
-check('no IV repeats across the submission', ivs.size === 33, `${ivs.size} distinct IVs`);
-check('each entry has its own content key — no shared-key design crept back',
-  contentKeys.size === 33, `${contentKeys.size} distinct content keys`);
-
-const sealedJsonName = sealedEntries.find(n => n.endsWith('.json'));
-const sealedJsonText = Buffer.from(sealedBlobs.get(sealedJsonName)).toString('utf8');
-check('the payload itself is a gb2 envelope', sealedJsonText.startsWith('gb2:'),
-  sealedJsonText.slice(0, 4));
-const sealedPayload = JSON.parse(Buffer.from((await openSealed(
-  new Uint8Array(Buffer.from(sealedJsonText.slice(4), 'base64')))).bytes).toString('utf8'));
-check('the payload declares gb2 image encryption', sealedPayload.image_encryption === 'gb2',
-  String(sealedPayload.image_encryption));
-check('the declared entry list is exactly the archive\'s',
-  JSON.stringify([...sealedPayload.encrypted_entries].sort()) ===
-  JSON.stringify(sealedEntries.filter(n => n.endsWith('.gb2'))),
-  `${sealedPayload.encrypted_entries.length} declared, ` +
-  `${sealedEntries.filter(n => n.endsWith('.gb2')).length} in the archive`);
-check('every page and crop names an entry that is in the archive',
-  sealedPayload.pages.every(p => sealedBlobs.has(p.file)) &&
-  Object.values(sealedPayload.crops).every(c => sealedBlobs.has(c.file)));
-check('the sealed payload still carries no identity field',
-  !['student_name', 'email', 'sid', 'student_id'].some(f => f in sealedPayload));
-
-// =====================================================
 // 4. The numbers
 // =====================================================
 const pageTotal = pages.reduce((s, p) => s + p.bytes, 0);
@@ -418,25 +322,12 @@ const cropTotal = Object.values(crops).reduce((s, c) => s + c.bytes, 0);
 console.log('\n  4. the numbers\n');
 console.log(`    pages                 16, ${mb(pageTotal)} (${kb(pageTotal / 16)} each)`);
 console.log(`    crops                 17, ${mb(cropTotal)} (${kb(cropTotal / 17)} each)`);
-console.log(`    submission JSON       ${jsonText.length.toLocaleString()} bytes (gb1, encrypted)`);
+console.log(`    submission JSON       ${jsonText.length.toLocaleString()} bytes (plain JSON)`);
 console.log(`    ARCHIVE               ${zipLen.toLocaleString()} bytes = ${mb(zipLen)}`);
 console.log(`    wall clock            ${(runMs / 1000).toFixed(1)} s for the 16-page run`);
 console.log(`    per page              ${(runMs / 16 / 1000).toFixed(2)} s`);
 console.log(`    peak RSS              ${mb(peakRss)}`);
 console.log(`    written to            ${zipPath}`);
-
-// ITEM 6, measured on this run rather than predicted.
-const sealedOverhead = sealedZipBytes.length - zipLen;
-const sealMs = sealedBuilt.sealMs;
-const sealedBytes = sealedBuilt.sealedPlainBytes;
-console.log('\n    with a course key (gb2, images sealed)');
-console.log(`    ARCHIVE               ${sealedZipBytes.length.toLocaleString()} bytes = ${mb(sealedZipBytes.length)}`);
-console.log(`    archive delta         ${sealedOverhead >= 0 ? '+' : ''}${sealedOverhead.toLocaleString()} bytes ` +
-  `(${(sealedOverhead / zipLen * 100).toFixed(2)}% of the plain archive)`);
-console.log(`    per-file overhead     286 bytes x 33 = ${(286 * 33).toLocaleString()} bytes before DEFLATE`);
-console.log(`    encryption step       ${sealMs} ms for ${mb(sealedBytes)} of image bytes ` +
-  `(${sealMs > 0 ? (sealedBytes / 1048576 / (sealMs / 1000)).toFixed(0) : 'inf'} MB/s)`);
-console.log(`    peak RSS (both runs)  ${mb(peakRss)}`);
 
 console.log('\n  Rendered pages compress far smaller than photographs of the same pages.');
 console.log('  Real captures in this set average 488 KB a page after the app\'s own ingest;');

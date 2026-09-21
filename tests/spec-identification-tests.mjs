@@ -34,6 +34,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadModule } from './captureSet.mjs';
+import { encodeGb1 } from './gb1Encode.mjs';
 
 globalThis.crypto ??= webcrypto;
 
@@ -109,7 +110,7 @@ console.log('\nStudent Submission — finding the spec by content\n');
 // =====================================================
 console.log('  1. what a file is, from its own bytes');
 
-const gb1Text = await cryptoSvc.encryptJson(specObject());
+const gb1Text = await encodeGb1(specObject());
 
 check('a gb1: envelope is a spec', () =>
   assert(bundle.looksLikeSpec(enc(gb1Text)), 'gb1: text not recognised'));
@@ -165,7 +166,7 @@ for (const name of [
   await checkAsync(`a zip whose spec is called "${name}" loads`, async () => {
     const { loaded, src, map } = await openZip([
       ['ENG17_Homework_1.pdf', PDF_BYTES],
-      [name, await cryptoSvc.encryptJson(withMap())],
+      [name, await encodeGb1(withMap())],
     ]);
     assertEqual(loaded.kind, 'zip', 'not read as a zip');
     assertEqual(src.from, 'spec', 'the embedded map was not used');
@@ -192,7 +193,7 @@ console.log('\n  3. old material');
 await checkAsync('the old three-file zip loads, map from the SEPARATE csv', async () => {
   const { loaded, spec, src, map } = await openZip([
     ['assignment.pdf', PDF_BYTES],
-    ['assignment_spec.json', await cryptoSvc.encryptJson(specObject())],
+    ['assignment_spec.json', await encodeGb1(specObject())],
     [CSV_NAME, CSV_TEXT],
   ]);
   assertEqual(loaded.entries.length, 3, 'the zip did not carry three files');
@@ -206,7 +207,7 @@ await checkAsync('the old three-file zip loads, map from the SEPARATE csv', asyn
 await checkAsync('a separate csv still WINS over an embedded map', async () => {
   const { src, map } = await openZip([
     ['ENG17_Homework_1.pdf', PDF_BYTES],
-    ['ENG17_Homework_1_OPEN_IN_APP.json', await cryptoSvc.encryptJson(withMap())],
+    ['ENG17_Homework_1_OPEN_IN_APP.json', await encodeGb1(withMap())],
     [CSV_NAME, CSV_TEXT],
   ]);
   assertEqual(src.from, 'bundle', 'the embedded map displaced the file beside the spec');
@@ -215,7 +216,7 @@ await checkAsync('a separate csv still WINS over an embedded map', async () => {
 
 await checkAsync('a bare spec under any name still loads', async () => {
   const loaded = await bundle.loadAssignmentBundle(
-    asFile(enc(await cryptoSvc.encryptJson(withMap()))));
+    asFile(enc(await encodeGb1(withMap()))));
   assertEqual(loaded.kind, 'json', 'a bare spec was read as a zip');
   const spec = await cryptoSvc.decryptJson(loaded.specText);
   const map = await lay.parseLayoutCsv(spec.layoutCsv, spec.layoutCsvName);
@@ -230,8 +231,8 @@ console.log('\n  4. refusals');
 await checkAsync('two qualifying specs refuse, and name them', async () => {
   const err = await refusal(async () => openZip([
     ['ENG17_Homework_1.pdf', PDF_BYTES],
-    ['a.json', await cryptoSvc.encryptJson(withMap())],
-    ['b.json', await cryptoSvc.encryptJson(withMap())],
+    ['a.json', await encodeGb1(withMap())],
+    ['b.json', await encodeGb1(withMap())],
   ]));
   assert(err && err.name === 'BundleError', `expected a BundleError, got ${err && err.message}`);
   assert(/more than one assignment file/.test(err.message), `wrong refusal: ${err.message}`);
@@ -245,7 +246,7 @@ await checkAsync('two qualifying specs refuse, and name them', async () => {
 await checkAsync('an instructor-shaped zip refuses rather than loading the answer key', async () => {
   const err = await refusal(async () => openZip([
     ['ENG17_Homework_1.pdf', PDF_BYTES],
-    ['ENG17_Homework_1_OPEN_IN_APP.json', await cryptoSvc.encryptJson(withMap())],
+    ['ENG17_Homework_1_OPEN_IN_APP.json', await encodeGb1(withMap())],
     ['instructor/ENG17_Homework_1_authoring_backup.json', JSON.stringify({ answerKey: true })],
     ['instructor/ENG17_Homework_1_grading_rubric.json', JSON.stringify({ rubrics: {} })],
     ['instructor/' + CSV_NAME, CSV_TEXT],
