@@ -49,8 +49,8 @@ This app handles lab reports, mini-projects, and homework:
 1. Get the assignment file from your instructor
 2. Click **"Upload assignment"** in the sidebar
 3. Complete each problem (text / images / text+image / AI-graded response)
-4. Click **"Download for Gradescope"** — downloads a single ZIP containing the submission JSON and PDF
-5. Upload the ZIP file to Gradescope
+4. Click **"Download submission"** — downloads a single ZIP containing the submission JSON and PDF
+5. Submit the ZIP as your instructor has told you to
 
 The app never asks who you are, in either walkthrough. You are identified by the
 authenticated upload in step 5 — see [Data and privacy](#data-and-privacy).
@@ -71,7 +71,7 @@ print, and one file to upload.
    grader will see it. Sign each off, or flag it
 6. If a picture is wrong: retake the whole page, or photograph just that answer
    and hand that picture in directly. Either works
-7. Click **"Download for Gradescope"** and upload the ZIP
+7. Click **"Download submission"** and submit the ZIP as your instructor has told you to
 
 Flagging an answer does **not** stop you submitting — the flag goes to your
 grader with the picture.

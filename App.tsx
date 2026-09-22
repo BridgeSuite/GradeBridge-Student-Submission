@@ -801,7 +801,7 @@ const App: React.FC = () => {
       `File: ${fileName}\n\n` +
       "If your browser asks whether to download it, confirm. It saves wherever your " +
       "browser puts downloads — the Files app on a phone, the Downloads folder on a computer.\n\n" +
-      "You can also upload this JSON to your LMS (Canvas, etc.) as a backup of your work."
+      "Keep this file somewhere safe: it is a backup of your work, not your submission."
     );
   };
 
@@ -1145,7 +1145,8 @@ const App: React.FC = () => {
           ? `This ZIP contains your page photographs, the answers cut from ` +
             `them, and your submission data.\n`
           : `This ZIP contains your PDF and submission data.\n`) +
-        `Upload the ZIP file to Gradescope to submit your assignment.\n\n` +
+        `Submit this ZIP file as your instructor has told you to, for example by ` +
+        `uploading it to your course's assignment page.\n\n` +
         `Check you have the file before you close this page.`
       );
       setTimeout(() => setStatusMessage(''), 6000);
@@ -1336,7 +1337,7 @@ const App: React.FC = () => {
                     </li>
                     <li className="flex items-start gap-3 p-2 rounded bg-gray-50">
                       <span className="w-6 h-6 rounded-full bg-gray-400 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                      <span><strong>Download &amp; Submit</strong> - Click <em>Download for Gradescope</em> to get a single ZIP file, then upload that ZIP to Gradescope</span>
+                      <span><strong>Download &amp; Submit</strong> - Click <em>Download submission</em> to get a single ZIP file, then submit that ZIP as your instructor has told you to</span>
                     </li>
                   </ol>
                   <div className="mt-4 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
@@ -1455,7 +1456,7 @@ const App: React.FC = () => {
                        className="py-3 px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-xl"
                      >
                        <Download className="w-5 h-5" />
-                       Download for Gradescope
+                       Download submission
                      </button>
                      <button
                        onClick={() => setState(s => ({ ...s, viewMode: 'print' }))}
@@ -1505,7 +1506,7 @@ const App: React.FC = () => {
                          className="py-3 px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-xl"
                        >
                          <Download className="w-5 h-5" />
-                         Download for Gradescope
+                         Download submission
                        </button>
                      </div>
                    </div>

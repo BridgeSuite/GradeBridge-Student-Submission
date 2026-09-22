@@ -126,7 +126,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
         )}
         <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
           <Lightbulb className="w-3 h-3" />
-          <span>Focus on your answer - PDF formatting is handled automatically for Gradescope.</span>
+          <span>Focus on your answer - PDF formatting is handled automatically.</span>
         </div>
       </div>
     );
@@ -198,7 +198,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center gap-1.5 text-slate-500">
             <Lightbulb className="w-3 h-3" />
-            <span>Upload clear images - PDF layout is optimized for Gradescope.</span>
+            <span>Upload clear images - the PDF is laid out for grading.</span>
           </div>
           <span>{images.length} / {maxImages} images uploaded</span>
         </div>
@@ -300,7 +300,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
           <div className="flex items-center justify-between text-xs text-gray-500">
             <div className="flex items-center gap-1.5 text-slate-500">
               <Lightbulb className="w-3 h-3" />
-              <span>Upload clear images — PDF layout is optimized for Gradescope.</span>
+              <span>Upload clear images — the PDF is laid out for grading.</span>
             </div>
             <span>{images.length} / {maxImages} images uploaded</span>
           </div>

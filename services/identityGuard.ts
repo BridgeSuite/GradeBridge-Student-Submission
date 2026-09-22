@@ -62,7 +62,7 @@ export const assertNoIdentityKeys = (payload: unknown): void => {
   const e = new Error(
     `The submission was not built: its payload carries identity-shaped keys ` +
     `(${found.join(', ')}). A submission never names the student; identity comes from ` +
-    `Gradescope's login. This is a defect in the app or in the assignment's layout map.`);
+    `the account the work is submitted from. This is a defect in the app or in the assignment's layout map.`);
   e.name = IDENTITY_IN_PAYLOAD;
   throw e;
 };
