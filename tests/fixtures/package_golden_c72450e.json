@@ -1,0 +1,765 @@
+{
+ "builtAt": "c72450e",
+ "electronic": {
+  "baseName": "EEC1_Golden_Lab_submission_20260924-1000",
+  "entries": [
+   "EEC1_Golden_Lab_submission_20260924-1000.json",
+   "EEC1_Golden_Lab_submission_20260924-1000.pdf",
+   "p0s1_image_0.jpg",
+   "p0s1_image_1.jpg",
+   "p0s2_image_0.jpg"
+  ],
+  "files": {
+   "EEC1_Golden_Lab_submission_20260924-1000.json": {
+    "bytes": 945,
+    "sum": 3208325486
+   },
+   "EEC1_Golden_Lab_submission_20260924-1000.pdf": {
+    "bytes": 4096,
+    "sum": 4015823327
+   },
+   "p0s1_image_0.jpg": {
+    "bytes": 2048,
+    "sum": 191501407
+   },
+   "p0s1_image_1.jpg": {
+    "bytes": 1024,
+    "sum": 3578661535
+   },
+   "p0s2_image_0.jpg": {
+    "bytes": 1536,
+    "sum": 1320702431
+   }
+  },
+  "submissionJson": {
+   "course_code": "EEC1",
+   "assignment_id": "EEC1_Golden_Lab",
+   "pdf_filename": "EEC1_Golden_Lab_submission_20260924-1000.pdf",
+   "ai_feedback": true,
+   "submission_data": {
+    "p0s0": {
+     "answer": "The node voltage is $1.2$ V.",
+     "images_submitted": 0
+    },
+    "p0s1": {
+     "answer": null,
+     "images_submitted": 2
+    },
+    "p0s2": {
+     "answer": "Plot attached.",
+     "images_submitted": 1
+    },
+    "p1s0": {
+     "answer": "Yes, because the collector current rises.",
+     "images_submitted": 0
+    },
+    "p1s1": {
+     "answer": "g_m is 38 mS, so the gain is about -180.",
+     "images_submitted": 0
+    },
+    "p1s2": {
+     "answer": "The source resistance divides the input.",
+     "images_submitted": 0
+    },
+    "p1s3": {
+     "answer": null,
+     "images_submitted": 0
+    }
+   },
+   "last_saved": "2026-09-24T10:00:00.000Z",
+   "personal_info_confirmed": true,
+   "personal_info_wording": "pi-1"
+  },
+  "serialised": "{\n  \"course_code\": \"EEC1\",\n  \"assignment_id\": \"EEC1_Golden_Lab\",\n  \"pdf_filename\": \"EEC1_Golden_Lab_submission_20260924-1000.pdf\",\n  \"ai_feedback\": true,\n  \"submission_data\": {\n    \"p0s0\": {\n      \"answer\": \"The node voltage is $1.2$ V.\",\n      \"images_submitted\": 0\n    },\n    \"p0s1\": {\n      \"answer\": null,\n      \"images_submitted\": 2\n    },\n    \"p0s2\": {\n      \"answer\": \"Plot attached.\",\n      \"images_submitted\": 1\n    },\n    \"p1s0\": {\n      \"answer\": \"Yes, because the collector current rises.\",\n      \"images_submitted\": 0\n    },\n    \"p1s1\": {\n      \"answer\": \"g_m is 38 mS, so the gain is about -180.\",\n      \"images_submitted\": 0\n    },\n    \"p1s2\": {\n      \"answer\": \"The source resistance divides the input.\",\n      \"images_submitted\": 0\n    },\n    \"p1s3\": {\n      \"answer\": null,\n      \"images_submitted\": 0\n    }\n  },\n  \"last_saved\": \"2026-09-24T10:00:00.000Z\",\n  \"personal_info_confirmed\": true,\n  \"personal_info_wording\": \"pi-1\"\n}"
+ },
+ "printed": {
+  "baseName": "ENG17_Homework_1_submission_20260924-1000",
+  "entries": [
+   "ENG17_Homework_1_submission_20260924-1000.json",
+   "page_1.jpg",
+   "page_2.jpg",
+   "page_3.jpg",
+   "page_4.jpg",
+   "page_5.jpg",
+   "page_6.jpg",
+   "page_7.jpg",
+   "page_8.jpg",
+   "page_9.jpg",
+   "page_10.jpg",
+   "page_11.jpg",
+   "page_12.jpg",
+   "page_13.jpg",
+   "page_14.jpg",
+   "page_15.jpg",
+   "page_16.jpg",
+   "crops/p1a.jpg",
+   "crops/p1b.jpg",
+   "crops/p1c.jpg",
+   "crops/p1d.jpg",
+   "crops/p2a.jpg",
+   "crops/p2b.jpg",
+   "crops/p2c.jpg",
+   "crops/p3a.jpg",
+   "crops/p3b.jpg",
+   "crops/p3c.jpg",
+   "crops/p4.jpg",
+   "crops/p5.jpg",
+   "crops/p6.jpg",
+   "crops/p7.jpg",
+   "crops/p8.jpg",
+   "crops/p9.jpg"
+  ],
+  "files": {
+   "ENG17_Homework_1_submission_20260924-1000.json": {
+    "bytes": 10722,
+    "sum": 1045161487
+   },
+   "page_1.jpg": {
+    "bytes": 3000,
+    "sum": 1481159483
+   },
+   "page_2.jpg": {
+    "bytes": 3000,
+    "sum": 1932250107
+   },
+   "page_3.jpg": {
+    "bytes": 3000,
+    "sum": 2525562043
+   },
+   "page_4.jpg": {
+    "bytes": 3000,
+    "sum": 1016847995
+   },
+   "page_5.jpg": {
+    "bytes": 3000,
+    "sum": 1024694843
+   },
+   "page_6.jpg": {
+    "bytes": 3000,
+    "sum": 661271547
+   },
+   "page_7.jpg": {
+    "bytes": 3000,
+    "sum": 1052970427
+   },
+   "page_8.jpg": {
+    "bytes": 3000,
+    "sum": 1127400827
+   },
+   "page_9.jpg": {
+    "bytes": 3000,
+    "sum": 538476347
+   },
+   "page_10.jpg": {
+    "bytes": 3000,
+    "sum": 3524884987
+   },
+   "page_11.jpg": {
+    "bytes": 3000,
+    "sum": 1002869947
+   },
+   "page_12.jpg": {
+    "bytes": 3000,
+    "sum": 3942035323
+   },
+   "page_13.jpg": {
+    "bytes": 3000,
+    "sum": 194381883
+   },
+   "page_14.jpg": {
+    "bytes": 3000,
+    "sum": 2351677691
+   },
+   "page_15.jpg": {
+    "bytes": 3000,
+    "sum": 2189982395
+   },
+   "page_16.jpg": {
+    "bytes": 3000,
+    "sum": 4012316027
+   },
+   "crops/p1a.jpg": {
+    "bytes": 1200,
+    "sum": 1553826423
+   },
+   "crops/p1b.jpg": {
+    "bytes": 1200,
+    "sum": 1553826423
+   },
+   "crops/p1c.jpg": {
+    "bytes": 1200,
+    "sum": 1553826423
+   },
+   "crops/p1d.jpg": {
+    "bytes": 1200,
+    "sum": 1553826423
+   },
+   "crops/p2a.jpg": {
+    "bytes": 1200,
+    "sum": 1802042295
+   },
+   "crops/p2b.jpg": {
+    "bytes": 1200,
+    "sum": 1802042295
+   },
+   "crops/p2c.jpg": {
+    "bytes": 1200,
+    "sum": 1802042295
+   },
+   "crops/p3a.jpg": {
+    "bytes": 1200,
+    "sum": 3313866231
+   },
+   "crops/p3b.jpg": {
+    "bytes": 1200,
+    "sum": 3313866231
+   },
+   "crops/p3c.jpg": {
+    "bytes": 1200,
+    "sum": 3313866231
+   },
+   "crops/p4.jpg": {
+    "bytes": 1200,
+    "sum": 2082538615
+   },
+   "crops/p5.jpg": {
+    "bytes": 1200,
+    "sum": 1732312247
+   },
+   "crops/p6.jpg": {
+    "bytes": 1200,
+    "sum": 3853415159
+   },
+   "crops/p7.jpg": {
+    "bytes": 1200,
+    "sum": 2931714615
+   },
+   "crops/p8.jpg": {
+    "bytes": 1200,
+    "sum": 1553826423
+   },
+   "crops/p9.jpg": {
+    "bytes": 1200,
+    "sum": 1802042295
+   }
+  },
+  "submissionJson": {
+   "course_code": "ENG17",
+   "assignment_id": "ENG17_Homework_1",
+   "ai_feedback": false,
+   "submission_data": {
+    "p0s0": {
+     "answer": null,
+     "images_submitted": 0
+    }
+   },
+   "last_saved": "2026-09-24T10:00:00.000Z",
+   "personal_info_confirmed": true,
+   "personal_info_wording": "pi-1",
+   "input_mode": "handwritten",
+   "layout_id": "95438EDF",
+   "pages": [
+    {
+     "file": "page_1.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 1,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_2.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 2,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_3.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 3,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_4.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 4,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_5.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 5,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_6.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 6,
+     "n": 16,
+     "registration": "degraded",
+     "marks_found": 3,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.4,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_7.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 7,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_8.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 8,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_9.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 9,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_10.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 10,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_11.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 11,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_12.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 12,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_13.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 13,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_14.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 14,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_15.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 15,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    },
+    {
+     "file": "page_16.jpg",
+     "width": 1650,
+     "height": 2200,
+     "k": 16,
+     "n": 16,
+     "registration": "ok",
+     "marks_found": 4,
+     "marks_detected": [
+      "NW",
+      "NE",
+      "SW",
+      "SE"
+     ],
+     "marks_declined": [],
+     "residual_mm": 0.2,
+     "held_out_mm": 0
+    }
+   ],
+   "crops": {
+    "p1a": {
+     "region_id": "p1a",
+     "part_id": "1(a)",
+     "page_k": 2,
+     "is_drawing": false,
+     "max_points": 3,
+     "crop_source": "registration",
+     "student_review": "signed_off",
+     "quality_flags": [],
+     "file": "crops/p1a.jpg",
+     "width": 900,
+     "height": 400
+    },
+    "p1b": {
+     "region_id": "p1b",
+     "part_id": "1(b)",
+     "page_k": 3,
+     "is_drawing": false,
+     "max_points": 2,
+     "crop_source": "registration",
+     "student_review": "flagged",
+     "quality_flags": [],
+     "file": "crops/p1b.jpg",
+     "width": 901,
+     "height": 401
+    },
+    "p1c": {
+     "region_id": "p1c",
+     "part_id": "1(c)",
+     "page_k": 3,
+     "is_drawing": false,
+     "max_points": 2,
+     "crop_source": "registration",
+     "student_review": "not_reviewed",
+     "quality_flags": [],
+     "file": "crops/p1c.jpg",
+     "width": 902,
+     "height": 402
+    },
+    "p1d": {
+     "region_id": "p1d",
+     "part_id": "1(d)",
+     "page_k": 4,
+     "is_drawing": false,
+     "max_points": 2,
+     "crop_source": "direct_capture",
+     "student_review": "signed_off",
+     "quality_flags": [],
+     "file": "crops/p1d.jpg",
+     "width": 903,
+     "height": 403
+    },
+    "p2a": {
+     "region_id": "p2a",
+     "part_id": "2(a)",
+     "page_k": 5,
+     "is_drawing": false,
+     "max_points": 4,
+     "crop_source": "registration",
+     "student_review": "flagged",
+     "quality_flags": [
+      "looks-empty"
+     ],
+     "file": "crops/p2a.jpg",
+     "width": 904,
+     "height": 404
+    },
+    "p2b": {
+     "region_id": "p2b",
+     "part_id": "2(b)",
+     "page_k": 5,
+     "is_drawing": false,
+     "max_points": 4,
+     "crop_source": "registration",
+     "student_review": "not_reviewed",
+     "quality_flags": [],
+     "file": "crops/p2b.jpg",
+     "width": 905,
+     "height": 405
+    },
+    "p2c": {
+     "region_id": "p2c",
+     "part_id": "2(c)",
+     "page_k": 6,
+     "is_drawing": false,
+     "max_points": 3,
+     "crop_source": "registration",
+     "student_review": "signed_off",
+     "quality_flags": [],
+     "file": "crops/p2c.jpg",
+     "width": 906,
+     "height": 406
+    },
+    "p3a": {
+     "region_id": "p3a",
+     "part_id": "3(a)",
+     "page_k": 7,
+     "is_drawing": false,
+     "max_points": 3,
+     "crop_source": "registration",
+     "student_review": "flagged",
+     "quality_flags": [],
+     "file": "crops/p3a.jpg",
+     "width": 907,
+     "height": 407
+    },
+    "p3b": {
+     "region_id": "p3b",
+     "part_id": "3(b)",
+     "page_k": 8,
+     "is_drawing": false,
+     "max_points": 3,
+     "crop_source": "registration",
+     "student_review": "not_reviewed",
+     "quality_flags": [],
+     "file": "crops/p3b.jpg",
+     "width": 908,
+     "height": 408
+    },
+    "p3c": {
+     "region_id": "p3c",
+     "part_id": "3(c)",
+     "page_k": 8,
+     "is_drawing": false,
+     "max_points": 4,
+     "crop_source": "registration",
+     "student_review": "signed_off",
+     "quality_flags": [],
+     "file": "crops/p3c.jpg",
+     "width": 909,
+     "height": 409
+    },
+    "p4": {
+     "region_id": "p4",
+     "part_id": "4",
+     "page_k": 9,
+     "is_drawing": false,
+     "max_points": 10,
+     "crop_source": "registration",
+     "student_review": "flagged",
+     "quality_flags": [],
+     "file": "crops/p4.jpg",
+     "width": 910,
+     "height": 410
+    },
+    "p5": {
+     "region_id": "p5",
+     "part_id": "5",
+     "page_k": 10,
+     "is_drawing": false,
+     "max_points": 10,
+     "crop_source": "registration",
+     "student_review": "not_reviewed",
+     "quality_flags": [],
+     "file": "crops/p5.jpg",
+     "width": 911,
+     "height": 411
+    },
+    "p6": {
+     "region_id": "p6",
+     "part_id": "6",
+     "page_k": 11,
+     "is_drawing": false,
+     "max_points": 10,
+     "crop_source": "registration",
+     "student_review": "signed_off",
+     "quality_flags": [],
+     "file": "crops/p6.jpg",
+     "width": 912,
+     "height": 412
+    },
+    "p7": {
+     "region_id": "p7",
+     "part_id": "7",
+     "page_k": 12,
+     "is_drawing": false,
+     "max_points": 10,
+     "crop_source": "registration",
+     "student_review": "flagged",
+     "quality_flags": [],
+     "file": "crops/p7.jpg",
+     "width": 913,
+     "height": 413
+    },
+    "p8": {
+     "region_id": "p8",
+     "part_id": "8",
+     "page_k": 14,
+     "is_drawing": false,
+     "max_points": 10,
+     "crop_source": "registration",
+     "student_review": "not_reviewed",
+     "quality_flags": [],
+     "file": "crops/p8.jpg",
+     "width": 914,
+     "height": 414
+    },
+    "p9": {
+     "region_id": "p9",
+     "part_id": "9",
+     "page_k": 15,
+     "is_drawing": false,
+     "max_points": 10,
+     "crop_source": "registration",
+     "student_review": "signed_off",
+     "quality_flags": [],
+     "file": "crops/p9.jpg",
+     "width": 915,
+     "height": 415
+    }
+   }
+  },
+  "serialised": "{\n  \"course_code\": \"ENG17\",\n  \"assignment_id\": \"ENG17_Homework_1\",\n  \"ai_feedback\": false,\n  \"submission_data\": {\n    \"p0s0\": {\n      \"answer\": null,\n      \"images_submitted\": 0\n    }\n  },\n  \"last_saved\": \"2026-09-24T10:00:00.000Z\",\n  \"personal_info_confirmed\": true,\n  \"personal_info_wording\": \"pi-1\",\n  \"input_mode\": \"handwritten\",\n  \"layout_id\": \"95438EDF\",\n  \"pages\": [\n    {\n      \"file\": \"page_1.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 1,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_2.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 2,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_3.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 3,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_4.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 4,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_5.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 5,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_6.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 6,\n      \"n\": 16,\n      \"registration\": \"degraded\",\n      \"marks_found\": 3,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.4,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_7.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 7,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_8.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 8,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_9.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 9,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_10.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 10,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_11.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 11,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_12.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 12,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_13.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 13,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_14.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 14,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_15.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 15,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    },\n    {\n      \"file\": \"page_16.jpg\",\n      \"width\": 1650,\n      \"height\": 2200,\n      \"k\": 16,\n      \"n\": 16,\n      \"registration\": \"ok\",\n      \"marks_found\": 4,\n      \"marks_detected\": [\n        \"NW\",\n        \"NE\",\n        \"SW\",\n        \"SE\"\n      ],\n      \"marks_declined\": [],\n      \"residual_mm\": 0.2,\n      \"held_out_mm\": 0\n    }\n  ],\n  \"crops\": {\n    \"p1a\": {\n      \"region_id\": \"p1a\",\n      \"part_id\": \"1(a)\",\n      \"page_k\": 2,\n      \"is_drawing\": false,\n      \"max_points\": 3,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"signed_off\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p1a.jpg\",\n      \"width\": 900,\n      \"height\": 400\n    },\n    \"p1b\": {\n      \"region_id\": \"p1b\",\n      \"part_id\": \"1(b)\",\n      \"page_k\": 3,\n      \"is_drawing\": false,\n      \"max_points\": 2,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"flagged\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p1b.jpg\",\n      \"width\": 901,\n      \"height\": 401\n    },\n    \"p1c\": {\n      \"region_id\": \"p1c\",\n      \"part_id\": \"1(c)\",\n      \"page_k\": 3,\n      \"is_drawing\": false,\n      \"max_points\": 2,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"not_reviewed\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p1c.jpg\",\n      \"width\": 902,\n      \"height\": 402\n    },\n    \"p1d\": {\n      \"region_id\": \"p1d\",\n      \"part_id\": \"1(d)\",\n      \"page_k\": 4,\n      \"is_drawing\": false,\n      \"max_points\": 2,\n      \"crop_source\": \"direct_capture\",\n      \"student_review\": \"signed_off\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p1d.jpg\",\n      \"width\": 903,\n      \"height\": 403\n    },\n    \"p2a\": {\n      \"region_id\": \"p2a\",\n      \"part_id\": \"2(a)\",\n      \"page_k\": 5,\n      \"is_drawing\": false,\n      \"max_points\": 4,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"flagged\",\n      \"quality_flags\": [\n        \"looks-empty\"\n      ],\n      \"file\": \"crops/p2a.jpg\",\n      \"width\": 904,\n      \"height\": 404\n    },\n    \"p2b\": {\n      \"region_id\": \"p2b\",\n      \"part_id\": \"2(b)\",\n      \"page_k\": 5,\n      \"is_drawing\": false,\n      \"max_points\": 4,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"not_reviewed\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p2b.jpg\",\n      \"width\": 905,\n      \"height\": 405\n    },\n    \"p2c\": {\n      \"region_id\": \"p2c\",\n      \"part_id\": \"2(c)\",\n      \"page_k\": 6,\n      \"is_drawing\": false,\n      \"max_points\": 3,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"signed_off\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p2c.jpg\",\n      \"width\": 906,\n      \"height\": 406\n    },\n    \"p3a\": {\n      \"region_id\": \"p3a\",\n      \"part_id\": \"3(a)\",\n      \"page_k\": 7,\n      \"is_drawing\": false,\n      \"max_points\": 3,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"flagged\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p3a.jpg\",\n      \"width\": 907,\n      \"height\": 407\n    },\n    \"p3b\": {\n      \"region_id\": \"p3b\",\n      \"part_id\": \"3(b)\",\n      \"page_k\": 8,\n      \"is_drawing\": false,\n      \"max_points\": 3,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"not_reviewed\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p3b.jpg\",\n      \"width\": 908,\n      \"height\": 408\n    },\n    \"p3c\": {\n      \"region_id\": \"p3c\",\n      \"part_id\": \"3(c)\",\n      \"page_k\": 8,\n      \"is_drawing\": false,\n      \"max_points\": 4,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"signed_off\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p3c.jpg\",\n      \"width\": 909,\n      \"height\": 409\n    },\n    \"p4\": {\n      \"region_id\": \"p4\",\n      \"part_id\": \"4\",\n      \"page_k\": 9,\n      \"is_drawing\": false,\n      \"max_points\": 10,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"flagged\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p4.jpg\",\n      \"width\": 910,\n      \"height\": 410\n    },\n    \"p5\": {\n      \"region_id\": \"p5\",\n      \"part_id\": \"5\",\n      \"page_k\": 10,\n      \"is_drawing\": false,\n      \"max_points\": 10,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"not_reviewed\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p5.jpg\",\n      \"width\": 911,\n      \"height\": 411\n    },\n    \"p6\": {\n      \"region_id\": \"p6\",\n      \"part_id\": \"6\",\n      \"page_k\": 11,\n      \"is_drawing\": false,\n      \"max_points\": 10,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"signed_off\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p6.jpg\",\n      \"width\": 912,\n      \"height\": 412\n    },\n    \"p7\": {\n      \"region_id\": \"p7\",\n      \"part_id\": \"7\",\n      \"page_k\": 12,\n      \"is_drawing\": false,\n      \"max_points\": 10,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"flagged\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p7.jpg\",\n      \"width\": 913,\n      \"height\": 413\n    },\n    \"p8\": {\n      \"region_id\": \"p8\",\n      \"part_id\": \"8\",\n      \"page_k\": 14,\n      \"is_drawing\": false,\n      \"max_points\": 10,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"not_reviewed\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p8.jpg\",\n      \"width\": 914,\n      \"height\": 414\n    },\n    \"p9\": {\n      \"region_id\": \"p9\",\n      \"part_id\": \"9\",\n      \"page_k\": 15,\n      \"is_drawing\": false,\n      \"max_points\": 10,\n      \"crop_source\": \"registration\",\n      \"student_review\": \"signed_off\",\n      \"quality_flags\": [],\n      \"file\": \"crops/p9.jpg\",\n      \"width\": 915,\n      \"height\": 415\n    }\n  }\n}"
+ }
+}
