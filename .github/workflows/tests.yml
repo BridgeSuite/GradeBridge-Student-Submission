@@ -35,9 +35,16 @@
 # `name:` below deliberately, so the tab in the Actions UI and the file on disk
 # agree.
 #
-# The Student Submission copy adopts this and adjusts exactly one thing: it has
-# a tracked lockfile, so its install step is `npm ci` where this one is
-# `npm install`. Any other difference is drift.
+# THE TWO COPIES ARE BYTE-IDENTICAL. Nothing checks that mechanically yet, so
+# it holds only as long as a change here is made in both. Every statement below is written to be true in both repositories; where the two
+# differ in fact, the comment names each one rather than letting one copy say
+# something the other contradicts. Until 2026-09-25 they had drifted: each
+# copy's header claimed the other installed differently, and each described
+# its own suite in words that had stopped being true
+# (WORKORDER_AM_HWK_CHECKS_ARE_DEAD_2026-09-25, Supplement 2, item 4).
+#
+# Both repositories track `package-lock.json` and install with `npm ci`, with
+# the npm cache keyed on it. Any difference between the two files is drift.
 name: tests
 
 on:
@@ -69,26 +76,49 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          # Possible here and not there: see the install step below.
           cache: npm
 
-      # THE ONE ADOPTED DIFFERENCE, and the canonical file names it: this
-      # repository tracks `package-lock.json`, so `npm ci` runs and the cache
-      # has something to key on. There it is `npm install` with no cache,
-      # because no lockfile is tracked. Any other difference is drift.
+      # THE LOCKFILE IS TRACKED, and this installs exactly what it records.
+      #
+      # The Assignment Maker's step used to be `npm install`, on the claim that
+      # `package.json` pinned what mattered. Its CI run 22 (2026-09-24) disproved
+      # it: `katex` is a caret range, the runner resolved a newer patch than the
+      # machine that wrote the byte-for-byte goldens, and the two HTML documents
+      # that embed KaTeX differed. So a dependency update is a deliberate act in
+      # both repositories: a change to `package-lock.json` that somebody made and
+      # CI saw. (WORKORDER_AM_GENERIC_ANSWER_PAGE_2026-09-24_SUPPLEMENT_1, item 2.)
       - run: npm ci
 
-      # tsc, then the full suite: no-personal-names, no-process-records,
-      # spec-matches-code, run-tests, orientation, download, math-delimiter,
-      # figure, ai-feedback, legacy-type, registration, package-encryption and
-      # the capture gate.
+      # tsc, then `npm test`, then the build. `npm test` runs the suites its own
+      # `package.json` lists; they are not enumerated here, because the list
+      # here went stale in both copies.
       #
-      # Twenty-five of the forty-one labelled photographs are other people's
-      # coursework and are not in this repository, so `gate-tests.mjs` prints a
-      # SKIP naming each and asserts exact agreement over the sixteen that are
-      # tracked. A green run here therefore covers the sixteen, not the
-      # forty-one — the other twenty-five are covered locally, where the files
-      # are. Verified in that shape before this workflow was written.
+      # WHAT A GREEN RUN HERE DOES NOT COVER. This job checks out ONE repository
+      # and nothing beside it, so some checks cannot run here. They are covered
+      # locally, where the material is:
+      #
+      #   Assignment Maker. Ten checks read the real ENG17 homeworks, which live
+      #   outside the repository: six in templateTests (layout ids, region
+      #   counts, answer-key leak) and four in figure-extract / figure-swap-e2e.
+      #   Here they SKIP. Locally they run from a default path beside the
+      #   checkout, or from ENG17_HWK_DIR / GB_ENG17_DIR, and with either set a
+      #   missing file FAILS. Also skipped here: five cross-repository checks
+      #   and the committed-sample check, which need the Student Submission
+      #   repository or the GradeBridge2026 record beside this one. `npm test`
+      #   ends by listing every skipped check by name, and a suite that runs no
+      #   checks at all fails.
+      #
+      #   Student Submission. Twenty-five of the forty-one labelled photographs
+      #   are other people's coursework and are not in the repository, so
+      #   `gate-tests.mjs` prints a SKIP naming each and asserts exact agreement
+      #   over the sixteen that are tracked. A green run here covers the sixteen,
+      #   not the forty-one; locally all forty-one run (checked 2026-09-25: 41 on
+      #   disk, 0 skipped).
+      #
+      # Until 2026-09-25 the Assignment Maker's copy said its ENG17 checks were
+      # "covered locally, where the files are". They were not: a stale filename
+      # made them skip everywhere. A claim that something is covered elsewhere
+      # is only as good as the last time somebody watched it run there.
       - run: npx tsc --noEmit
       - run: npm test
       - run: npm run build
