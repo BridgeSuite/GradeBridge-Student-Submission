@@ -37,7 +37,8 @@ import {
   labelGenericCrop, mergeRecutCrops,
 } from './services/genericSheet';
 import { GENERIC_WORDING } from './services/genericWording';
-import { assignmentLoadRefusal } from './services/loadRefusal';
+import { assignmentLoadRefusal, type LoadRefusal } from './services/loadRefusal';
+import LoadRefusalPanel from './components/LoadRefusalPanel';
 import { initQrReader } from './services/qrDecode';
 import {
   SUBMISSION_ZIP_OPTIONS, buildSubmissionPackage, cropBlobKey, cropList, submissionBaseName,
@@ -123,6 +124,16 @@ const App: React.FC = () => {
    * silence for a student declining to submit. See `CompletenessGate`.
    */
   const [shortfallGate, setShortfallGate] = useState<CompletenessNotice | null>(null);
+  // Why the last assignment file was refused, shown at the top of the page
+  // (`components/LoadRefusalPanel.tsx`). Cleared at the start of every load,
+  // so it never sits over an accepted file or disagrees with a later failure.
+  const [loadRefusal, setLoadRefusal] = useState<LoadRefusal | null>(null);
+  const loadRefusalRef = useRef<HTMLDivElement>(null);
+  // A student who had scrolled down has the top of the page off-screen, where a
+  // panel is as invisible as a suppressed dialog. Bring it into view on appearing.
+  useEffect(() => {
+    if (loadRefusal) loadRefusalRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [loadRefusal]);
 
   /**
    * The personal-information confirmation (work order 2026-09-21 §6).
@@ -680,6 +691,10 @@ const App: React.FC = () => {
    * `layout_*.csv` still wins wherever one is present.
    */
   const handleLoadAssignment = async (file: File) => {
+      // Every attempt starts clean: an accepted file must not sit under an
+      // earlier refusal, and a later failure of another kind must not appear to
+      // be explained by it.
+      setLoadRefusal(null);
       try {
         const loaded = await loadAssignmentBundle(file);
         const raw = loaded.specText;
@@ -741,16 +756,17 @@ const App: React.FC = () => {
         // moves.** The decision, and the order the two checks run in, is in
         // `services/loadRefusal.ts`, where a test can reach it.
         //
-        // The refusal goes to the status line FIRST and the dialog second.
-        // Loading is a constructive action and a suppressed `alert` shows
-        // nothing, so a dialog alone is a refusal the student may never see:
-        // they tap a file, nothing loads, and nothing says why (standing rule,
-        // `CLAUDE.md`). The status line is in the page, where nothing outside
-        // it can swallow it.
+        // The refusal goes into the page FIRST and the dialog second. Loading
+        // is a constructive action and a suppressed `alert` shows nothing, so a
+        // dialog alone is a refusal the student may never see: they tap a file,
+        // nothing loads, and nothing says why (standing rule, `CLAUDE.md`). The
+        // panel is at the top of the page and scrolls itself into view; it is
+        // the one place the text is shown in the page, so the two can never
+        // disagree. (The status line was tried first and could not be read.)
         const refusal = assignmentLoadRefusal(json, layout);
         if (refusal) {
           if (refusal.detail) console.warn('Generic-sheet assignment refused:', refusal.detail);
-          setStatusMessage(refusal.message);
+          setLoadRefusal(refusal);
           alert(refusal.message);
           return;
         }
@@ -796,6 +812,7 @@ const App: React.FC = () => {
   };
 
   const handleLoadDemo = () => {
+    setLoadRefusal(null);
     // Load the demo assignment directly without file upload
     void clearPageBlobs();
     dropAllPageUrls();
@@ -861,6 +878,7 @@ const App: React.FC = () => {
   };
 
   const handleLoadWork = (file: File) => {
+    setLoadRefusal(null);
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -1266,7 +1284,11 @@ const App: React.FC = () => {
   // `h-full` claim the whole screen, squeezing the content pane — and with it
   // the page uploader — to zero height on phones.
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 font-sans lg:h-screen lg:flex-row lg:overflow-hidden">
+    // The outer shell is a column at every width so the refusal panel can sit
+    // ABOVE both columns on a wide screen, not inside one of them. The inner
+    // shell below is what the outer one used to be: the sidebar stacked on the
+    // content on a phone, side by side and pinned to the viewport from lg up.
+    <div className="flex min-h-screen flex-col bg-gray-50 font-sans lg:h-screen lg:overflow-hidden">
 
       {/* The completeness gate. In the page, never a dialog — see the component. */}
       {shortfallGate && (
@@ -1328,6 +1350,12 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Why the last assignment file was refused: the top of the page at
+          every width, scrolled into view when it appears. */}
+      {loadRefusal && <LoadRefusalPanel ref={loadRefusalRef} message={loadRefusal.message} />}
+
+      <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row lg:overflow-hidden">
 
       {/* Mobile Warning Banner — in flow on a phone, where a fixed banner
           would sit on top of the sidebar header and hide the version line.
@@ -1591,6 +1619,8 @@ const App: React.FC = () => {
                </>
            )}
         </div>
+
+      </div>
 
       </div>
 

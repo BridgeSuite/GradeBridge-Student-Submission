@@ -194,9 +194,31 @@ results.push('  3. the refusal reaches the page');
 
 const codeOnly = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const APP = codeOnly(readFileSync(join(REPO, 'App.tsx'), 'utf8'));
-check('App: the refusal is written to the status line BEFORE the dialog, then the load returns', () =>
-  assert(/const refusal = assignmentLoadRefusal\(json, layout\);\s*if \(refusal\) \{[\s\S]{0,200}?setStatusMessage\(refusal\.message\);\s*alert\(refusal\.message\);\s*return;\s*\}/.test(APP),
-    'the refusal branch does not set the status line, then alert, then return'));
+// Supplements 3 and 4: the refusal is a panel at the top of the page, scrolled
+// into view when it appears. The status line was tried first and could not be
+// read, so it no longer carries the refusal: one place in the page, one text.
+check('App: the refusal goes into the page BEFORE the dialog, then the load returns', () =>
+  assert(/const refusal = assignmentLoadRefusal\(json, layout\);\s*if \(refusal\) \{[\s\S]{0,200}?setLoadRefusal\(refusal\);\s*alert\(refusal\.message\);\s*return;\s*\}/.test(APP),
+    'the refusal branch does not set the panel, then alert, then return'));
+check('App: the status line no longer carries the refusal, so the two cannot disagree', () =>
+  assert(!/setStatusMessage\(refusal\.message\)/.test(APP), 'the refusal is written to the status line as well'));
+check('App: every load attempt clears the panel first (assignment, demo, restored work)', () => {
+  assert(/const handleLoadAssignment = async \(file: File\) => \{\s*setLoadRefusal\(null\);\s*try \{/.test(APP), 'an assignment load does not start clean');
+  assert(/const handleLoadDemo = \(\) => \{\s*setLoadRefusal\(null\);/.test(APP), 'loading the demo does not clear it');
+  assert(/const handleLoadWork = \(file: File\) => \{\s*setLoadRefusal\(null\);/.test(APP), 'restoring work does not clear it');
+});
+check('App: the panel is scrolled into view when it appears', () =>
+  assert(/useEffect\(\(\) => \{\s*if \(loadRefusal\) loadRefusalRef\.current\?\.scrollIntoView\(\{ block: 'start'[^}]*\}\);\s*\}, \[loadRefusal\]\);/.test(APP),
+    'no effect scrolls the panel into view'));
+check('App: the panel is rendered at the top of the page, above the sidebar and the content', () => {
+  const panelAt = APP.search(/\{loadRefusal && <LoadRefusalPanel ref=\{loadRefusalRef\} message=\{loadRefusal\.message\} \/>\}/);
+  const innerAt = APP.indexOf('<div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row lg:overflow-hidden">');
+  const sidebarAt = APP.indexOf('<Sidebar');
+  assert(panelAt > 0, 'the panel is not rendered from loadRefusal');
+  assert(innerAt > panelAt && sidebarAt > innerAt, 'the panel is not above the shell that holds the sidebar and the content');
+  assert(/<div className="flex min-h-screen flex-col bg-gray-50 font-sans lg:h-screen lg:overflow-hidden">/.test(APP),
+    'the outer shell is not a column at every width, so the panel cannot sit above both columns');
+});
 check('App: nothing else decides a load refusal (no second genericSheetProblem call)', () =>
   assert(!/genericSheetProblem\(/.test(APP), 'App calls genericSheetProblem itself again'));
 
@@ -207,14 +229,11 @@ await build({
     contents: `
       import * as React from 'react';
       import { renderToStaticMarkup } from 'react-dom/server';
-      import Sidebar from './components/Sidebar';
+      import LoadRefusalPanel from './components/LoadRefusalPanel';
       import CropReview from './components/CropReview';
       import GenericPageReview from './components/GenericPageReview';
       const noop = () => {}, anoop = async () => {};
-      export const renderSidebar = (statusMessage) => renderToStaticMarkup(React.createElement(Sidebar, {
-        state: { assignment: null, submissionData: {}, viewMode: 'edit', pages: [], crops: {}, layout: null },
-        onLoadAssignment: noop, onLoadDemo: noop, onLoadWork: noop, onExportWork: noop,
-        onClearWork: noop, onToggleView: noop, onDownloadForGradescope: noop, statusMessage }));
+      export const renderPanel = (message) => renderToStaticMarkup(React.createElement(LoadRefusalPanel, { message }));
       export const renderCropReview = (props) => renderToStaticMarkup(React.createElement(CropReview,
         { onReview: noop, onDirectCapture: anoop, onRephotographPage: anoop, busy: null, ...props }));
       export const renderGenericReview = (props) => renderToStaticMarkup(React.createElement(GenericPageReview,
@@ -237,9 +256,24 @@ const textOf = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").r
   .replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
 const flat = (s) => s.replace(/\s+/g, ' ').trim();
 
-for (const [name, message] of [['generic-page', BAD_GENERIC], ['printed-sheet', PRINTED_REFUSAL]]) {
-  check(`a ${name} refusal is readable in the page with no dialog at all`, () =>
-    assert(textOf(H.renderSidebar(message)).includes(flat(message)), 'the status line does not show the refusal'));
+// The panel's text is asserted against the constants the app uses, not retyped
+// (Supplement 3). PRINTED_REFUSAL above is the retyped copy that guards the
+// approval; here it must equal the module's own constant as well.
+check('the printed-sheet constant is the approved text', () =>
+  assert(refusalMod.PRINTED_NO_MAP_REFUSAL === PRINTED_REFUSAL, 'loadRefusal.ts no longer holds the approved text'));
+for (const [name, message] of [['generic-page', BAD_GENERIC], ['printed-sheet', refusalMod.PRINTED_NO_MAP_REFUSAL]]) {
+  const html = H.renderPanel(message);
+  check(`a ${name} refusal renders in the panel as the approved constant, one paragraph per block, and nothing else`, () => {
+    const paragraphs = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(m => textOf(m[1]));
+    const expected = message.split(/\n\s*\n/).map(flat);
+    assert(JSON.stringify(paragraphs) === JSON.stringify(expected),
+      `\n          rendered: ${JSON.stringify(paragraphs)}\n          expected: ${JSON.stringify(expected)}`);
+    assert(textOf(html) === flat(message), `extra text in the panel: ${textOf(html)}`);
+  });
+  check(`a ${name} refusal panel is announced (role="alert"), is the one the page scrolls to, and has no button`, () => {
+    assert(/role="alert"/.test(html) && /id="load-refusal"/.test(html), 'not an alert region with its id');
+    assert(!/<button/.test(html), 'the panel has a button, which would need new wording and could fail');
+  });
 }
 
 // =====================================================
