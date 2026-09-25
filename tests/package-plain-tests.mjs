@@ -337,7 +337,11 @@ const TOP_HANDWRITTEN = ['course_code', 'assignment_id', 'ai_feedback', 'submiss
 const ANSWER_KEYS = ['answer', 'images_submitted'];
 const PAGE_KEYS = ['file', 'width', 'height', 'k', 'n', 'registration', 'marks_found', 'marks_detected',
   'marks_declined', 'residual_mm', 'held_out_mm'];
-const CROP_KEYS = ['region_id', 'part_id', 'page_k', 'is_drawing', 'max_points', 'crop_source',
+// `part_source` added 2026-09-24 (`WORKORDER_SS_PAGE_LABELLING`): `"layout"` on
+// this, the printed sheet, so it can be told apart from the generic sheet's
+// `"student"` without inference. The generic sheet's own crop keys are closed
+// in `tests/generic-sheet-tests.mjs`.
+const CROP_KEYS = ['region_id', 'part_id', 'part_source', 'page_k', 'is_drawing', 'max_points', 'crop_source',
   'student_review', 'quality_flags', 'file', 'width', 'height'];
 
 check('electronic top-level keys are exactly the list', () =>

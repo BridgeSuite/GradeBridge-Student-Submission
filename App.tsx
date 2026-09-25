@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import ProblemRenderer from './components/ProblemRenderer';
 import PageUploader from './components/PageUploader';
 import CropReview from './components/CropReview';
+import GenericPageReview from './components/GenericPageReview';
 import PrintView from './components/PrintView';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import {
@@ -31,6 +32,11 @@ import {
 } from './services/completeness';
 import { LayoutMapError, parseLayoutCsv } from './services/layoutMap';
 import { registerAndCropPage } from './services/pageCrops';
+import {
+  genericCompletenessNotice, genericCoverage, genericCropRecord, genericSheetProblem, isGenericSheet,
+  labelGenericCrop, mergeRecutCrops,
+} from './services/genericSheet';
+import { GENERIC_WORDING } from './services/genericWording';
 import { initQrReader } from './services/qrDecode';
 import {
   SUBMISSION_ZIP_OPTIONS, buildSubmissionPackage, cropBlobKey, cropList, submissionBaseName,
@@ -135,6 +141,9 @@ const App: React.FC = () => {
   const [cropBusy, setCropBusy] = useState<string | null>(null);
 
   const isHandwritten = state.assignment?.inputMode === 'handwritten';
+  // The generic answer page: handwritten AND `sheet: "generic"`. Every branch
+  // below that reads this is additive; with it false, the app is unchanged.
+  const isGeneric = isGenericSheet(state.assignment);
 
   // Whether the tick still covers what is on screen. Recomputed only when an
   // answer, a page or a crop actually changes (reference identity), which is
@@ -351,9 +360,10 @@ const App: React.FC = () => {
    * and a submission full of perfectly cut rectangles under the wrong labels.
    */
   const runRegistration = useCallback(async (
-    pageId: string, blob: Blob, layout: StoredLayoutMap | null, pageWarnings: string[]
+    pageId: string, blob: Blob, layout: StoredLayoutMap | null, pageWarnings: string[],
+    generic = false,
   ): Promise<void> => {
-    const result = await registerAndCropPage(blob, layout);
+    const result = await registerAndCropPage(blob, layout, { generic });
     const reg = result.registration;
     const fields = reg.qr?.fields;
 
@@ -363,9 +373,10 @@ const App: React.FC = () => {
           k: fields?.k, n: fields?.n, layoutId: result.layoutMismatch.onPage,
           marksFound: reg.marksFound, marksDetected: reg.marksDetected,
           marksDeclined: reg.marksDeclined,
-          message:
-            'This page belongs to a different version of the assignment than the file you loaded, ' +
-            'so nothing was cut from it. Load the assignment zip you printed these pages from.',
+          message: generic
+            ? GENERIC_WORDING.notTheAnswerPage
+            : 'This page belongs to a different version of the assignment than the file you loaded, ' +
+              'so nothing was cut from it. Load the assignment zip you printed these pages from.',
         }
       : !reg.usable
         ? {
@@ -387,6 +398,17 @@ const App: React.FC = () => {
 
     const cut: Record<string, CropRef> = {};
     for (const c of result.crops) {
+      // The generic sheet: one crop per PAGE, all from the map's one region,
+      // so the record is keyed by page. The part is the student's to say; a
+      // retake keeps what they said (below), and a new page starts unlabelled.
+      if (generic) {
+        const record = genericCropRecord({ ...c, bytes: c.blob.size, inkBox: c.inkBox ?? null },
+          pageId, pageWarnings, newCaptureId());
+        await putPageBlob(cropKey(record.regionId), c.blob);
+        setCropUrl(record.regionId, c.blob);
+        cut[record.regionId] = record;
+        continue;
+      }
       await putPageBlob(cropKey(c.row.regionId), c.blob);
       setCropUrl(c.row.regionId, c.blob);
       cut[c.row.regionId] = {
@@ -412,7 +434,8 @@ const App: React.FC = () => {
     setState(prev => ({
       ...prev,
       pages: prev.pages.map(page => page.id === pageId ? { ...page, registration: info } : page),
-      crops: { ...prev.crops, ...cut },
+      // A retaken generic page keeps the part the student chose for it.
+      crops: mergeRecutCrops(prev.crops, cut),
     }));
   }, [setCropUrl]);
 
@@ -437,7 +460,7 @@ const App: React.FC = () => {
         }
       ])
     }));
-    if (isHandwritten) await runRegistration(id, ingested.blob, state.layout, ingested.warnings);
+    if (isHandwritten) await runRegistration(id, ingested.blob, state.layout, ingested.warnings, isGeneric);
   };
 
   // Keeps the id, so the page keeps its place in the pool and its crops are
@@ -460,7 +483,7 @@ const App: React.FC = () => {
           }
         : page)
     }));
-    if (isHandwritten) await runRegistration(id, ingested.blob, state.layout, ingested.warnings);
+    if (isHandwritten) await runRegistration(id, ingested.blob, state.layout, ingested.warnings, isGeneric);
   };
 
   // Rotation rewrites the stored bitmap, so width/height swap with it and the
@@ -489,7 +512,7 @@ const App: React.FC = () => {
       // Rotation rewrites the stored bitmap, so the transform fitted to the old
       // one is void. Re-register rather than trying to turn the map: the marks
       // are on the paper and the paper just moved.
-      if (isHandwritten) await runRegistration(id, rotated.blob, state.layout, warnings);
+      if (isHandwritten) await runRegistration(id, rotated.blob, state.layout, warnings, isGeneric);
     } catch (err) {
       console.error('Rotate failed', err);
       setStatusMessage('This page could not be rotated. Try retaking it.');
@@ -541,6 +564,30 @@ const App: React.FC = () => {
       if (!crop) return prev;
       return { ...prev, crops: { ...prev.crops, [regionId]: { ...crop, review } } };
     });
+  };
+
+  /** Generic sheet: the student chose, or changed, the part a page is. */
+  const handleLabelCrop = (key: string, partId: string) => {
+    setState(prev => {
+      const crops = labelGenericCrop(prev.crops, key, partId);
+      return crops === prev.crops ? prev : { ...prev, crops };
+    });
+  };
+
+  /** Generic sheet: retake one page from its review row. Keeps its place and its label. */
+  const handleRetakeGenericPage = async (pageId: string, file: File) => {
+    setCropBusy(`page-${pageId}`);
+    try {
+      const result = await ingestPage(file);
+      if (!result.page) {
+        setStatusMessage(result.reason ?? 'That photo could not be used. Try taking it again.');
+        return;
+      }
+      await handleReplacePage(pageId, result.page);
+      setStatusMessage('');
+    } finally {
+      setCropBusy(null);
+    }
   };
 
   /**
@@ -697,6 +744,16 @@ const App: React.FC = () => {
             "Load the assignment zip your instructor gave you — the one you printed the PDF from — " +
             "rather than the assignment_spec.json on its own."
           );
+          return;
+        }
+
+        // The generic answer page: its map must be THE generic map and its
+        // parts list must be usable, or the file is refused. Nothing else is
+        // checked here, and a file without `sheet` never reaches a refusal.
+        const genericProblem = genericSheetProblem(json, layout);
+        if (genericProblem) {
+          console.warn('Generic-sheet assignment refused:', genericProblem);
+          alert(GENERIC_WORDING.badGenericFile);
           return;
         }
 
@@ -1115,8 +1172,14 @@ const App: React.FC = () => {
       // action, so its guard must FAIL OPEN (standing rule, `CLAUDE.md`).
       // Rendering the choice in the page is how it fails open: nothing outside
       // the page can answer it, so there is no answer to mistake for consent.
-      const notice = completenessNotice(
-        submissionCompleteness(state.layout, state.crops, built.entries));
+      // On the generic sheet the parts come from the file, not the map, and a
+      // part counts once the student has labelled a page with it.
+      const notice = isGeneric
+        ? genericCompletenessNotice(
+            genericCoverage(state.assignment.parts ?? [], state.crops, state.pages, built.entries),
+            (state.assignment.parts ?? []).length)
+        : completenessNotice(
+            submissionCompleteness(state.layout, state.crops, built.entries));
       if (notice && !acknowledgedShortfall) {
         setPdfProgress({ active: false, phase: 'pdf', current: 0, total: 0 });
         setStatusMessage('');
@@ -1385,6 +1448,7 @@ const App: React.FC = () => {
                      onRemovePage={handleRemovePage}
                      onMovePage={handleMovePage}
                      onRotatePage={handleRotatePage}
+                     genericSheet={isGeneric}
                    />
                  )}
 
@@ -1392,7 +1456,22 @@ const App: React.FC = () => {
                      not optional and not collapsible. It appears as soon as the
                      map is loaded, so a student sees the empty list of parts
                      they have to fill before they start photographing. */}
-                 {isHandwritten && state.layout && (
+                 {/* The generic answer page: the same review, and it is also
+                     where the student says which part each page is. It lists
+                     pages, not map regions, so it appears once there are any. */}
+                 {isHandwritten && isGeneric && state.pages.length > 0 && (
+                   <GenericPageReview
+                     parts={state.assignment.parts ?? []}
+                     crops={state.crops}
+                     cropUrls={cropUrls}
+                     pages={state.pages}
+                     onLabel={handleLabelCrop}
+                     onReview={handleReviewCrop}
+                     onRetakePage={handleRetakeGenericPage}
+                     busy={cropBusy}
+                   />
+                 )}
+                 {isHandwritten && !isGeneric && state.layout && (
                    <CropReview
                      layout={state.layout}
                      crops={state.crops}

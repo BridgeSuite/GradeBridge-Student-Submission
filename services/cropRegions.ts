@@ -18,6 +18,8 @@ import { LayoutRow } from './layoutMap';
 import { Matrix3, applyMatrix, localScale } from './homography';
 import { PX_PER_MM, fractionRectToMm } from './pageFormat';
 import { Rgba, sampleRgba } from './raster';
+import { InkBox } from '../types';
+import { measureInk } from './inkBox';
 
 /** Advisory only. A flagged crop is still submitted; see the work order, section 6. */
 export const CROP_FLAG_LOOKS_EMPTY = 'looks-empty';
@@ -91,14 +93,19 @@ const inkFraction = (image: Rgba): number => {
  * upsampling past what the camera delivered invents detail and costs bytes in a
  * submission that has to reach Gradescope over a phone connection.
  */
-export const cropRegion = (page: Rgba, transform: Matrix3, row: LayoutRow): CroppedRegion => {
+export const cropRegion = (
+  page: Rgba, transform: Matrix3, row: LayoutRow, longEdgePx?: number,
+): CroppedRegion => {
   const mm = fractionRectToMm({ x0: row.x0, y0: row.y0, x1: row.x1, y1: row.y1 });
   const wMm = mm.x1 - mm.x0;
   const hMm = mm.y1 - mm.y0;
 
   const centre = { x: (mm.x0 + mm.x1) / 2, y: (mm.y0 + mm.y1) / 2 };
   const available = localScale(transform, centre);
-  const pxPerMm = Math.max(1, Math.min(available, PX_PER_MM));
+  // The generic sheet's long-edge cap, when given: a resolution bound, never a
+  // trim. The printed-sheet path passes nothing and is unchanged.
+  const capped = longEdgePx ? Math.min(PX_PER_MM, longEdgePx / Math.max(wMm, hMm)) : PX_PER_MM;
+  const pxPerMm = Math.max(1, Math.min(available, capped));
 
   const width = Math.max(1, Math.round(wMm * pxPerMm));
   const height = Math.max(1, Math.round(hMm * pxPerMm));
@@ -122,3 +129,33 @@ export const cropRegion = (page: Rgba, transform: Matrix3, row: LayoutRow): Crop
 
 export const cropRegions = (page: Rgba, transform: Matrix3, rows: LayoutRow[]): CroppedRegion[] =>
   rows.map(row => cropRegion(page, transform, row));
+
+/** The generic sheet's one crop per page: the whole box, and where its ink is. */
+export interface GenericBoxCrop extends CroppedRegion {
+  /** Null when the page has no ink; see `services/inkBox.ts`. */
+  inkBox: InkBox | null;
+}
+
+/**
+ * The whole writing box, **never trimmed** (`WORKORDER_SS_PAGE_LABELLING` §2a),
+ * capped at `longEdgePx` on its long edge, with the ink box measured beside it.
+ *
+ * `looks-empty` comes from the ink measure here, not from `inkFraction`: the
+ * generic box is ruled edge to edge, and a fraction of dark pixels counts the
+ * printed rules as writing, so it would never call a blank page blank.
+ *
+ * `ruleRows` is where the printed rules fall in a crop `height` pixels tall; a
+ * function, because the height is only known once the crop is sized.
+ */
+export const cropGenericBox = (
+  page: Rgba, transform: Matrix3, row: LayoutRow, longEdgePx: number,
+  ruleRows: (height: number) => number[],
+): GenericBoxCrop => {
+  const cut = cropRegion(page, transform, row, longEdgePx);
+  const ink = measureInk(cut.image, cut.pxPerMm, ruleRows(cut.image.height));
+  return {
+    ...cut,
+    flags: ink.box ? [] : [CROP_FLAG_LOOKS_EMPTY],
+    inkBox: ink.box,
+  };
+};

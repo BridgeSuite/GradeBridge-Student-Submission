@@ -292,6 +292,46 @@ export const renderSheet = (map, k) => {
   return img;
 };
 
+// ---------- the generic answer page ----------
+// `WORKORDER_AM_GENERIC_ANSWER_PAGE_2026-09-24` §3 with its rulings: the same
+// corner marks, the QR `GB1-GBGEN1-HWMSTR-1-1-5F0B10BC`, one bordered box
+// x 12.0 to 203.9, y 57.0 to 257.0, and 24 feint rules at y = 57 + 8k, inset
+// 3 mm from each side. The printed text lines above the box are drawn as grey
+// bars, like the fixture sheet's header: their words are irrelevant here.
+export const GENERIC_PAYLOAD = 'GB1-GBGEN1-HWMSTR-1-1-5F0B10BC';
+export const GENERIC_BOX_MM = [12.0, 57.0, 203.9, 257.0];
+
+/**
+ * @param writing  where to write, as [x0, y0, x1, y1] page-mm rectangles; each
+ *                 gets lines of pen strokes. Empty for a blank page.
+ * @param ruleGrey the feint rules' grey level (the approved mockup uses 190)
+ * @param offsetMm moves the box's border and rules down the page, as a
+ *                 registration error of that size would place them relative
+ *                 to where the map says they are
+ */
+export const renderGenericSheet = ({ writing = [], ruleGrey = 190, seed = 1, offsetMm = 0 } = {}) => {
+  const img = blank(SHEET_W, SHEET_H);
+  for (const [cx, cy] of fmt.MARK_CENTRES_MM) {
+    fillRectMm(img,
+      cx - fmt.MARK_SIZE_MM / 2, cy - fmt.MARK_SIZE_MM / 2,
+      cx + fmt.MARK_SIZE_MM / 2, cy + fmt.MARK_SIZE_MM / 2, 0);
+  }
+  drawQr(img, GENERIC_PAYLOAD);
+  for (let i = 0; i < 9; i++) fillRectMm(img, 20 + i * 6, 11.5, 24.5 + i * 6, 13.5, 90);
+  for (const [y, len] of [[28, 120], [37, 150], [42.5, 160], [47.6, 150], [51.6, 170]]) {
+    fillRectMm(img, 20, y - 2.2, 20 + len, y - 0.4, 120);
+  }
+  const [bx0, by0g, bx1, by1g] = GENERIC_BOX_MM;
+  const by0 = by0g + offsetMm, by1 = by1g + offsetMm;
+  strokeRectMm(img, bx0, by0, bx1, by1, 0.353, 0);
+  for (let k = 1; k <= 24; k++) {
+    const y = by0 + 8.0 * k;
+    fillRectMm(img, bx0 + 3, y - 0.1, bx1 - 3, y + 0.1, ruleGrey);
+  }
+  writing.forEach((r, i) => scribbleMm(img, r[0], r[1], r[2], r[3], seed * 97 + i * 13));
+  return img;
+};
+
 // ---------- degradations ----------
 const sampleBilinear = (src, x, y, outside) => {
   if (x < 0 || y < 0 || x > src.width - 1 || y > src.height - 1) return outside;

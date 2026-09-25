@@ -6,6 +6,7 @@ import { PageRef } from '../types';
 import { PAGE_TOTAL_SIZE_TARGET } from '../constants';
 import { IngestedPage, formatBytes, ingestPage } from '../imageIngest';
 import InAppBrowserNotice from './InAppBrowserNotice';
+import { GENERIC_WORDING } from '../services/genericWording';
 
 interface PageUploaderProps {
   pages: PageRef[];
@@ -17,6 +18,12 @@ interface PageUploaderProps {
   onMovePage: (id: string, delta: number) => void;
   /** Rewrites the stored bitmap a quarter turn clockwise. */
   onRotatePage: (id: string) => Promise<void>;
+  /**
+   * The generic answer page: every page is page 1 of 1 and says nothing about
+   * which part it holds, so nothing here may count pages by their QR, and the
+   * student is told the part is theirs to say. See `services/genericSheet.ts`.
+   */
+  genericSheet?: boolean;
 }
 
 interface Rejection {
@@ -26,6 +33,7 @@ interface Rejection {
 
 const PageUploader: React.FC<PageUploaderProps> = ({
   pages, pageUrls, onAddPage, onReplacePage, onRemovePage, onMovePage, onRotatePage,
+  genericSheet = false,
 }) => {
   const chooseRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -58,7 +66,8 @@ const PageUploader: React.FC<PageUploaderProps> = ({
   // better photo and wrong if it is the one they meant to delete. Either way
   // the student is the only one who can tell, so say it rather than pick.
   const seenK = new Map<number, number>();
-  for (const page of pages) {
+  // Not on the generic page: every one of them is page 1, and several is the point.
+  for (const page of genericSheet ? [] : pages) {
     const k = page.registration?.k;
     if (k) seenK.set(k, (seenK.get(k) ?? 0) + 1);
   }
@@ -67,7 +76,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
   // Pages the assignment has that nothing uploaded covers. `N` comes from the
   // QR on the paper, so this is only knowable once at least one page is in.
   const declaredN = pages.map((p) => p.registration?.n).find((n) => typeof n === 'number');
-  const missingK = declaredN
+  const missingK = declaredN && !genericSheet
     ? Array.from({ length: declaredN }, (_, i) => i + 1).filter((k) => !seenK.has(k))
     : [];
 
@@ -171,6 +180,16 @@ const PageUploader: React.FC<PageUploaderProps> = ({
             browser costs photographs, and it costs them here. It renders
             nothing at all in an ordinary browser or once dismissed. */}
         <InAppBrowserNotice />
+
+        {/* Generic page only, and before any photograph: the page itself
+            prints this, but one collected weeks ago may not have been read.
+            One line, in addition to the confirmation before download. */}
+        {genericSheet && (
+          <p className="text-sm font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+            <span>{GENERIC_WORDING.noIdentityReminder}</span>
+          </p>
+        )}
 
         <p className="text-sm text-gray-600">
           <span className="font-semibold text-gray-800">
@@ -391,7 +410,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                       </div>
                     )}
                     <span className="absolute top-1 left-1 bg-slate-900/80 text-white text-xs font-semibold px-2 py-0.5 rounded">
-                      {page.registration?.k ? `p${page.registration.k}` : idx + 1}
+                      {page.registration?.k && !genericSheet ? `p${page.registration.k}` : idx + 1}
                     </span>
                     <button
                       type="button"
@@ -497,7 +516,9 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                     )}
                     {url && page.registration?.status === 'ok' && (
                       <p className="text-[11px] text-green-800 bg-green-50 border border-green-200 rounded p-1.5">
-                        Read as page {page.registration.k} of {page.registration.n}.
+                        {genericSheet
+                          ? GENERIC_WORDING.pageReadOk
+                          : <>Read as page {page.registration.k} of {page.registration.n}.</>}
                       </p>
                     )}
 
@@ -518,11 +539,15 @@ const PageUploader: React.FC<PageUploaderProps> = ({
           </ul>
         )}
 
+        {genericSheet ? (
+          <p className="text-xs text-gray-500">{GENERIC_WORDING.uploaderFooter}</p>
+        ) : (
         <p className="text-xs text-gray-500">
           You do not have to upload the pages in order. Each page says which page of the assignment
           it is, in the code printed in its top-right corner, and your answers are cut out from
           that. Check them in the next section before you submit.
         </p>
+        )}
       </div>
     </section>
   );

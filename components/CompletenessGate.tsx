@@ -107,9 +107,11 @@ const CompletenessGate: React.FC<CompletenessGateProps> = ({
               Missing
             </p>
             <ul className="space-y-3">
-              {notice.groups.map((group) => (
-                <li key={group.pageK}>
-                  <p className="text-sm font-semibold text-slate-800">Page {group.pageK}</p>
+              {notice.groups.map((group, idx) => (
+                <li key={group.pageK ?? `g${idx}`}>
+                  {group.pageK !== undefined && (
+                    <p className="text-sm font-semibold text-slate-800">Page {group.pageK}</p>
+                  )}
                   <p className="text-sm text-gray-700">{group.names.join(', ')}</p>
                 </li>
               ))}

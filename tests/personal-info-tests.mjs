@@ -301,6 +301,10 @@ check('App: every place a page or crop bitmap changes stamps a new capture id', 
   const stamps = APP.match(/captureId: newCaptureId\(\)/g) ?? [];
   assert(stamps.length === 5,
     `${stamps.length} stamps; expected add page, replace page, rotate page, re-cut crops, direct capture`);
+  // The generic sheet's re-cut (2026-09-24) builds its record in
+  // `genericCropRecord`, and is handed a fresh capture id here.
+  assert(/genericCropRecord\([\s\S]{0,120}?newCaptureId\(\)\)/.test(APP),
+    'the generic re-cut does not stamp a new capture id');
   for (const [fn, label] of [['const runRegistration', 're-cut'], ['const handleAddPage', 'add'],
     ['const handleReplacePage', 'replace'], ['const handleRotatePage', 'rotate'],
     ['const handleDirectCapture', 'direct capture']]) {

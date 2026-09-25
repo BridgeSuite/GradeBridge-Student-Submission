@@ -40,6 +40,7 @@ import {
   PERSONAL_INFO_WORDING_VERSION, PersonalInfoConfirmation, isConfirmationCurrent,
   personalInfoUnconfirmedError,
 } from './personalInfo';
+import { CROP_FLAG_UNLABELLED, inkBoxJson, isGenericSheet, resolveGenericCrops } from './genericSheet';
 
 /**
  * Key a crop's bitmap is stored under. Pages use their own `PageRef.id`; crops
@@ -240,10 +241,51 @@ export const buildSubmissionJson = (s: SubmissionSources): Record<string, unknow
       held_out_mm: page.registration?.heldOutMm ?? null,
     }));
     const crops: Record<string, unknown> = {};
+    if (isGenericSheetSubmission(s)) {
+      // **The generic sheet** (`WORKORDER_SS_PAGE_LABELLING_2026-09-24`). One
+      // crop per page, the whole writing box, labelled by the student. Keyed
+      // by its file stem, because every crop shares the map's one `region_id`.
+      for (const r of resolveGenericCrops(s.crops, s.pages, s.assignment.parts ?? [])) {
+        const crop = r.crop;
+        crops[r.key] = {
+          region_id: crop.mapRegionId ?? crop.regionId,
+          // What the student chose, and that it was the student who chose it.
+          // Null when they chose nothing: the page is carried, never dropped.
+          part_id: r.part ? r.part.part_id : null,
+          part_source: 'student',
+          page_k: crop.pageK,
+          is_drawing: crop.isDrawing,
+          // From the part: 0 on a reader assignment, which has no points, as
+          // on a printed reader sheet. Null when no part was chosen.
+          max_points: r.part ? (r.part.max_points ?? 0) : null,
+          crop_source: crop.cropSource,
+          student_review: crop.review,
+          // An unlabelled page is marked here as well as by its null part, so
+          // anyone reading only the flags still sees it.
+          quality_flags: r.part ? crop.qualityFlags : [...crop.qualityFlags, CROP_FLAG_UNLABELLED],
+          file: r.file,
+          width: crop.width,
+          height: crop.height,
+          // Which photograph it came from, and where it sits among its part's
+          // pages. The map cannot say either: it has one region for every page.
+          page_file: r.pageFile,
+          part_page: r.partPage,
+          part_pages: r.partPages,
+          // Where the writing is, in this crop's pixels. Metadata only: the
+          // crop is the whole box, never trimmed. Null for a page with no ink.
+          ink_bbox: inkBoxJson(crop.inkBox),
+        };
+      }
+      submissionJson.crops = crops;
+      return submissionJson;
+    }
     for (const crop of cropList(s.crops)) {
       crops[crop.regionId] = {
         region_id: crop.regionId,
         part_id: crop.partId,
+        // The printed sheet's map said which part this is. The generic sheet
+        // writes "student" here, so the two can be told apart without inference.
+        part_source: 'layout',
         page_k: crop.pageK,
         is_drawing: crop.isDrawing,
         max_points: crop.maxPoints,
@@ -264,6 +306,10 @@ export const buildSubmissionJson = (s: SubmissionSources): Record<string, unknow
 
   return submissionJson;
 };
+
+/** A handwritten submission on the generic answer page. */
+const isGenericSheetSubmission = (s: SubmissionSources): boolean =>
+  s.isHandwritten && isGenericSheet(s.assignment);
 
 /**
  * Compression for the submission ZIP. Named so the app and any harness that
@@ -414,9 +460,15 @@ export const buildSubmissionPackage = async (
     const pageBlob = await assets.readBlob(page.id);
     if (pageBlob) rest.push({ name: page.file, data: pageBlob });
   }
-  for (const crop of cropList(sources.crops)) {
+  // Generic crops are named from their labels as they are now, by the same
+  // function the payload was written from, so the two cannot disagree.
+  const cropFiles: Array<{ crop: CropRef; file: string }> = isGenericSheetSubmission(sources)
+    ? resolveGenericCrops(sources.crops, sources.pages, sources.assignment.parts ?? [])
+      .map(r => ({ crop: r.crop, file: r.file }))
+    : cropList(sources.crops).map(crop => ({ crop, file: crop.file }));
+  for (const { crop, file } of cropFiles) {
     const cropBlob = await assets.readBlob(cropBlobKey(crop.regionId));
-    if (cropBlob) rest.push({ name: crop.file, data: cropBlob });
+    if (cropBlob) rest.push({ name: file, data: cropBlob });
   }
   for (let pIdx = 0; pIdx < sources.assignment.problems.length; pIdx++) {
     const problem = sources.assignment.problems[pIdx];

@@ -98,7 +98,11 @@ export const submissionCompleteness = (
 
 /** The missing answers on one sheet, in assignment order. */
 export interface MissingPageGroup {
-  pageK: number;
+  /**
+   * The sheet page. Absent on the generic answer page, where every page is
+   * page 1 and the number would send the student nowhere.
+   */
+  pageK?: number;
   /** `part_id` — what the printed sheet calls each answer. */
   names: string[];
 }

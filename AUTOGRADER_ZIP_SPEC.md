@@ -1,8 +1,26 @@
 # GradeBridge — submission ZIP interface
 
-**Version:** v7.0
-**Date:** 2026-09-21
-**App version:** v4.0.0
+**Version:** v7.1
+**Date:** 2026-09-24
+**App version:** v4.1.0 (not deployed until the new student-facing wording is approved)
+
+> ## v7.1 — additive. Two things; neither changes an existing field.
+>
+> 1. **Every crop now carries `part_source`.** On the printed sheet, which is
+>    everything submitted so far, it is always `"layout"`: the part came from
+>    the sheet's map, as it always has. Nothing else in the archive moved.
+>    Measured against the v4.0.0 builder over the same inputs, every image entry
+>    is byte-identical and the payload differs by that one key per crop
+>    (`tests/generic-sheet-tests.mjs`, against a golden written by `c72450e`).
+> 2. **A new kind of handwritten submission: the generic answer page** (§11).
+>    One crop per photographed page, with the part chosen by the student and
+>    recorded as `part_source: "student"`. Identified by `layout_id: "5F0B10BC"`.
+>
+> **If you validate crops against a fixed key set,** add `part_source` for the
+> printed sheet and see §11.4 for the generic sheet. Electronic submissions are
+> unchanged, byte for byte.
+
+**Supersedes:** v7.0, 2026-09-21, which this document otherwise keeps whole.
 
 > ## BREAKING. **Nothing in the archive is encrypted or encoded any more.**
 >
@@ -327,6 +345,7 @@ map; `tests/milestone-zero.mjs` checks both on this archive.
 |---|---|---|
 | `region_id` | `p1a` `p1b` `p1c` | Opaque. Do not parse. |
 | `part_id` | `1(a)` `1(b)` `1(c)` | The human label. Display this. |
+| `part_source` | `layout` | Added in v7.1. `layout` means the part came from the printed sheet's map. The generic sheet (§11) writes `student`. **Branch on this, never on the shape of the key.** |
 | `page_k` | 2, 3 | Which sheet page it was cut from. |
 | `is_drawing` | `false` | What the **author** asked for. See §6. |
 | `max_points` | 3, 2, 2 | From the map. (The frozen export totals 100; a current export of the same sheet totals 200 with the same `layout_id`, because points are outside the hash.) |
@@ -569,6 +588,124 @@ Unzip it. Every entry opens with the application a double-click chooses: the
 JSON in a text editor, the images in an image viewer, the electronic PDF in a PDF
 reader. **No key is needed.** v6.0's reference decryptor and worked byte offsets
 are withdrawn.
+
+---
+
+## 11. The generic answer page (v7.1)
+
+`WORKORDER_SS_PAGE_LABELLING_2026-09-24`, built against the Assignment Maker's
+`WORKORDER_AM_GENERIC_ANSWER_PAGE_2026-09-24` §2.
+
+### 11.1 What it is
+
+Some instructors post their own assignment PDF, and their students write on
+**one generic answer page**: the same page for every assignment and every
+course. It carries the same four corner marks and a QR in today's grammar,
+`GB1-GBGEN1-HWMSTR-1-1-5F0B10BC`, and its layout map has **one region**, the
+writing box. **The page cannot say which problem or part it holds, so the
+student says so in the app**, page by page, from a list the assignment file
+carries. That is the only new fact in the archive, and `part_source` names it.
+
+**Everything about the archive is the same as §1 to §10**: the same payload
+file, the same page photographs, the same `crops/` folder, plain JSON, plain
+JPEGs and no PDF. Only the crops differ, as below.
+
+### 11.2 How to recognise one
+
+`input_mode: "handwritten"` and **`layout_id: "5F0B10BC"`**. That id is a
+constant, printed on every generic page there will ever be, and it holds even
+for a submission with no crops at all. Every crop in such a submission also
+says `part_source: "student"`. There is no new top-level key: the payload's
+top-level keys are exactly the handwritten list in §3.
+
+### 11.3 The crops: one per page, the whole box
+
+Each registered page gives **one crop: the whole writing box, never trimmed to
+the writing**. Trimming is a heuristic applied to the thing being graded. Faint
+pencil, a sparse sketch or one line low on the page can read as empty, and
+nobody downstream can recover what a trim cuts. Instead the app records where
+the ink is (`ink_bbox`) and leaves any tightening to you.
+
+- **Long edge capped at 1600 px.** The box is 191.2 × 199.3 mm inside its
+  border, so a crop is at most 1535 × 1600 (8.0 px/mm, about 203 dpi). Today's
+  ingest keeps pages at no more than 2200 px on their long edge, so real crops
+  come out at the photograph's own resolution, typically 1150 to 1400 px tall.
+- **Named by the part the student chose,** numbered in capture order within
+  that part: `crops/1a_1.jpg`, `crops/1a_2.jpg`, `crops/2_1.jpg`. A page the
+  student did not label is `crops/unlabelled_1.jpg`, and so on. **Use `file` as
+  given; do not build names.** They are derived when the package is built, so a
+  relabel never leaves a stale one.
+- **Keyed by the file stem**, `1a_1`, because every crop shares the map's one
+  `region_id`, `gen`. **Do not assume the key is the `region_id`** on this path.
+
+### 11.4 Fields, as written
+
+```json
+"crops": {
+  "1a_1": { "region_id": "gen", "part_id": "1(a)", "part_source": "student",
+            "page_k": 1, "is_drawing": false, "max_points": 60,
+            "crop_source": "registration", "student_review": "signed_off",
+            "quality_flags": [],
+            "file": "crops/1a_1.jpg", "width": 1325, "height": 1381,
+            "page_file": "page_1.jpg", "part_page": 1, "part_pages": 2,
+            "ink_bbox": { "x0": 34, "y0": 108, "x1": 906, "y1": 525 } },
+  "1a_2": { …, "page_file": "page_3.jpg", "part_page": 2, "part_pages": 2 },
+  "unlabelled_1": { "region_id": "gen", "part_id": null, "part_source": "student",
+            "max_points": null, "quality_flags": ["unlabelled"],
+            "file": "crops/unlabelled_1.jpg", "part_page": null, "part_pages": null, … }
+}
+```
+
+Every generic crop has exactly these sixteen keys, in this order:
+
+| field | value | note |
+|---|---|---|
+| `region_id` | `gen` | The map's one region. The same on every crop. |
+| `part_id` | `1(a)`, `2`, or `null` | **What the student chose.** Same derivation as on the printed map. `null` when they chose nothing. |
+| `part_source` | `student` | Always, on this path. The printed sheet writes `layout`. |
+| `page_k` | `1` | Every generic page is page 1 of 1. **This is not a position in the assignment.** |
+| `is_drawing` | `false` | From the map. The generic page does not know. |
+| `max_points` | number, `0`, or `null` | From the part. `0` on a reader assignment, which has no points. `null` when unlabelled. |
+| `crop_source` | `registration` | Cut from a registered page. |
+| `student_review` | as §3.3 | |
+| `quality_flags` | as §3.3, plus `unlabelled` | `looks-empty` comes from the ink measure in §11.5. `unlabelled` marks a page with no part. |
+| `file`, `width`, `height` | | As §3.3. |
+| `page_file` | `page_3.jpg` | The photograph it was cut from. The map cannot say, because every page has the same region. |
+| `part_page`, `part_pages` | `2`, `2` | Where it sits among its part's pages, in capture order (the order the student left their pages in). Read a part's pages in `part_page` order. `null` when unlabelled. |
+| `ink_bbox` | `{x0, y0, x1, y1}` or `null` | Where the writing is, **in this crop's pixels**, with `x1` and `y1` exclusive, padded by 1.5 mm. **Metadata only: the crop is not trimmed to it.** `null` means the app found no ink at all, and the crop also carries `looks-empty`. |
+
+### 11.5 How `ink_bbox` is measured, so you know what to trust
+
+A pixel counts as ink when it is 40 levels darker than the paper in its own
+4 mm block, because a photograph is never evenly lit. The printed rules are
+removed by what they are: at their known positions, and as any straight run
+over 15 mm in either direction, found on a softer threshold with gaps of up to
+1 mm bridged. A patch under 0.25 mm² is treated as dust. With less than
+2 mm² of ink in total (less than one short written digit) the page is reported
+as having none. **Like every flag, this is advisory: a blank page is still
+submitted.**
+
+`tests/generic-sheet-tests.mjs` holds it on twelve capture recipes, including
+pages whose rules land 1.5 and 2.5 mm from where the map says, and rules printed
+nearly black. **It has not been measured on real photographs of the generic
+page, because none exist yet.** Run the first real set through it.
+
+### 11.6 What the student was told
+
+Nothing blocks the download except the personal-information confirmation, which
+is unchanged. Before download the student is shown which parts have no page, a
+part with several pages while another part has none, pages with no part, and
+pages that look blank. **They may download anyway.** So expect submissions with
+parts missing, parts repeated and pages unlabelled, and grade what arrived. A
+part with no crop is unanswered. An `unlabelled` crop is an answer the student
+did not place.
+
+### 11.7 What is not here
+
+There is no question text, because the assignment file carries none on this
+path. There is no assignment identity on the page itself, because the QR says
+only that it is the generic page. The assignment is identified by where the
+student uploaded, as always.
 
 ---
 

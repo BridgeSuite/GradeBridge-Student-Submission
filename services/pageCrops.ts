@@ -10,7 +10,9 @@
 
 import { LayoutMap, LayoutRow, rowsForPage } from './layoutMap';
 import { RegistrationResult, registerPage } from './registration';
-import { CroppedRegion, cropRegions } from './cropRegions';
+import { CroppedRegion, cropGenericBox, cropRegions } from './cropRegions';
+import { GENERIC_CROP_LONG_EDGE_PX, genericRuleRowsPx } from './genericSheet';
+import { InkBox } from '../types';
 import { initQrReader } from './qrDecode';
 import { Rgba } from './raster';
 
@@ -77,7 +79,11 @@ export const rgbaToJpegBlob = (image: Rgba, quality = CROP_JPEG_QUALITY): Promis
 export interface PageCropResult {
   registration: RegistrationResult;
   /** Empty when the page did not register, or when the map has no rows for its k. */
-  crops: Array<{ row: LayoutRow; blob: Blob; flags: string[]; width: number; height: number }>;
+  crops: Array<{
+    row: LayoutRow; blob: Blob; flags: string[]; width: number; height: number;
+    /** Generic sheet only: where the ink is, null for none. Absent on the printed sheet. */
+    inkBox?: InkBox | null;
+  }>;
   /** Set when the page registered but its QR disagrees with the loaded map. */
   layoutMismatch: { onPage: string; inFile: string } | null;
 }
@@ -92,7 +98,7 @@ export interface PageCropResult {
  * an error. That is the one silent failure this whole check exists for.
  */
 export const registerAndCropPage = async (
-  pageBlob: Blob, map: LayoutMap | null
+  pageBlob: Blob, map: LayoutMap | null, options: { generic?: boolean } = {},
 ): Promise<PageCropResult> => {
   // The decoder is a wasm module built from bytes already in the bundle, so this
   // cannot fail on a bad connection and cannot block on one. It is awaited here
@@ -116,6 +122,21 @@ export const registerAndCropPage = async (
   if (!map) return { registration, crops: [], layoutMismatch: null };
 
   const rows = rowsForPage(map, registration.qr.fields.k);
+
+  // The generic sheet: its one region, whole, capped, with the ink measured.
+  if (options.generic) {
+    const crops = [];
+    for (const row of rows) {
+      const c = cropGenericBox(image, registration.transform, row, GENERIC_CROP_LONG_EDGE_PX,
+        (height) => genericRuleRowsPx(row, height));
+      crops.push({
+        row, blob: await rgbaToJpegBlob(c.image), flags: c.flags,
+        width: c.image.width, height: c.image.height, inkBox: c.inkBox,
+      });
+    }
+    return { registration, crops, layoutMismatch: null };
+  }
+
   const cropped: CroppedRegion[] = cropRegions(image, registration.transform, rows);
 
   const crops = [];

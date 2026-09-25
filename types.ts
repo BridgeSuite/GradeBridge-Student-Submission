@@ -80,6 +80,33 @@ export interface Assignment {
    */
   layoutCsvName?: string;
   layoutCsv?: string;
+  /**
+   * Which sheet the student writes on. Absent means the sheet the Assignment
+   * Maker printed for THIS assignment, whose map says which part every box is.
+   * `'generic'` means the one GradeBridge answer page every assignment shares
+   * (`GBGEN1`, layout `5F0B10BC`): the page cannot say which part it holds, so
+   * the student says so here, from `parts`. Read only on a handwritten
+   * assignment; an electronic one ignores it. `services/genericSheet.ts`.
+   */
+  sheet?: 'generic';
+  /** The parts a generic-sheet student chooses from, in order. Absent otherwise. */
+  parts?: GenericPart[];
+}
+
+/**
+ * One entry in `Assignment.parts`, exactly as the Assignment Maker writes it
+ * (`WORKORDER_AM_GENERIC_ANSWER_PAGE_2026-09-24` §2). Snake case because it is
+ * the file's shape, carried through untouched.
+ */
+export interface GenericPart {
+  /** `1(a)`, or `2` for a problem with one part. Written into the package. */
+  part_id: string;
+  problem_number: number;
+  subsection_letter: string;
+  /** What the student is shown: `Problem 1, part (a)`. */
+  label: string;
+  /** Conventional assignments only. A reader assignment omits it. */
+  max_points?: number;
 }
 
 // =====================================================
@@ -154,6 +181,21 @@ export type CropSource = 'registration' | 'direct_capture';
 export type StudentReview = 'signed_off' | 'flagged' | 'not_reviewed';
 
 /**
+ * Who said which part a crop is. `'layout'`: the printed sheet's map, as it
+ * always has. `'student'`: the student chose it, on the generic sheet, because
+ * the page cannot say.
+ */
+export type PartSource = 'layout' | 'student';
+
+/** Where the writing is inside a crop, in crop pixels; `x1`, `y1` exclusive. */
+export interface InkBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
  * One answer, cut out and shown back. Every field above `cropSource` is read
  * from the map row — never parsed out of `region_id`, never inferred from the
  * order pages were uploaded in.
@@ -177,6 +219,19 @@ export interface CropRef {
   fromPage?: string;
   /** New on every cut and every direct capture. Local only; see `PageRef.captureId`. */
   captureId?: string;
+  /**
+   * Generic sheet only; absent means `'layout'`. On that path `partId` is what
+   * the student chose, and `''` until they choose.
+   */
+  partSource?: PartSource;
+  /**
+   * Generic sheet only. The map's `region_id` the crop was cut from. There is
+   * one region and one crop per PAGE, so the record's key (`regionId` above)
+   * is per page, `gen@{pageId}`, and this carries the map's own id.
+   */
+  mapRegionId?: string;
+  /** Generic sheet only. Where the ink is; null when the page has none. */
+  inkBox?: InkBox | null;
 }
 
 export interface SubmissionData {

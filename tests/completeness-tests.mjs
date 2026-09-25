@@ -375,7 +375,9 @@ console.log('\n  6. wiring, and no dialog on the download path');
       'the handler does not stop before the archive is generated'));
 
   check('a complete submission reaches the download with no gate', () =>
-    assert(/const notice = completenessNotice\([\s\S]{0,200}?\);\s*if \(notice && !acknowledgedShortfall\) \{/.test(app),
+    // Since 2026-09-24 the notice is one of two, the generic sheet's or the
+    // printed sheet's; either way, the gate opens only on a notice.
+    assert(/const notice = (?:isGeneric\s*\?\s*genericCompletenessNotice\([\s\S]{0,300}?\)\s*:\s*)?completenessNotice\([\s\S]{0,200}?\);\s*if \(notice && !acknowledgedShortfall\) \{/.test(app),
       'the gate is not conditional on there being a shortfall'));
 
   // **The anti-regression for the whole suppression finding.** Six other
