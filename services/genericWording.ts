@@ -7,7 +7,11 @@
  * that approval one file to read and one file to edit, and lets a test hold
  * all of them to the platform-neutral rule at once.
  *
- * **STATUS: DRAFT, awaiting approval. Not to be deployed until approved.**
+ * **STATUS: APPROVED by Andre, 2026-09-25**, with two changes: `reviewIntro`
+ * and `unlabelledNote` no longer say "grader". EEC130A students submit reader
+ * work and conventional homework through this same app, and the app cannot
+ * tell the two apart, so no student-facing sentence may assume a grader exists.
+ * A change to any string here needs approval again.
  *
  * Strings the generic path REUSES unchanged from the printed-sheet path are
  * not here: "Looks right", "Something is wrong", "Flagged", "Not checked yet",
@@ -35,13 +39,13 @@ export const GENERIC_WORDING = {
   /** GenericPageReview. */
   reviewHeading: 'Say which part each page is, then check it',
   reviewIntro:
-    'This is exactly what your grader will see: the box from each page, under the part you choose. ' +
+    'This is exactly what is collected from each page: the box, under the part you choose. ' +
     'You can change a part at any time.',
   photoHeading: (n: number): string => `Photo ${n}`,
   choosePrompt: 'Which part is this page?',
   choosePlaceholder: 'Choose a part',
   unlabelledNote:
-    'No part chosen yet. This page is still submitted, but your grader will not know which part it is.',
+    'No part chosen yet. This page is still submitted, but it will not be filed under any part.',
   retakeThisPage: 'Retake this page',
 
   /** GenericPageReview, the coverage panel above the list. §2 item 6: say, never block. */

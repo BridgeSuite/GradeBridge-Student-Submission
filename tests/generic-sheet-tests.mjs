@@ -619,6 +619,10 @@ const wordingText = Object.values(P.GENERIC_WORDING)
   .map(v => typeof v === 'function' ? v(2, 3) + v('Problem 1, part (a)', 2) : v).join('\n');
 check('no new generic-sheet string names a platform', () =>
   assert(!PLATFORM.test(wordingText), wordingText.match(PLATFORM)?.[0]));
+// Approved 2026-09-25: the app cannot tell reader work from conventional
+// homework, so no student-facing sentence may assume a grader exists.
+check('no new generic-sheet string assumes a grader exists', () =>
+  assert(!/grader/i.test(wordingText), wordingText.match(/.*grader.*/i)?.[0]));
 check('the identity reminder is one line and names name, student ID and email', () => {
   const r = P.GENERIC_WORDING.noIdentityReminder;
   assert(!r.includes('\n') && /name/.test(r) && /student ID/.test(r) && /email/.test(r), r);
