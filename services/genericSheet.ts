@@ -26,7 +26,6 @@
  */
 
 import { Assignment, CropRef, GenericPart, InkBox, PageRef, StoredLayoutMap } from '../types';
-import { PAGE_H_MM } from './pageFormat';
 import type { CompletenessNotice } from './completeness';
 
 /** The generic page's template id: field 2 of its QR, and its map's `assignment_id`. */
@@ -38,14 +37,6 @@ export const GENERIC_TEMPLATE_ID = 'GBGEN1';
  * on every generic page there will ever be, so it cannot move.
  */
 export const GENERIC_LAYOUT_ID = '5F0B10BC';
-
-/**
- * The printed rules inside the box, in page millimetres (ruling 1 of
- * 2026-09-24): 24 feint rules at y = 57 + 8.0k, k = 1 to 24. Used only to tell
- * the ink measure where printed lines are, never to crop.
- */
-export const GENERIC_RULES_Y_MM: readonly number[] =
-  Array.from({ length: 24 }, (_, i) => 57 + 8.0 * (i + 1));
 
 /**
  * The stored crop's long edge is capped at this many pixels (§2a). A fixed
@@ -272,18 +263,6 @@ export const genericCompletenessNotice = (c: GenericCoverage, total: number): Co
     groups: [{ names: c.missing.map(p => p.label) }],
     choice: 'If you left those blank on purpose, you can download anyway.',
   };
-};
-
-/**
- * The printed rules' rows in a crop of the generic region, for the ink
- * measure. The crop spans the region's rectangle top to bottom, so a rule at
- * page-y `r` sits at `(r - top) / (bottom - top)` of its height.
- */
-export const genericRuleRowsPx = (row: { y0: number; y1: number }, cropHeight: number): number[] => {
-  const top = row.y0 * PAGE_H_MM, bottom = row.y1 * PAGE_H_MM;
-  return GENERIC_RULES_Y_MM
-    .filter(y => y > top && y < bottom)
-    .map(y => ((y - top) / (bottom - top)) * cropHeight - 0.5);
 };
 
 /** The ink box as the payload writes it. */

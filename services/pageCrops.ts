@@ -11,7 +11,7 @@
 import { LayoutMap, LayoutRow, rowsForPage } from './layoutMap';
 import { RegistrationResult, registerPage } from './registration';
 import { CroppedRegion, cropGenericBox, cropRegions } from './cropRegions';
-import { GENERIC_CROP_LONG_EDGE_PX, genericRuleRowsPx } from './genericSheet';
+import { GENERIC_CROP_LONG_EDGE_PX } from './genericSheet';
 import { InkBox } from '../types';
 import { initQrReader } from './qrDecode';
 import { Rgba } from './raster';
@@ -127,8 +127,7 @@ export const registerAndCropPage = async (
   if (options.generic) {
     const crops = [];
     for (const row of rows) {
-      const c = cropGenericBox(image, registration.transform, row, GENERIC_CROP_LONG_EDGE_PX,
-        (height) => genericRuleRowsPx(row, height));
+      const c = cropGenericBox(image, registration.transform, row, GENERIC_CROP_LONG_EDGE_PX);
       crops.push({
         row, blob: await rgbaToJpegBlob(c.image), flags: c.flags,
         width: c.image.width, height: c.image.height, inkBox: c.inkBox,

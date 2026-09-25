@@ -37,7 +37,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import JSZip from 'jszip';
 import jpeg from 'jpeg-js';
-import { loadModule, makeCapture, renderGenericSheet, RECIPES, GENERIC_PAYLOAD } from './captureSet.mjs';
+import { execFileSync } from 'node:child_process';
+import { PNG } from 'pngjs';
+import {
+  loadModule, makeCapture, renderGenericSheet, RECIPES, GENERIC_PAYLOAD, GENERIC_PDF, GENERIC_PNG, INK,
+} from './captureSet.mjs';
 import { GOLDEN_PATH, buildBoth } from './packageFixtures.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,6 +67,38 @@ console.log('\ngeneric answer page — the student says which part each page is\
 
 const P = await loadModule('tests/genericPipeline.ts', 'gs_pipeline.mjs');
 await P.initQrReader();
+
+// =====================================================
+// 0. The page every photograph here is of
+// =====================================================
+results.push('  0. the real generic page');
+
+const PDF_SHA256 = 'a49041f869f707d10fe2b826f24f415c65ed9288b9a4f947b62f6d3e4b82a98d';
+check('the page fixture is the PDF exported from the live Assignment Maker (index-B1cnuwf-.js)', () =>
+  assert(createHash('sha256').update(readFileSync(GENERIC_PDF)).digest('hex') === PDF_SHA256,
+    `${GENERIC_PDF} is not the exported page`));
+{
+  // The 300 dpi rendering is only a convenience for Node, which has no PDF
+  // renderer. Where MuPDF is installed it is re-rendered and compared, so the
+  // PNG cannot drift from the PDF it claims to be.
+  let rendered = null;
+  try {
+    rendered = execFileSync('python', ['-c',
+      'import sys, fitz; p = fitz.open(sys.argv[1])[0].get_pixmap(dpi=300, colorspace=fitz.csGRAY); ' +
+      'sys.stdout.buffer.write(p.samples)', GENERIC_PDF], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch { /* no python or no MuPDF */ }
+  if (rendered) {
+    check('the 300 dpi PNG is exactly the PDF, rendered', () => {
+      const png = PNG.sync.read(readFileSync(GENERIC_PNG));
+      assert(rendered.length === png.width * png.height, `render is ${rendered.length} bytes`);
+      for (let i = 0; i < rendered.length; i++) {
+        if (rendered[i] !== png.data[i * 4]) throw new Error(`pixel ${i} differs`);
+      }
+    });
+  } else {
+    skip('the 300 dpi PNG is exactly the PDF, rendered', 'MuPDF (python fitz) not available');
+  }
+}
 
 // =====================================================
 // 1. Loading
@@ -125,13 +161,26 @@ const toJpeg = (image) => new Uint8Array(jpeg.encode(
   { data: Buffer.from(image.data.buffer, image.data.byteOffset, image.data.byteLength), width: image.width, height: image.height },
   90).data);
 
-/** One photograph through the shipped pipeline, as `registerAndCropPage` runs it. */
-const photograph = (sheet, recipe) => {
+/**
+ * The fitted transform with a registration error added: page millimetres are
+ * sampled `dx`, `dy` mm away from where the fit put them.
+ */
+const shifted = (m, dx, dy) => {
+  const t = [...m];
+  t[2] += m[0] * dx + m[1] * dy; t[5] += m[3] * dx + m[4] * dy; t[8] += m[6] * dx + m[7] * dy;
+  return t;
+};
+
+/**
+ * One photograph of THE REAL exported page through the shipped pipeline, as
+ * `registerAndCropPage` runs it. Only the student's writing is synthetic.
+ */
+const photograph = (sheet, recipe, error = [0, 0]) => {
   const cap = makeCapture(sheet, recipe);
   const reg = P.registerPage(cap.image);
   if (!reg.usable) throw new Error(`${recipe.name} did not register: ${reg.status}`);
-  const cut = P.cropGenericBox(cap.image, reg.transform, row, P.GENERIC_CROP_LONG_EDGE_PX,
-    (h) => P.genericRuleRowsPx(row, h));
+  const cut = P.cropGenericBox(cap.image, shifted(reg.transform, error[0], error[1]), row,
+    P.GENERIC_CROP_LONG_EDGE_PX);
   return { cap, reg, cut, pageBytes: toJpeg(cap.image), cropBytes: toJpeg(cut.image) };
 };
 
@@ -139,11 +188,10 @@ const RECIPE = Object.fromEntries(RECIPES.map(r => [r.name, r]));
 const shotA = photograph(renderGenericSheet({ writing: [[15, 70, 200, 140]], seed: 1 }), RECIPE['02-rotate-2deg']);
 const shotB = photograph(renderGenericSheet({ writing: [[15, 150, 150, 200]], seed: 2 }), RECIPE['05-perspective-mild']);
 
-check('both photographs register as the generic page, from its own QR', () => {
+check(`both photographs register from the real page's own QR, ${GENERIC_PAYLOAD}`, () => {
   for (const s of [shotA, shotB]) {
-    assert(s.reg.qr.payload === GENERIC_PAYLOAD || s.reg.qr.fields.layoutId === P.GENERIC_LAYOUT_ID,
-      `QR read as ${JSON.stringify(s.reg.qr.fields)}`);
-    assert(s.reg.qr.fields.k === 1 && s.reg.qr.fields.n === 1, 'not page 1 of 1');
+    assertEqual(s.reg.qr.fields,
+      { assignmentId: 'GBGEN1', token: 'HWMSTR', k: 1, n: 1, layoutId: P.GENERIC_LAYOUT_ID }, 'QR fields');
   }
 });
 
@@ -311,35 +359,51 @@ await checkAsync('the ink box reaches the package as ink_bbox', async () => {
   const v = two.payload.crops['1a_1'];
   assertEqual(v.ink_bbox, shotA.cut.inkBox, 'ink_bbox');
 });
-const loneLow = photograph(renderGenericSheet({ writing: [[20, 238, 60, 248]] }), RECIPE['10-jpeg-low']);
-check('one short line low on the page is found, and not called blank', () => {
+const ALL = [...RECIPES, { ...RECIPE['01-clean'], name: '13-hires-3000x3900', frameW: 3000, frameH: 3900 }];
+/** Photographs the sheet on every recipe and names the ones where `bad(cut)` holds. */
+const failingRecipes = (sheet, bad, error) =>
+  ALL.filter(recipe => bad(photograph(sheet, recipe, error).cut)).map(r => r.name);
+const blankSheet = renderGenericSheet({});
+const isNotBlank = (cut) => cut.inkBox !== null || !cut.flags.includes('looks-empty');
+
+check('a blank real page is warned about as blank, on all 13 capture recipes', () => {
+  const bad = failingRecipes(blankSheet, isNotBlank);
+  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
+});
+check('the real page with only Problem and Part filled in, box empty, is still blank on all 13', () => {
+  const bad = failingRecipes(renderGenericSheet({ fields: true }), isNotBlank);
+  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
+});
+check('a blank real page stays blank with registration off by up to 3 mm, any direction', () => {
+  // 3.0 mm is what a degraded three-mark fit is allowed. At these errors the
+  // box's black border enters the crop; it is found by the box's declared
+  // geometry, never by the rules.
+  const bad = [];
+  for (const error of [[0, -1], [0, -2], [0, -3], [0, 3], [-3, 0], [3, 0], [-2, -2]]) {
+    for (const name of failingRecipes(blankSheet, (c) => c.inkBox !== null, error)) bad.push(`${name}@${error}`);
+  }
+  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
+});
+check('pencil writing (2B, as the page asks) is found on all 13', () => {
+  const bad = failingRecipes(renderGenericSheet({ writing: [[15, 62, 200, 140]], ink: INK.pencil }),
+    (c) => c.inkBox === null);
+  assert(bad.length === 0, `called blank: ${bad.join(', ')}`);
+});
+// A sketch drawn with a ruler: two axes and a wire, nothing else. The length
+// rule alone erased these; the deep tier keeps them when they are dark enough.
+// The counts are the measured ones (inkBox.ts): a drop is a regression.
+const SKETCH = [[40, 200, 40, 120], [40, 200, 170, 200], [60, 150, 150, 150]];
+for (const [inkName, atLeast] of [['pen', 11], ['pencil', 10]]) {
+  check(`a ruler-drawn sketch in ${inkName} is found on at least ${atLeast} of 13`, () => {
+    const missed = failingRecipes(renderGenericSheet({ ruled: SKETCH, ink: INK[inkName] }), (c) => c.inkBox === null);
+    assert(13 - missed.length >= atLeast, `found on ${13 - missed.length}; missed ${missed.join(', ')}`);
+  });
+}
+const loneLow = photograph(renderGenericSheet({ writing: [[20, 238, 60, 248]], ink: INK.pencil }), RECIPE['10-jpeg-low']);
+check('one short pencil line low on the page is found, and not called blank', () => {
   const b = loneLow.cut.inkBox;
   assert(b && b.y0 > loneLow.cut.image.height * 0.85, JSON.stringify(b));
   assert(!loneLow.cut.flags.includes('looks-empty'), 'called blank');
-});
-check('a blank page is warned about, on every capture recipe, including dark-printed rules', () => {
-  const bad = [];
-  for (const recipe of RECIPES) {
-    for (const ruleGrey of [190, 60]) {
-      const s = photograph(renderGenericSheet({ ruleGrey }), recipe);
-      if (s.cut.inkBox !== null || !s.cut.flags.includes('looks-empty')) bad.push(`${recipe.name}/${ruleGrey}`);
-    }
-  }
-  assert(bad.length === 0, `not warned: ${bad.join(', ')}`);
-});
-check('a blank page is still blank when its rules and border land 1.5 or 2.5 mm from where the map puts them', () => {
-  // More than the band around each known rule, so what removes them here is
-  // the printed-line detector; at 2.5 mm the top border also falls inside the
-  // crop. Found in development: at these offsets the band clipped each rule
-  // and left a broken fringe that read as 130 to 260 mm² of "ink".
-  const bad = [];
-  for (const recipe of RECIPES) {
-    for (const offsetMm of [1.5, 2.5]) {
-      const s = photograph(renderGenericSheet({ offsetMm }), recipe);
-      if (s.cut.inkBox !== null) bad.push(`${recipe.name}/${offsetMm}`);
-    }
-  }
-  assert(bad.length === 0, `ink found on a blank page: ${bad.join(', ')}`);
 });
 await checkAsync('a blank page is still packaged, with ink_bbox null', async () => {
   const blank = photograph(renderGenericSheet({}), RECIPE['01-clean']);

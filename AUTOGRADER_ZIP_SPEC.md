@@ -676,19 +676,45 @@ Every generic crop has exactly these sixteen keys, in this order:
 
 ### 11.5 How `ink_bbox` is measured, so you know what to trust
 
-A pixel counts as ink when it is 40 levels darker than the paper in its own
-4 mm block, because a photograph is never evenly lit. The printed rules are
-removed by what they are: at their known positions, and as any straight run
-over 15 mm in either direction, found on a softer threshold with gaps of up to
-1 mm bridged. A patch under 0.25 mm² is treated as dust. With less than
-2 mm² of ink in total (less than one short written digit) the page is reported
-as having none. **Like every flag, this is advisory: a blank page is still
-submitted.**
+Depth is measured below the local paper (the 90th percentile of each 4 mm
+block), because a photograph is never evenly lit. The printed rules and real
+writing overlap in depth, so the measure has two tiers:
 
-`tests/generic-sheet-tests.mjs` holds it on twelve capture recipes, including
-pages whose rules land 1.5 and 2.5 mm from where the map says, and rules printed
-nearly black. **It has not been measured on real photographs of the generic
-page, because none exist yet.** Run the first real set through it.
+1. **More than 130 levels below the paper is ink, whatever its shape.**
+2. **Between 40 and 130 is ink unless it is part of a straight line of 15 mm
+   or more**, horizontal or vertical, with gaps of up to 1 mm bridged.
+   Handwriting has no 15 mm straight strokes. This test knows nothing about
+   where the rules are.
+
+The box's own border, black, is removed as a long straight line within 3.5 mm
+of the crop's edge. Patches under 0.25 mm² are dust. Under 2 mm² of ink in total,
+about one short written digit, the page is reported as having none. **Like every
+flag, this is advisory: a blank page is still submitted, and every crop is the
+whole box.**
+
+**What the thresholds rest on**, measured on 40 real phone photographs of the
+app-printed sheet (below local paper): printed rule cores p50 21, p99 84,
+p99.9 160, max 206; real strokes' darkest pixel p10 45, p50 81. Half of real
+strokes are no darker than the rules' upper range, which is why the straight-line
+tier exists. At 130, a rule stays above the step for 0.8 mm or more on about
+0.5 mm per metre of rule, never for more than 2.5 mm, and a quarter of real
+strokes reach it. Full working in `services/inkBox.ts`.
+
+**What that does and does not cover:**
+
+- **Those photographs are of the dashed-rule sheet.** The generic page's rules
+  are the same 0.5 pt and 75% grey but solid, so the grey levels transfer and
+  the run-length and gap structure do not. **No photograph of the generic page
+  printed on a real printer has been measured yet.** The suite photographs the
+  real exported PDF synthetically: a blank page, and a blank page with the
+  Problem and Part fields filled in, read as no ink on all 13 capture recipes,
+  including with registration off by up to 3 mm.
+- **A ruler-drawn sketch** is found on 11 of 13 recipes in pen and 10 of 13 in
+  2B pencil. The misses are blurred and hurried photographs.
+- **A ruler-drawn line in faint hard pencil reads as blank.** It never reaches
+  the deep tier and it is straight. The page itself covers this, by telling the
+  student to write with a soft pencil or a pen. So an `ink_bbox: null` on a
+  sketch part is worth a look before it is believed.
 
 ### 11.6 What the student was told
 

@@ -292,43 +292,84 @@ export const renderSheet = (map, k) => {
   return img;
 };
 
-// ---------- the generic answer page ----------
-// `WORKORDER_AM_GENERIC_ANSWER_PAGE_2026-09-24` §3 with its rulings: the same
-// corner marks, the QR `GB1-GBGEN1-HWMSTR-1-1-5F0B10BC`, one bordered box
-// x 12.0 to 203.9, y 57.0 to 257.0, and 24 feint rules at y = 57 + 8k, inset
-// 3 mm from each side. The printed text lines above the box are drawn as grey
-// bars, like the fixture sheet's header: their words are irrelevant here.
+// ---------- the generic answer page: the REAL one ----------
+// `tests/fixtures/GradeBridge_answer_page_GBGEN1.pdf` is the page exported from
+// the live Assignment Maker (bundle `index-B1cnuwf-.js`, gh-pages `aea334e`),
+// and `..._300dpi.png` is that PDF rendered at 300 dpi in grey by MuPDF. Every
+// generic-page photograph in the suite is a photograph of THAT page. Nothing
+// here draws the page: a page drawn by the test proves nothing about the one a
+// student holds. `tests/generic-sheet-tests.mjs` re-renders the PDF and
+// compares, where MuPDF is available.
+//
+// Only the student's writing is synthetic, laid onto the real page.
 export const GENERIC_PAYLOAD = 'GB1-GBGEN1-HWMSTR-1-1-5F0B10BC';
-export const GENERIC_BOX_MM = [12.0, 57.0, 203.9, 257.0];
+export const GENERIC_PDF = join(HERE, 'fixtures', 'GradeBridge_answer_page_GBGEN1.pdf');
+export const GENERIC_PNG = join(HERE, 'fixtures', 'GradeBridge_answer_page_GBGEN1_300dpi.png');
+
+let genericPage = null;
+const loadGenericPage = () => {
+  if (!genericPage) {
+    const png = PNG.sync.read(readFileSync(GENERIC_PNG));
+    if (png.width !== SHEET_W || png.height !== SHEET_H) {
+      throw new Error(`${GENERIC_PNG} is ${png.width}x${png.height}, not the 300 dpi Letter page`);
+    }
+    genericPage = png;
+  }
+  return { data: new Uint8ClampedArray(genericPage.data), width: genericPage.width, height: genericPage.height };
+};
+
+/** Pen or pencil strokes: `grey` is the stroke's darkness, `widthPx` its half-width at 300 dpi. */
+const strokesMm = (img, x0, y0, x1, y1, seed, grey, halfW) => {
+  const next = rng(seed);
+  const lines = Math.max(1, Math.floor((y1 - y0) / 8));
+  for (let l = 0; l < lines; l++) {
+    const baseY = y0 + 5 + l * 8;
+    if (baseY > y1 - 2) break;
+    let x = x0 + 3;
+    const end = Math.min(x1 - 3, x0 + 8 + next() * (x1 - x0 - 12));
+    while (x < end) {
+      const dy = Math.sin(x * 1.7 + l) * 1.6 + (next() - 0.5) * 0.6;
+      const px = Math.round(x * PX_PER_MM_300);
+      const py = Math.round((baseY + dy) * PX_PER_MM_300);
+      for (let t = -halfW; t <= halfW; t++) for (let s = -1; s <= 1; s++) setPx(img, px + s, py + t, grey);
+      x += 0.3;
+    }
+  }
+};
+
+export const INK = {
+  pen: { grey: 25, halfW: 2 },          // ballpoint
+  pencil: { grey: 110, halfW: 2 },      // a 2B or B, as the page asks
+  faintPencil: { grey: 165, halfW: 1 }, // a hard pencil, which the page warns against
+};
 
 /**
- * @param writing  where to write, as [x0, y0, x1, y1] page-mm rectangles; each
- *                 gets lines of pen strokes. Empty for a blank page.
- * @param ruleGrey the feint rules' grey level (the approved mockup uses 190)
- * @param offsetMm moves the box's border and rules down the page, as a
- *                 registration error of that size would place them relative
- *                 to where the map says they are
+ * The real generic page, with writing on it.
+ *
+ * @param writing  [x0, y0, x1, y1] page-mm rectangles to write lines in
+ * @param ink      one of `INK`
+ * @param fields   also fill in the Problem and Part fields above the box, which
+ *                 every real student does and which must never read as an answer
+ * @param ruled    [x0, y0, x1, y1] page-mm straight lines, drawn as with a ruler:
+ *                 the axes and wires of a sketch answer, which the ink measure's
+ *                 straight-line test must not erase when they are dark enough
  */
-export const renderGenericSheet = ({ writing = [], ruleGrey = 190, seed = 1, offsetMm = 0 } = {}) => {
-  const img = blank(SHEET_W, SHEET_H);
-  for (const [cx, cy] of fmt.MARK_CENTRES_MM) {
-    fillRectMm(img,
-      cx - fmt.MARK_SIZE_MM / 2, cy - fmt.MARK_SIZE_MM / 2,
-      cx + fmt.MARK_SIZE_MM / 2, cy + fmt.MARK_SIZE_MM / 2, 0);
+export const renderGenericSheet = ({ writing = [], ink = INK.pen, fields = false, seed = 1, ruled = [] } = {}) => {
+  const img = loadGenericPage();
+  for (const [x0, y0, x1, y1] of ruled) {
+    const len = Math.hypot(x1 - x0, y1 - y0), steps = Math.ceil(len * PX_PER_MM_300 * 2);
+    for (let i = 0; i <= steps; i++) {
+      const px = Math.round((x0 + (x1 - x0) * i / steps) * PX_PER_MM_300);
+      const py = Math.round((y0 + (y1 - y0) * i / steps) * PX_PER_MM_300);
+      for (let t = -ink.halfW; t <= ink.halfW; t++) for (let u = -ink.halfW; u <= ink.halfW; u++) setPx(img, px + u, py + t, ink.grey);
+    }
   }
-  drawQr(img, GENERIC_PAYLOAD);
-  for (let i = 0; i < 9; i++) fillRectMm(img, 20 + i * 6, 11.5, 24.5 + i * 6, 13.5, 90);
-  for (const [y, len] of [[28, 120], [37, 150], [42.5, 160], [47.6, 150], [51.6, 170]]) {
-    fillRectMm(img, 20, y - 2.2, 20 + len, y - 0.4, 120);
+  writing.forEach((r, i) => strokesMm(img, r[0], r[1], r[2], r[3], seed * 97 + i * 13, ink.grey, ink.halfW));
+  if (fields) {
+    // "Problem ____" blank at x 28.9-52.5, "Part ____" at x 64.9-88.5, baseline ~y 31.
+    strokesMm(img, 31, 25.5, 45, 33, seed + 500, INK.pen.grey, INK.pen.halfW);
+    strokesMm(img, 67, 25.5, 78, 33, seed + 600, INK.pen.grey, INK.pen.halfW);
   }
-  const [bx0, by0g, bx1, by1g] = GENERIC_BOX_MM;
-  const by0 = by0g + offsetMm, by1 = by1g + offsetMm;
-  strokeRectMm(img, bx0, by0, bx1, by1, 0.353, 0);
-  for (let k = 1; k <= 24; k++) {
-    const y = by0 + 8.0 * k;
-    fillRectMm(img, bx0 + 3, y - 0.1, bx1 - 3, y + 0.1, ruleGrey);
-  }
-  writing.forEach((r, i) => scribbleMm(img, r[0], r[1], r[2], r[3], seed * 97 + i * 13));
   return img;
 };
 

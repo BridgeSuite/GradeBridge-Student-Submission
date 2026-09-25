@@ -144,15 +144,12 @@ export interface GenericBoxCrop extends CroppedRegion {
  * generic box is ruled edge to edge, and a fraction of dark pixels counts the
  * printed rules as writing, so it would never call a blank page blank.
  *
- * `ruleRows` is where the printed rules fall in a crop `height` pixels tall; a
- * function, because the height is only known once the crop is sized.
  */
 export const cropGenericBox = (
   page: Rgba, transform: Matrix3, row: LayoutRow, longEdgePx: number,
-  ruleRows: (height: number) => number[],
 ): GenericBoxCrop => {
   const cut = cropRegion(page, transform, row, longEdgePx);
-  const ink = measureInk(cut.image, cut.pxPerMm, ruleRows(cut.image.height));
+  const ink = measureInk(cut.image, cut.pxPerMm);
   return {
     ...cut,
     flags: ink.box ? [] : [CROP_FLAG_LOOKS_EMPTY],
