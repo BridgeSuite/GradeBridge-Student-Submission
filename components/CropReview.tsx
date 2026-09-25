@@ -98,7 +98,7 @@ const CropReview: React.FC<CropReviewProps> = ({
           Check every answer before you submit
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          This is exactly what your grader will see — one picture per part, cut from your pages.
+          This is exactly what is collected, one picture per part, cut from your pages.
           If a picture is wrong, cut off or missing, fix it here.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
@@ -152,7 +152,7 @@ const CropReview: React.FC<CropReviewProps> = ({
                 {url ? (
                   <img
                     src={url}
-                    alt={`Your answer to ${row.partId}, as your grader will see it`}
+                    alt={`Your answer to ${row.partId}, as it will be collected`}
                     className="w-full h-auto max-h-[60vh] object-contain bg-white"
                   />
                 ) : (
@@ -177,7 +177,7 @@ const CropReview: React.FC<CropReviewProps> = ({
               {crop && crop.cropSource === 'direct_capture' && (
                 <p className="mt-2 text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded px-3 py-2">
                   You photographed this answer yourself, so it was not cut from the printed sheet.
-                  That is fine — it goes to your grader exactly as it is here.
+                  That is fine, it is submitted exactly as it is here.
                 </p>
               )}
 
@@ -248,8 +248,8 @@ const CropReview: React.FC<CropReviewProps> = ({
       </ul>
 
       <div className="px-6 py-4 border-t border-gray-200 bg-slate-50 text-xs text-gray-600">
-        Flagging a part does <strong>not</strong> stop you submitting. The flag goes to your grader
-        with the picture, so they know you were not happy with it.
+        Flagging a part does <strong>not</strong> stop you submitting. The flag goes with your submission,
+        beside the picture.
       </div>
     </section>
   );

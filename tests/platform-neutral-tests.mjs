@@ -134,30 +134,13 @@ const graderHits = sources.flatMap((file) => {
   return found;
 });
 
-/**
- * Printed-sheet sentences that still say "grader", sent to Andre on 2026-09-25
- * with proposed replacements. Nothing uses that path this quarter. **This list
- * may only shrink:** each entry must still be in the source, so replacing a
- * sentence fails here until its entry is deleted, and nothing new may join.
- */
-const AWAITING_APPROVAL = [
-  ['App.tsx', 'for you, and your grader will get whole pages instead of answers.'],
-  ['components/CropReview.tsx', 'This is exactly what your grader will see — one picture per part, cut from your pages. If a picture is wrong, cut off or missing, fix it here.'],
-  ['components/CropReview.tsx', ', as your grader will see it'],
-  ['components/CropReview.tsx', 'You photographed this answer yourself, so it was not cut from the printed sheet. That is fine — it goes to your grader exactly as it is here.'],
-  ['components/CropReview.tsx', 'stop you submitting. The flag goes to your grader with the picture, so they know you were not happy with it.'],
-];
-const awaiting = (h) => AWAITING_APPROVAL.some(([f, t]) => f === h.file && t === h.text);
-const newGraderHits = graderHits.filter(h => !awaiting(h));
+// The last five exceptions (the printed-sheet sentences) were replaced on
+// 2026-09-25 (WORKORDER_SS_NO_GRADER_STRINGS_AND_LOAD_ORDER), and the list that
+// held them was deleted with them. **There are no exceptions**: a grader named
+// anywhere in the app's text fails here, and no list exists to add one to.
 check(`no string, template or JSX text in ${sources.length} source files assumes a grader`, () =>
-  assert(newGraderHits.length === 0,
-    `\n          ${newGraderHits.map(h => `${h.file}:${h.line}  ${JSON.stringify(h.text.slice(0, 90))}`).join('\n          ')}`));
-check(`every sentence awaiting approval is still there (${AWAITING_APPROVAL.length}; the list only shrinks)`, () => {
-  const gone = AWAITING_APPROVAL.filter(([f, t]) => !graderHits.some(h => h.file === f && h.text === t));
-  assert(gone.length === 0, `replaced, so delete from AWAITING_APPROVAL: ${gone.map(([f, t]) => `${f} ${JSON.stringify(t.slice(0, 50))}`).join('; ')}`);
-});
-check('the generic path is not waiting on anything: no pending sentence is in a generic-sheet file', () =>
-  assert(!AWAITING_APPROVAL.some(([f]) => /generic/i.test(f)), 'a generic-sheet file is on the pending list'));
+  assert(graderHits.length === 0,
+    `\n          ${graderHits.map(h => `${h.file}:${h.line}  ${JSON.stringify(h.text.slice(0, 90))}`).join('\n          ')}`));
 
 check('identifiers are not text: handleDownloadForGradescope is still allowed to exist', () =>
   assert(/handleDownloadForGradescope/.test(readFileSync(join(REPO, 'App.tsx'), 'utf8')),

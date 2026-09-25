@@ -717,7 +717,13 @@ check('App: generic pages are cut as the generic sheet, and re-cuts keep their l
   assert((APP.match(/, isGeneric\);/g) ?? []).length === 3, 'not every re-registration passes isGeneric');
 });
 check('App: a generic file is checked on load, and the printed review is not shown for it', () => {
-  assert(/genericSheetProblem\(json, layout\)/.test(APP), 'no load check');
+  // Since 2026-09-25 the load decision is `assignmentLoadRefusal` in
+  // services/loadRefusal.ts, which runs the generic check FIRST
+  // (WORKORDER_SS_NO_GRADER_STRINGS_AND_LOAD_ORDER). So App must call that, and
+  // that must call the generic check; tests/load-refusal-tests.mjs holds the order.
+  const REFUSAL = codeOnly(readFileSync(join(REPO, 'services', 'loadRefusal.ts'), 'utf8'));
+  assert(/assignmentLoadRefusal\(json, layout\)/.test(APP), 'no load check');
+  assert(/genericSheetProblem\(json, layout\)/.test(REFUSAL), 'the load check does not check the generic sheet');
   assert(/isHandwritten && !isGeneric && state\.layout && \(\s*<CropReview/.test(APP), 'CropReview shown on generic');
   assert(/genericSheet=\{isGeneric\}/.test(APP), 'uploader not told');
 });

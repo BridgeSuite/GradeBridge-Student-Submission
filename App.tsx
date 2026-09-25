@@ -33,10 +33,11 @@ import {
 import { LayoutMapError, parseLayoutCsv } from './services/layoutMap';
 import { registerAndCropPage } from './services/pageCrops';
 import {
-  genericCompletenessNotice, genericCoverage, genericCropRecord, genericSheetProblem, isGenericSheet,
+  genericCompletenessNotice, genericCoverage, genericCropRecord, isGenericSheet,
   labelGenericCrop, mergeRecutCrops,
 } from './services/genericSheet';
 import { GENERIC_WORDING } from './services/genericWording';
+import { assignmentLoadRefusal } from './services/loadRefusal';
 import { initQrReader } from './services/qrDecode';
 import {
   SUBMISSION_ZIP_OPTIONS, buildSubmissionPackage, cropBlobKey, cropList, submissionBaseName,
@@ -733,29 +734,24 @@ const App: React.FC = () => {
           }
         }
 
-        // A handwritten assignment with no map from either place can be
-        // photographed but never cropped. **Refuse it**, before anything is
-        // dropped and before any state moves. This used to warn and load
-        // anyway, which left the student in the broken state it described and
-        // let them photograph sixteen pages before finding out.
-        if (json.inputMode === 'handwritten' && !layout) {
-          alert(
-            "This assignment is written on paper, but the file you loaded has no layout map in it.\n\n" +
-            "You can still photograph your pages, but the app cannot cut your answers out of them " +
-            "for you, and your grader will get whole pages instead of answers.\n\n" +
-            "Load the assignment zip your instructor gave you — the one you printed the PDF from — " +
-            "rather than the assignment_spec.json on its own."
-          );
-          return;
-        }
-
-        // The generic answer page: its map must be THE generic map and its
-        // parts list must be usable, or the file is refused. Nothing else is
-        // checked here, and a file without `sheet` never reaches a refusal.
-        const genericProblem = genericSheetProblem(json, layout);
-        if (genericProblem) {
-          console.warn('Generic-sheet assignment refused:', genericProblem);
-          alert(GENERIC_WORDING.badGenericFile);
+        // A file that decoded cleanly can still be one this app must refuse:
+        // a generic-page file whose map or parts list is wrong, or a
+        // printed-sheet file with no map, which could be photographed but never
+        // cropped. **Refused before anything is dropped and before any state
+        // moves.** The decision, and the order the two checks run in, is in
+        // `services/loadRefusal.ts`, where a test can reach it.
+        //
+        // The refusal goes to the status line FIRST and the dialog second.
+        // Loading is a constructive action and a suppressed `alert` shows
+        // nothing, so a dialog alone is a refusal the student may never see:
+        // they tap a file, nothing loads, and nothing says why (standing rule,
+        // `CLAUDE.md`). The status line is in the page, where nothing outside
+        // it can swallow it.
+        const refusal = assignmentLoadRefusal(json, layout);
+        if (refusal) {
+          if (refusal.detail) console.warn('Generic-sheet assignment refused:', refusal.detail);
+          setStatusMessage(refusal.message);
+          alert(refusal.message);
           return;
         }
 

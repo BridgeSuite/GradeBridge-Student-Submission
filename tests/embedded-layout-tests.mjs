@@ -321,13 +321,22 @@ const handlerAt = appSrc.indexOf('const handleLoadAssignment');
 check('App.tsx still has the load handler', () =>
   assert(handlerAt > 0, 'handleLoadAssignment not found in App.tsx'));
 
-const refuseAt = appSrc.indexOf("json.inputMode === 'handwritten' && !layout", handlerAt);
+// Since 2026-09-25 the decision is `assignmentLoadRefusal` in
+// `services/loadRefusal.ts` (WORKORDER_SS_NO_GRADER_STRINGS_AND_LOAD_ORDER,
+// Supplement 1), and the handler acts on it. So the ordering is asserted at the
+// call site, and the no-map condition is asserted where it now lives.
+const refusalSrc = readFileSync(join(REPO, 'services', 'loadRefusal.ts'), 'utf8');
+const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const refuseAt = appSrc.indexOf('const refusal = assignmentLoadRefusal(json, layout);', handlerAt);
 const setStateAt = appSrc.indexOf('setState(prev => ({', handlerAt);
 const clearAt = appSrc.indexOf('void clearPageBlobs();', handlerAt);
 const returnAfterRefuse = appSrc.indexOf('return;', refuseAt);
 
-check('the handwritten-with-no-map branch is in the load handler', () =>
-  assert(refuseAt > handlerAt, 'the no-map branch is gone from handleLoadAssignment'));
+check('the handwritten-with-no-map branch is in the load handler', () => {
+  assert(refuseAt > handlerAt, 'the load refusal is no longer called from handleLoadAssignment');
+  assert(/json\.inputMode === 'handwritten' && !layout/.test(refusalSrc),
+    'the handwritten-with-no-map condition is gone from services/loadRefusal.ts');
+});
 
 check('it RETURNS rather than falling through', () => {
   assert(returnAfterRefuse > refuseAt, 'no `return;` follows the no-map branch');
@@ -342,10 +351,24 @@ check('nothing is dropped and no state moves before the refusal', () => {
     'the page blobs are cleared before the assignment is refused');
 });
 
-// The message was already good; the work order says to keep the wording.
-check('the refusal still says what to load instead', () =>
-  assert(/is written on paper, but the file you loaded has no layout map in it/.test(appSrc),
-    'the no-map wording changed'));
+// The wording this pinned was replaced on 2026-09-25, on Andre's approval
+// (WORKORDER_SS_NO_GRADER_STRINGS_AND_LOAD_ORDER, Part B). The old text said
+// "You can still photograph your pages" directly above a refusal, and promised
+// whole pages to a grader. The pin moves with it rather than being deleted:
+// the new text must still say what to load instead, and must say that nothing
+// was loaded.
+check('the refusal still says what to load instead', () => {
+  // The message is written as string pieces joined with `+` across lines, and
+  // the old sentence is quoted in a comment explaining why it went, so match
+  // the code with comments stripped and the pieces joined.
+  const code = stripComments(refusalSrc).replace(/'\s*\+\s*'/g, '');
+  assert(/it is missing the map that tells the application where your answers are on the page/.test(code),
+    'the no-map wording changed');
+  assert(/Nothing has been loaded\./.test(code), 'the refusal no longer says nothing was loaded');
+  assert(/Load the assignment zip your instructor gave you, the one you printed the question PDF from/.test(code),
+    'the refusal no longer says what to load instead');
+  assert(!/You can still photograph your pages/.test(stripComments(appSrc) + code), 'the false sentence is back');
+});
 
 // The student is not asked to discard sixteen photographs for a load that is
 // about to be refused.
