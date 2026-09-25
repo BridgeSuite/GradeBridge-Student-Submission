@@ -105,6 +105,60 @@ check('the sweep can see a platform name when one is there (the regex is not dea
   assert(hits.length === 2, `the probe found ${hits.join(',') || 'nothing'}`);
 });
 
+// -----------------------------------------------------
+// 1b. No student text assumes a grader exists
+// -----------------------------------------------------
+// Andre, 2026-09-25: EEC130A students submit reader work and conventional
+// homework through this same app, and the app cannot tell the two apart, so no
+// student-facing sentence may assume a grader. Same sweep as above, over every
+// literal in the app, not one file: genericWording.ts was already clean and the
+// ones that slipped were in the components.
+const GRADER = /\bgraders?\b/i;
+const norm = (s) => s.trim().replace(/\s+/g, ' ');
+const graderHits = sources.flatMap((file) => {
+  const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const found = [];
+  const visit = (node) => {
+    let text = null;
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) text = node.text;
+    else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) text = node.text;
+    else if (node.kind === ts.SyntaxKind.JsxText) text = node.getText(sf);
+    if (text !== null && GRADER.test(text)) {
+      const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+      found.push({ file: relative(REPO, file).replace(/\\/g, '/'), line: line + 1, text: norm(text) });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+});
+
+/**
+ * Printed-sheet sentences that still say "grader", sent to Andre on 2026-09-25
+ * with proposed replacements. Nothing uses that path this quarter. **This list
+ * may only shrink:** each entry must still be in the source, so replacing a
+ * sentence fails here until its entry is deleted, and nothing new may join.
+ */
+const AWAITING_APPROVAL = [
+  ['App.tsx', 'for you, and your grader will get whole pages instead of answers.'],
+  ['components/CropReview.tsx', 'This is exactly what your grader will see — one picture per part, cut from your pages. If a picture is wrong, cut off or missing, fix it here.'],
+  ['components/CropReview.tsx', ', as your grader will see it'],
+  ['components/CropReview.tsx', 'You photographed this answer yourself, so it was not cut from the printed sheet. That is fine — it goes to your grader exactly as it is here.'],
+  ['components/CropReview.tsx', 'stop you submitting. The flag goes to your grader with the picture, so they know you were not happy with it.'],
+];
+const awaiting = (h) => AWAITING_APPROVAL.some(([f, t]) => f === h.file && t === h.text);
+const newGraderHits = graderHits.filter(h => !awaiting(h));
+check(`no string, template or JSX text in ${sources.length} source files assumes a grader`, () =>
+  assert(newGraderHits.length === 0,
+    `\n          ${newGraderHits.map(h => `${h.file}:${h.line}  ${JSON.stringify(h.text.slice(0, 90))}`).join('\n          ')}`));
+check(`every sentence awaiting approval is still there (${AWAITING_APPROVAL.length}; the list only shrinks)`, () => {
+  const gone = AWAITING_APPROVAL.filter(([f, t]) => !graderHits.some(h => h.file === f && h.text === t));
+  assert(gone.length === 0, `replaced, so delete from AWAITING_APPROVAL: ${gone.map(([f, t]) => `${f} ${JSON.stringify(t.slice(0, 50))}`).join('; ')}`);
+});
+check('the generic path is not waiting on anything: no pending sentence is in a generic-sheet file', () =>
+  assert(!AWAITING_APPROVAL.some(([f]) => /generic/i.test(f)), 'a generic-sheet file is on the pending list'));
+
 check('identifiers are not text: handleDownloadForGradescope is still allowed to exist', () =>
   assert(/handleDownloadForGradescope/.test(readFileSync(join(REPO, 'App.tsx'), 'utf8')),
     'the identifier is gone; this check is meant to prove the sweep ignores identifiers'));

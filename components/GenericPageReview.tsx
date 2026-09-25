@@ -241,8 +241,8 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
       </ul>
 
       <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-slate-50 text-xs text-gray-600">
-        Flagging a part does <strong>not</strong> stop you submitting. The flag goes to your grader
-        with the picture, so they know you were not happy with it.
+        Flagging a part does <strong>not</strong> stop you submitting. The flag goes with your submission,
+        beside the picture.
       </div>
     </section>
   );

@@ -15,8 +15,13 @@
  *
  * Strings the generic path REUSES unchanged from the printed-sheet path are
  * not here: "Looks right", "Something is wrong", "Flagged", "Not checked yet",
- * "{n} of {m} checked", the blank-page sentence, the flagging footnote, and the
- * download gate's heading, headline, choice and buttons.
+ * "{n} of {m} checked", the blank-page sentence, and the download gate's
+ * heading, headline, choice and buttons.
+ *
+ * The flagging footnote in `GenericPageReview.tsx` is no longer the printed
+ * sheet's: its second sentence is "The flag goes with your submission, beside
+ * the picture." (approved 2026-09-25), because the printed sheet's version
+ * sends the flag "to your grader".
  */
 
 export const GENERIC_WORDING = {
