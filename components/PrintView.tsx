@@ -2,10 +2,20 @@ import React from 'react';
 import { Assignment, SubmissionData, Problem, Subsection, SubmissionType } from '../types';
 import { SUBMISSION_TYPES } from '../constants';
 import { LatexContent } from './KatexRenderer';
+import { handwrittenPreviewNote } from '../services/previewWording';
 
 interface PrintViewProps {
   assignment: Assignment;
   submissionData: SubmissionData;
+  /**
+   * Set on a handwritten assignment only: how many pages the student has
+   * photographed. The preview is never given the photographs, so a handwritten
+   * part has no `submissionData` and used to print "No answer submitted." under
+   * every part. With this set, the preview says where the answers are instead
+   * (`services/previewWording.ts`). Absent means electronic, rendered exactly
+   * as before, because there this markup is also the PDF.
+   */
+  handwrittenPageCount?: number;
 }
 
 const AI_GRADED_STRINGS = new Set([
@@ -48,7 +58,24 @@ const calculateProblemPoints = (problem: Problem): number => {
   return problem.subsections.reduce((sum, sub) => sum + sub.points, 0);
 };
 
-const PrintView: React.FC<PrintViewProps> = ({ assignment, submissionData }) => {
+const PrintView: React.FC<PrintViewProps> = ({ assignment, submissionData, handwrittenPageCount }) => {
+  // A handwritten preview is one card that fits a phone, not the 210 mm pages
+  // below: those exist because on the electronic path this markup is
+  // rasterised into the PDF, and a handwritten submission builds no PDF
+  // (App.tsx, `if (!isHandwritten)`). A note inside a 210 mm page would run off
+  // a phone's edge, under a title page taller than the screen.
+  if (handwrittenPageCount !== undefined) {
+    return (
+      <div id="pdf-content" className="bg-white text-black font-sans w-full max-w-md p-6 sm:p-8">
+        <h1 className="text-2xl font-black uppercase tracking-widest">{assignment.courseCode}</h1>
+        <h2 className="text-lg font-serif font-bold text-gray-800 mt-1 mb-5">{assignment.title}</h2>
+        <p className="text-base leading-relaxed text-gray-800 border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
+          {handwrittenPreviewNote(handwrittenPageCount)}
+        </p>
+      </div>
+    );
+  }
+
   const totalPoints = calculateTotalPoints(assignment.problems);
 
   // --- Internal Components ---

@@ -1568,6 +1568,7 @@ const App: React.FC = () => {
                            <PrintView
                              assignment={state.assignment}
                              submissionData={state.submissionData}
+                             handwrittenPageCount={isHandwritten ? state.pages.length : undefined}
                            />
                        </div>
                    </div>
