@@ -92,6 +92,49 @@ export const genericSheetProblem = (
   return null;
 };
 
+/**
+ * The question's own title for a part: the name of the subsection it answers,
+ * or '' when there is none to show.
+ *
+ * `WORKORDER_SS_PART_TITLE_WHEN_LABELLING_2026-09-25`. Two labels swapped is
+ * invisible to every count-based check, because the counts are correct, and the
+ * student at the dropdown is the only party who can see it. A formal label
+ * alone gives them nothing to check a page against; the title does.
+ *
+ * **The mapping is the Assignment Maker's own, inverted.** `genericParts` writes
+ * `problem_number: pIdx + 1` and `subsection_letter: 'a' + sIdx` from the same
+ * `problems` array the student file carries, so the subsection is
+ * `problems[problem_number - 1].subsections[letter - 'a']`, with no guessing.
+ * Anything that does not resolve (no problems, an index out of range, a letter
+ * that is not one lower-case letter, an empty or blank name) gives '' and the
+ * part is shown by its formal label alone, exactly as before.
+ */
+export const partSubsectionTitle = (
+  part: Pick<GenericPart, 'problem_number' | 'subsection_letter'>,
+  problems: readonly { subsections?: readonly { name?: unknown }[] }[] | undefined,
+): string => {
+  if (!problems || !Number.isInteger(part.problem_number) || part.problem_number < 1) return '';
+  if (typeof part.subsection_letter !== 'string' || !/^[a-z]$/.test(part.subsection_letter)) return '';
+  const sub = problems[part.problem_number - 1]?.subsections?.[part.subsection_letter.charCodeAt(0) - 97];
+  return typeof sub?.name === 'string' ? sub.name.replace(/\s+/g, ' ').trim() : '';
+};
+
+/**
+ * What a student is shown for a part: the formal label, then a colon and the
+ * question's title when there is one. `Problem 1, part (b): Wavelength`.
+ * Approved by Andre 2026-09-25: the colon form, because it is the shape the
+ * Assignment Maker's rubric `display_name` already uses. **The formal label is
+ * never replaced, only extended**, so a student who wants part (b) still finds
+ * "part (b)".
+ */
+export const partDisplayLabel = (
+  part: GenericPart,
+  problems: readonly { subsections?: readonly { name?: unknown }[] }[] | undefined,
+): string => {
+  const title = partSubsectionTitle(part, problems);
+  return title ? `${part.label}: ${title}` : part.label;
+};
+
 /** The crop record's key for a page. One page, one crop. */
 export const genericCropKey = (mapRegionId: string, pageId: string): string => `${mapRegionId}@${pageId}`;
 
@@ -245,7 +288,11 @@ export const genericCoverage = (
  * grouped under a page number, because on this sheet a page number means
  * nothing. It informs and never blocks, like the printed sheet's.
  */
-export const genericCompletenessNotice = (c: GenericCoverage, total: number): CompletenessNotice | null => {
+export const genericCompletenessNotice = (
+  c: GenericCoverage, total: number,
+  /** The assignment's problems, so each missing part carries its question's title. Absent: formal labels, as before. */
+  problems?: readonly { subsections?: readonly { name?: unknown }[] }[],
+): CompletenessNotice | null => {
   if (c.missing.length === 0) return null;
   const answers = (n: number): string => `${n} ${n === 1 ? 'answer' : 'answers'}`;
   if (c.covered === 0) {
@@ -260,7 +307,7 @@ export const genericCompletenessNotice = (c: GenericCoverage, total: number): Co
   return {
     headline: `This assignment has ${answers(total)}. Your submission has ${c.covered}.`,
     itemised: true,
-    groups: [{ names: c.missing.map(p => p.label) }],
+    groups: [{ names: c.missing.map(p => partDisplayLabel(p, problems)) }],
     choice: 'If you left those blank on purpose, you can download anyway.',
   };
 };

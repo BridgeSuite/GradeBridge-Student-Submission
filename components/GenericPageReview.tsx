@@ -3,7 +3,7 @@ import {
   AlertTriangle, Camera, Check, CheckCircle2, Flag, Image as ImageIcon, Info, RefreshCw, Upload,
 } from 'lucide-react';
 import { CropRef, GenericPart, PageRef, StudentReview } from '../types';
-import { genericCoverage, genericCropsInPageOrder } from '../services/genericSheet';
+import { genericCoverage, genericCropsInPageOrder, partDisplayLabel, partSubsectionTitle } from '../services/genericSheet';
 import { GENERIC_WORDING as W } from '../services/genericWording';
 
 /**
@@ -25,6 +25,12 @@ import { GENERIC_WORDING as W } from '../services/genericWording';
 
 interface GenericPageReviewProps {
   parts: GenericPart[];
+  /**
+   * The assignment's problems, so each part is shown with its question's own
+   * title (`services/genericSheet.ts`, `partDisplayLabel`). Absent, or a part
+   * with no title: the formal label alone, exactly as before.
+   */
+  problems?: readonly { subsections?: readonly { name?: unknown }[] }[];
   crops: Record<string, CropRef>;
   /** crop key → object URL for the stored crop bitmap. */
   cropUrls: Record<string, string>;
@@ -43,8 +49,9 @@ const REVIEW_LABEL: Record<StudentReview, string> = {
 };
 
 const GenericPageReview: React.FC<GenericPageReviewProps> = ({
-  parts, crops, cropUrls, pages, onLabel, onReview, onRetakePage, busy,
+  parts, problems, crops, cropUrls, pages, onLabel, onReview, onRetakePage, busy,
 }) => {
+  const shown = (p: GenericPart): string => partDisplayLabel(p, problems);
   const retakeRef = useRef<HTMLInputElement>(null);
   const retakeTarget = useRef<string | null>(null);
   const [hasCamera] = useState(() =>
@@ -108,7 +115,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                 <div>
                   <p className="font-semibold">{W.coverageMissing}</p>
                   <ul className="list-disc pl-5">
-                    {coverage.missing.map(p => <li key={p.part_id}>{p.label}</li>)}
+                    {coverage.missing.map(p => <li key={p.part_id}>{shown(p)}</li>)}
                   </ul>
                 </div>
               )}
@@ -130,7 +137,9 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
           const isBusy = busy === key || busy === `page-${crop.fromPage}`;
           const n = photoNumber(crop);
           const selectId = `part-for-${key}`;
-          const labelled = parts.some(p => p.part_id === crop.partId);
+          const chosen = parts.find(p => p.part_id === crop.partId);
+          const labelled = chosen !== undefined;
+          const chosenTitle = chosen ? partSubsectionTitle(chosen, problems) : '';
 
           return (
             <li key={key} className="p-4 sm:p-6">
@@ -160,8 +169,18 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                 }`}
               >
                 <option value="">{W.choosePlaceholder}</option>
-                {parts.map(p => <option key={p.part_id} value={p.part_id}>{p.label}</option>)}
+                {parts.map(p => <option key={p.part_id} value={p.part_id}>{shown(p)}</option>)}
               </select>
+
+              {/* The phone draws the closed dropdown and clips a long title to its
+                  width; this line is what guarantees it can be read. Part and
+                  title only, wrapping, never cut. Only when there is a title, so
+                  an assignment without them renders exactly as before. */}
+              {chosen && chosenTitle && (
+                <p className="-mt-1 mb-3 text-sm font-medium text-gray-900 break-words" data-part-title>
+                  {shown(chosen)}
+                </p>
+              )}
 
               {!labelled && (
                 <p className="mb-3 text-xs text-red-800 bg-red-50 border border-red-200 rounded px-3 py-2">
@@ -173,7 +192,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                 {url ? (
                   <img
                     src={url}
-                    alt={`${W.photoHeading(n)}${labelled ? `, ${parts.find(p => p.part_id === crop.partId)!.label}` : ''}`}
+                    alt={`${W.photoHeading(n)}${chosen ? `, ${shown(chosen)}` : ''}`}
                     className="w-full h-auto max-h-[60vh] object-contain bg-white"
                   />
                 ) : (

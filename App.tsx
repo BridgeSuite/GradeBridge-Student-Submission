@@ -1193,7 +1193,7 @@ const App: React.FC = () => {
       const notice = isGeneric
         ? genericCompletenessNotice(
             genericCoverage(state.assignment.parts ?? [], state.crops, state.pages, built.entries),
-            (state.assignment.parts ?? []).length)
+            (state.assignment.parts ?? []).length, state.assignment.problems)
         : completenessNotice(
             submissionCompleteness(state.layout, state.crops, built.entries));
       if (notice && !acknowledgedShortfall) {
@@ -1488,6 +1488,7 @@ const App: React.FC = () => {
                  {isHandwritten && isGeneric && state.pages.length > 0 && (
                    <GenericPageReview
                      parts={state.assignment.parts ?? []}
+                     problems={state.assignment.problems}
                      crops={state.crops}
                      cropUrls={cropUrls}
                      pages={state.pages}
