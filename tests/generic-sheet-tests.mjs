@@ -688,6 +688,16 @@ check('the uploader shows the identity reminder on the generic sheet, and only t
   assert(textOf(renderUploader({ genericSheet: true })).includes(P.GENERIC_WORDING.noIdentityReminder), 'absent on generic');
   assert(!textOf(renderUploader({})).includes(P.GENERIC_WORDING.noIdentityReminder), 'present on the printed sheet');
 });
+// Approved 2026-09-25: the shared upload instruction said "select them all at
+// once, in order" while both footers below it say order does not matter.
+check('no uploader sentence tells a student to upload in order, on either sheet', () => {
+  for (const [sheet, props] of [['generic page', { genericSheet: true }], ['printed sheet', {}]]) {
+    const sentences = textOf(renderUploader(props)).split(/(?<=[.!?])\s+/);
+    const told = sentences.filter(s => /\bin order\b/i.test(s) && !/\bnot\b/i.test(s));
+    assert(told.length === 0, `${sheet}: ${told.join(' | ')}`);
+  }
+  assert(textOf(renderUploader({ genericSheet: true })).includes(P.GENERIC_WORDING.uploaderFooter), 'generic footer gone');
+});
 check('the uploader does not count generic pages by their QR (all are page 1 of 1)', () => {
   const t = textOf(renderUploader({ genericSheet: true, pages }));
   assert(!/more than once/.test(t) && !/This assignment has 1 pages/.test(t), 'page-count warnings on the generic sheet');

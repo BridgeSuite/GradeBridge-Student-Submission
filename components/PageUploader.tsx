@@ -196,7 +196,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
             Take all your photos first, then upload them together
           </span>{' '}
           — photograph every page with your phone&rsquo;s normal camera app, then choose
-          &ldquo;Choose files&rdquo; and select them all at once, in order. The in-app camera is
+          &ldquo;Choose files&rdquo; and select them all at once. The in-app camera is
           there for a quick single page.
         </p>
 
