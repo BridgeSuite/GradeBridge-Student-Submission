@@ -19,7 +19,7 @@ import { Matrix3, applyMatrix, localScale } from './homography';
 import { PX_PER_MM, fractionRectToMm } from './pageFormat';
 import { Rgba, sampleRgba } from './raster';
 import { InkBox } from '../types';
-import { measureInk } from './inkBox';
+import { BLANK_SHARPNESS_MIN, InkVerdict, measureInk } from './inkBox';
 
 /** Advisory only. A flagged crop is still submitted; see the work order, section 6. */
 export const CROP_FLAG_LOOKS_EMPTY = 'looks-empty';
@@ -132,8 +132,9 @@ export const cropRegions = (page: Rgba, transform: Matrix3, rows: LayoutRow[]): 
 
 /** The generic sheet's one crop per page: the whole box, and where its ink is. */
 export interface GenericBoxCrop extends CroppedRegion {
-  /** Null when the page has no ink; see `services/inkBox.ts`. */
+  /** Null unless the verdict is 'ink'; see `services/inkBox.ts`. */
   inkBox: InkBox | null;
+  inkVerdict: InkVerdict;
 }
 
 /**
@@ -146,13 +147,24 @@ export interface GenericBoxCrop extends CroppedRegion {
  *
  */
 export const cropGenericBox = (
-  page: Rgba, transform: Matrix3, row: LayoutRow, longEdgePx: number,
+  page: Rgba, transform: Matrix3, row: LayoutRow, longEdgePx: number, sharpness: number | null,
 ): GenericBoxCrop => {
   const cut = cropRegion(page, transform, row, longEdgePx);
-  const ink = measureInk(cut.image, cut.pxPerMm);
+  const measured = measureInk(cut.image, cut.pxPerMm);
+  // "Blank" is claimed only on a photograph at least as sharp as the real
+  // frames it was verified on. On a blurrier one a pencil line ruled across the
+  // box is as pale and as straight as a printed rule, so the measure cannot
+  // tell them apart and must say so: uncertain, never blank.
+  const ink = measured.verdict === 'blank' && (sharpness === null || sharpness < BLANK_SHARPNESS_MIN)
+    ? { ...measured, verdict: 'uncertain' as const }
+    : measured;
   return {
     ...cut,
-    flags: ink.box ? [] : [CROP_FLAG_LOOKS_EMPTY],
+    // "Looks blank" only on a positive blank verdict. An uncertain page says
+    // nothing: telling a student their written page looks blank is the one
+    // mistake this measure must not make.
+    flags: ink.verdict === 'blank' ? [CROP_FLAG_LOOKS_EMPTY] : [],
     inkBox: ink.box,
+    inkVerdict: ink.verdict,
   };
 };

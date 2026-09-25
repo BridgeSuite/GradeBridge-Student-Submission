@@ -3,6 +3,7 @@
 // separately, each bundle carries its own singleton and the second one has
 // never been initialised.
 export { initQrReader } from '../services/qrDecode';
+export { registeredQrSharpness } from '../services/captureGate';
 export { registerPage } from '../services/registration';
 export { cropGenericBox, cropRegion } from '../services/cropRegions';
 export { measureInk, depthBelowPaper } from '../services/inkBox';

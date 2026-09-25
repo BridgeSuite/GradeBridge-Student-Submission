@@ -402,7 +402,9 @@ const App: React.FC = () => {
       // so the record is keyed by page. The part is the student's to say; a
       // retake keeps what they said (below), and a new page starts unlabelled.
       if (generic) {
-        const record = genericCropRecord({ ...c, bytes: c.blob.size, inkBox: c.inkBox ?? null },
+        const record = genericCropRecord({
+          ...c, bytes: c.blob.size, inkBox: c.inkBox ?? null, inkVerdict: c.inkVerdict ?? 'uncertain',
+        },
           pageId, pageWarnings, newCaptureId());
         await putPageBlob(cropKey(record.regionId), c.blob);
         setCropUrl(record.regionId, c.blob);

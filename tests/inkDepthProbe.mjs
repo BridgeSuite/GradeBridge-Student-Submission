@@ -271,6 +271,10 @@ console.log(row('rule line median (dash cores)', lineMedians, [0, 0.5, 0.9, 0.99
 console.log(`
 BARE PAPER: ${paperMm2.toFixed(0)} mm² measured`);
 console.log(row('paper pixels (1 in 7)', paperPix, [0.5, 0.9, 0.99, 0.999, 0.9999, 1]));
+for (const t of [25, 30, 35, 40]) {
+  const f = paperPix.filter(v => v > t).length / paperPix.length;
+  console.log(`  bare paper deeper than ${t}: ${(f * 1e6).toFixed(1)} per million pixels = ${(f * 38100).toFixed(2)} mm² per 38,100 mm² box, before any speck filter`);
+}
 for (const t of PAPER_STEPS) {
   const a = paperPatchMm2[t].sort((p, q) => p - q), tot = a.reduce((x, y) => x + y, 0);
   const qa = (f) => a.length ? a[Math.min(a.length - 1, Math.floor(f * a.length))].toFixed(2) : '-';

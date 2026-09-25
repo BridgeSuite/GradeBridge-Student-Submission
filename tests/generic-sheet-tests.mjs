@@ -180,7 +180,7 @@ const photograph = (sheet, recipe, error = [0, 0]) => {
   const reg = P.registerPage(cap.image);
   if (!reg.usable) throw new Error(`${recipe.name} did not register: ${reg.status}`);
   const cut = P.cropGenericBox(cap.image, shifted(reg.transform, error[0], error[1]), row,
-    P.GENERIC_CROP_LONG_EDGE_PX);
+    P.GENERIC_CROP_LONG_EDGE_PX, P.registeredQrSharpness(cap.image, reg));
   return { cap, reg, cut, pageBytes: toJpeg(cap.image), cropBytes: toJpeg(cut.image) };
 };
 
@@ -206,7 +206,7 @@ const pageRef = (id, file, shot) => {
 const recut = (crops, pageId, shot, captureId) => {
   const record = P.genericCropRecord({
     row, width: shot.cut.image.width, height: shot.cut.image.height, bytes: shot.cropBytes.length,
-    flags: shot.cut.flags, inkBox: shot.cut.inkBox,
+    flags: shot.cut.flags, inkBox: shot.cut.inkBox, inkVerdict: shot.cut.inkVerdict,
   }, pageId, [], captureId);
   blobs[P.cropBlobKey(record.regionId)] = shot.cropBytes;
   return P.mergeRecutCrops(crops, { [record.regionId]: record });
@@ -252,7 +252,7 @@ const openPackage = async (sources) => {
 
 const GENERIC_CROP_KEYS = ['region_id', 'part_id', 'part_source', 'page_k', 'is_drawing', 'max_points',
   'crop_source', 'student_review', 'quality_flags', 'file', 'width', 'height', 'page_file', 'part_page',
-  'part_pages', 'ink_bbox'];
+  'part_pages', 'ink', 'ink_bbox'];
 
 await checkAsync('the relabel does not clear the personal-information tick (no picture changed)', async () => {
   await P.buildSubmissionPackage(sourcesFor(crops, pages, confirmedBeforeRelabel),
@@ -364,55 +364,176 @@ const ALL = [...RECIPES, { ...RECIPE['01-clean'], name: '13-hires-3000x3900', fr
 const failingRecipes = (sheet, bad, error) =>
   ALL.filter(recipe => bad(photograph(sheet, recipe, error).cut)).map(r => r.name);
 const blankSheet = renderGenericSheet({});
-const isNotBlank = (cut) => cut.inkBox !== null || !cut.flags.includes('looks-empty');
 
-check('a blank real page is warned about as blank, on all 13 capture recipes', () => {
-  const bad = failingRecipes(blankSheet, isNotBlank);
-  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
-});
-check('the real page with only Problem and Part filled in, box empty, is still blank on all 13', () => {
-  const bad = failingRecipes(renderGenericSheet({ fields: true }), isNotBlank);
-  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
-});
-check('a blank real page stays blank with registration off by up to 3 mm, any direction', () => {
-  // 3.0 mm is what a degraded three-mark fit is allowed. At these errors the
-  // box's black border enters the crop; it is found by the box's declared
-  // geometry, never by the rules.
-  const bad = [];
-  for (const error of [[0, -1], [0, -2], [0, -3], [0, 3], [-3, 0], [3, 0], [-2, -2]]) {
-    for (const name of failingRecipes(blankSheet, (c) => c.inkBox !== null, error)) bad.push(`${name}@${error}`);
-  }
-  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
-});
-check('pencil writing (2B, as the page asks) is found on all 13', () => {
-  const bad = failingRecipes(renderGenericSheet({ writing: [[15, 62, 200, 140]], ink: INK.pencil }),
-    (c) => c.inkBox === null);
-  assert(bad.length === 0, `called blank: ${bad.join(', ')}`);
-});
-// A sketch drawn with a ruler: two axes and a wire, nothing else. The length
-// rule alone erased these; the deep tier keeps them when they are dark enough.
-// The counts are the measured ones (inkBox.ts): a drop is a regression.
+// THE SAFETY PROPERTY, and the only hard assertion here about the ink measure.
+// A page with ink must never be reported blank: a student told their written
+// page looks blank may rewrite work that was fine. `uncertain` is allowed;
+// `blank` is not. Every ink case, every recipe, including the faint hard pencil
+// and the ruler-drawn faint line the page's own instruction warns against.
 const SKETCH = [[40, 200, 40, 120], [40, 200, 170, 200], [60, 150, 150, 150]];
-for (const [inkName, atLeast] of [['pen', 11], ['pencil', 10]]) {
-  check(`a ruler-drawn sketch in ${inkName} is found on at least ${atLeast} of 13`, () => {
-    const missed = failingRecipes(renderGenericSheet({ ruled: SKETCH, ink: INK[inkName] }), (c) => c.inkBox === null);
-    assert(13 - missed.length >= atLeast, `found on ${13 - missed.length}; missed ${missed.join(', ')}`);
+const INKED = {
+  'pen writing': { writing: [[15, 62, 200, 140]] },
+  '2B pencil writing': { writing: [[15, 62, 200, 140]], ink: INK.pencil },
+  'faint hard-pencil writing': { writing: [[15, 62, 200, 140]], ink: INK.faintPencil },
+  'one short pencil line low on the page': { writing: [[20, 240, 60, 250]], ink: INK.pencil },
+  'ruler-drawn sketch, pen': { ruled: SKETCH, ink: INK.pen },
+  'ruler-drawn sketch, 2B pencil': { ruled: SKETCH, ink: INK.pencil },
+  'ruler-drawn sketch, faint hard pencil': { ruled: SKETCH, ink: INK.faintPencil },
+  'pen writing with the fields filled in': { writing: [[15, 62, 200, 140]], fields: true },
+  // Straight ink that DOES span the box, so the "does not span" evidence cannot
+  // see it: only the deep-line evidence stops it reading blank.
+  'a 2B pencil line ruled across the whole box': { ruled: [[16, 181, 200, 181]], ink: INK.pencil },
+};
+const verdicts = {};
+for (const [name, opts] of Object.entries(INKED)) {
+  const sheet = renderGenericSheet(opts);
+  verdicts[name] = ALL.map(recipe => [recipe.name, photograph(sheet, recipe).cut]);
+}
+for (const [name, cuts] of Object.entries(verdicts)) {
+  check(`SAFETY: ${name} is never reported blank, on any of 13 recipes`, () => {
+    const bad = cuts.filter(([, c]) => c.inkVerdict === 'blank' || c.flags.includes('looks-empty')).map(([n]) => n);
+    assert(bad.length === 0, `reported blank: ${bad.join(', ')}`);
   });
 }
+
+// Tripwires, not accuracy figures: synthetic ink on the real page. The counts
+// are the ones measured when the thresholds were set from real photographs;
+// a drop means the measure changed, and says nothing about real accuracy.
+const count = (name, v) => verdicts[name].filter(([, c]) => c.inkVerdict === v).length;
+for (const [name, atLeast] of [['pen writing', 13], ['2B pencil writing', 13],
+  ['ruler-drawn sketch, pen', 11], ['ruler-drawn sketch, 2B pencil', 10]]) {
+  check(`tripwire: ${name} reads as ink on at least ${atLeast} of 13`, () =>
+    assert(count(name, 'ink') >= atLeast, `ink on ${count(name, 'ink')}`));
+}
+check('an inked page reads as ink or uncertain, and only an ink verdict carries an ink box', () => {
+  for (const cuts of Object.values(verdicts)) {
+    for (const [n, c] of cuts) assert((c.inkVerdict === 'ink') === (c.inkBox !== null), `${n}: ${c.inkVerdict} with box ${JSON.stringify(c.inkBox)}`);
+  }
+});
+for (const [label, sheet] of [['a blank real page', blankSheet],
+  ['the real page with only Problem and Part filled in, box empty', renderGenericSheet({ fields: true })]]) {
+  // 9, not 13: the defocus and hurry recipes fall below BLANK_SHARPNESS_MIN and
+  // read "uncertain" by design; the lighting gradient reads uncertain and the
+  // shadow across a corner reads ink. None of those four is a blank claim.
+  check(`tripwire: ${label} reads as blank, with the warning, on at least 9 of 13`, () => {
+    const cuts = ALL.map(r => photograph(sheet, r).cut);
+    const blank = cuts.filter(c => c.inkVerdict === 'blank' && c.flags.includes('looks-empty')).length;
+    assert(blank >= 9, `blank on ${blank}`);
+  });
+}
+check('registration off by up to 3 mm never turns a blank real page that read no-ink into ink', () => {
+  // 3.0 mm is what a degraded three-mark fit is allowed. At these errors the
+  // box's black border enters the crop; it is found by the box's declared
+  // geometry, never by the rules. (A recipe that reads the blank page as ink
+  // without any error, the shadow across a corner, is not this check's case.)
+  const clean = ALL.filter(r => photograph(blankSheet, r).cut.inkVerdict !== 'ink');
+  const bad = [];
+  for (const error of [[0, -1], [0, -2], [0, -3], [0, 3], [-3, 0], [3, 0], [-2, -2]]) {
+    for (const recipe of clean) {
+      if (photograph(blankSheet, recipe, error).cut.inkVerdict === 'ink') bad.push(`${recipe.name}@${error}`);
+    }
+  }
+  assert(clean.length >= 12, `only ${clean.length} recipes read the blank page as no-ink`);
+  assert(bad.length === 0, `read as ink: ${bad.join(', ')}`);
+});
 const loneLow = photograph(renderGenericSheet({ writing: [[20, 238, 60, 248]], ink: INK.pencil }), RECIPE['10-jpeg-low']);
 check('one short pencil line low on the page is found, and not called blank', () => {
   const b = loneLow.cut.inkBox;
   assert(b && b.y0 > loneLow.cut.image.height * 0.85, JSON.stringify(b));
   assert(!loneLow.cut.flags.includes('looks-empty'), 'called blank');
 });
+await checkAsync('an uncertain crop is packaged as ink "uncertain", never as "none"', async () => {
+  const shot = photograph(renderGenericSheet({}), RECIPE['01-clean']);
+  const c = P.labelGenericCrop(recut({}, 'pgU', shot, 'cu'), P.genericCropKey('gen', 'pgU'), '2');
+  const key = P.genericCropKey('gen', 'pgU');
+  const uncertain = { ...c, [key]: { ...c[key], inkVerdict: 'uncertain', inkBox: null, qualityFlags: [] } };
+  const { payload } = await openPackage(sourcesFor(uncertain, [pageRef('pgU', 'page_1.jpg', shot)]));
+  assert(payload.crops['2_1'].ink === 'uncertain' && payload.crops['2_1'].ink_bbox === null,
+    JSON.stringify(payload.crops['2_1']));
+  // A crop restored from before the verdict existed has none: also uncertain.
+  const legacy = { ...c, [key]: { ...c[key], inkVerdict: undefined } };
+  const again = await openPackage(sourcesFor(legacy, [pageRef('pgU', 'page_1.jpg', shot)]));
+  assert(again.payload.crops['2_1'].ink === 'uncertain', again.payload.crops['2_1'].ink);
+});
 await checkAsync('a blank page is still packaged, with ink_bbox null', async () => {
   const blank = photograph(renderGenericSheet({}), RECIPE['01-clean']);
   const c = P.labelGenericCrop(recut({}, 'pgZ', blank, 'cz'), P.genericCropKey('gen', 'pgZ'), '2');
   const { payload } = await openPackage(sourcesFor(c, [pageRef('pgZ', 'page_1.jpg', blank)]));
-  assert(payload.crops['2_1'].ink_bbox === null && payload.crops['2_1'].quality_flags.includes('looks-empty'),
+  assert(payload.crops['2_1'].ink === 'none' && payload.crops['2_1'].ink_bbox === null &&
+    payload.crops['2_1'].quality_flags.includes('looks-empty'),
     JSON.stringify(payload.crops['2_1']));
   assert(P.genericCoverage(parts, c, [pageRef('pgZ', 'page_1.jpg', blank)]).blank === 1, 'not counted blank');
 });
+
+// =====================================================
+// 3b. The real photographs of the printed generic page
+// =====================================================
+// tests/captures/generic_page/: seven frames of the page as built (solid
+// rules), printed on a real printer and photographed handheld. One phone, one
+// printer, one room, one hand. Gitignored, so this SKIPs where they are absent
+// (CI). Each instrument is the photographer's own, written in the page margin.
+results.push('  3b. the real frames');
+{
+  const FRAMES = join(REPO, 'tests', 'captures', 'generic_page');
+  const expected = [
+    ['01_blank.jpg', 'blank'],
+    ['02_pencil_fields_and_outside_box.jpg', 'ink'],
+    ['03_light_pencil.jpg', 'ink'],
+    ['04_lightest_hard_pencil.jpg', 'ink'],
+    ['05_pen.jpg', 'ink'],
+    ['06_pen_sketch.jpg', 'ink'],
+    ['07_fields_only.jpg', 'blank'],
+  ];
+  if (!existsSync(FRAMES)) {
+    skip('the seven real frames give their required verdicts', 'tests/captures/generic_page/ is not here');
+  } else {
+    const { ingestLikeApp } = await import('./realCaptures.mjs');
+    const got = {};
+    for (const [file] of expected) {
+      const image = ingestLikeApp(join(FRAMES, file));
+      const reg = P.registerPage(image);
+      got[file] = reg.usable
+        ? { reg, cut: P.cropGenericBox(image, reg.transform, row, P.GENERIC_CROP_LONG_EDGE_PX,
+          P.registeredQrSharpness(image, reg)) }
+        : { reg, cut: null };
+    }
+    check('all seven register from the page\'s own QR', () => {
+      for (const [file] of expected) {
+        assert(got[file].cut, `${file}: ${got[file].reg.status}`);
+        assertEqual(got[file].reg.qr.fields,
+          { assignmentId: 'GBGEN1', token: 'HWMSTR', k: 1, n: 1, layoutId: P.GENERIC_LAYOUT_ID }, file);
+      }
+    });
+    check('SAFETY: none of the five written frames reports its box as blank (04 hard pencil, 06 straight pen)', () => {
+      for (const [file, want] of expected) {
+        if (want !== 'ink') continue;
+        const c = got[file].cut;
+        assert(c.inkVerdict !== 'blank' && !c.flags.includes('looks-empty'), `${file}: ${c.inkVerdict}`);
+      }
+    });
+    check('each written frame reads as ink, with an ink box inside the crop', () => {
+      for (const [file, want] of expected) {
+        if (want !== 'ink') continue;
+        const c = got[file].cut, b = c.inkBox;
+        assert(c.inkVerdict === 'ink' && b && b.x0 >= 0 && b.y0 >= 0 && b.x1 <= c.image.width && b.y1 <= c.image.height,
+          `${file}: ${c.inkVerdict} ${JSON.stringify(b)}`);
+      }
+    });
+    check('01 (blank) and 07 (fields filled in, box empty) report no ink in the box, with the warning', () => {
+      for (const file of ['01_blank.jpg', '07_fields_only.jpg']) {
+        const c = got[file].cut;
+        assert(c.inkVerdict === 'blank' && c.flags.includes('looks-empty') && c.inkBox === null,
+          `${file}: ${c.inkVerdict}`);
+      }
+    });
+    check('06: the ink box takes in the vertical axis, not only the curve', () => {
+      // Checked by eye on the crop: the vertical axis stands at about 0.345 of
+      // the crop's width and the curve starts right of it.
+      const c = got['06_pen_sketch.jpg'].cut;
+      assert(c.inkBox.x0 < 0.345 * c.image.width, `ink box starts at ${c.inkBox.x0} of ${c.image.width}`);
+    });
+  }
+}
 
 // =====================================================
 // 4. Coverage says, never blocks

@@ -648,6 +648,7 @@ the ink is (`ink_bbox`) and leaves any tightening to you.
             "quality_flags": [],
             "file": "crops/1a_1.jpg", "width": 1325, "height": 1381,
             "page_file": "page_1.jpg", "part_page": 1, "part_pages": 2,
+            "ink": "present",
             "ink_bbox": { "x0": 34, "y0": 108, "x1": 906, "y1": 525 } },
   "1a_2": { …, "page_file": "page_3.jpg", "part_page": 2, "part_pages": 2 },
   "unlabelled_1": { "region_id": "gen", "part_id": null, "part_source": "student",
@@ -656,7 +657,7 @@ the ink is (`ink_bbox`) and leaves any tightening to you.
 }
 ```
 
-Every generic crop has exactly these sixteen keys, in this order:
+Every generic crop has exactly these seventeen keys, in this order:
 
 | field | value | note |
 |---|---|---|
@@ -672,49 +673,63 @@ Every generic crop has exactly these sixteen keys, in this order:
 | `file`, `width`, `height` | | As §3.3. |
 | `page_file` | `page_3.jpg` | The photograph it was cut from. The map cannot say, because every page has the same region. |
 | `part_page`, `part_pages` | `2`, `2` | Where it sits among its part's pages, in capture order (the order the student left their pages in). Read a part's pages in `part_page` order. `null` when unlabelled. |
-| `ink_bbox` | `{x0, y0, x1, y1}` or `null` | Where the writing is, **in this crop's pixels**, with `x1` and `y1` exclusive, padded by 1.5 mm. **Metadata only: the crop is not trimmed to it.** `null` means the app found no ink at all, and the crop also carries `looks-empty`. |
+| `ink` | `present`, `none` or `uncertain` | What the app's ink measure concluded. **`none` is a positive claim** that the box holds only paper and the printed lines, and only then does the crop carry `looks-empty`. **`uncertain` is not a claim of empty**: the measure could not confirm ink and could not rule it out. Treat it as "look at the crop". |
+| `ink_bbox` | `{x0, y0, x1, y1}` or `null` | Where the writing is, **in this crop's pixels**, with `x1` and `y1` exclusive, padded by 1.5 mm, when `ink` is `present`; `null` otherwise. **Metadata only: the crop is not trimmed to it.** A `null` box does not mean empty; read `ink`. |
 
-### 11.5 How `ink_bbox` is measured, so you know what to trust
+### 11.5 How `ink` and `ink_bbox` are measured, so you know what to trust
 
-Depth is measured below the local paper (the 90th percentile of each 4 mm
-block), because a photograph is never evenly lit. The printed rules and real
-writing overlap in depth, so the measure has two tiers:
+**The governing rule: when the measure is unsure it says `uncertain`, never
+`none`.** A page with writing reported blank is the serious failure, because a
+student may rewrite work that was fine. `none` is claimed only when all three
+hold: there is no confirmed ink at all; no trace of any kind (specks, faint
+marks, straight lines that are not pale and box-spanning like a printed rule)
+exceeds what bare paper and the printed rules produce; and the photograph is at
+least as sharp as the real frames on which `none` was verified. Everything else
+that is not `present` is `uncertain`. **Read `uncertain` as "look at the crop",
+never as empty.**
 
-1. **More than 130 levels below the paper is ink, whatever its shape.**
-2. **Between 40 and 130 is ink unless it is part of a straight line of 15 mm
-   or more**, horizontal or vertical, with gaps of up to 1 mm bridged.
-   Handwriting has no 15 mm straight strokes. This test knows nothing about
-   where the rules are.
+Depth is measured below the **local** paper, the 90th percentile of each 4 mm
+block. On real frames of this page, a single paper level per photograph did not
+separate ink from shadow. Ink is found in two tiers: more than 130 levels below
+the paper is ink whatever its shape; between 30 and 130 is ink unless it is part
+of a straight line of 20 mm or more, which is set aside. Nothing in the measure
+knows where the printed rules are. The page is oriented by its QR and cropped
+by the declared box. Every crop is the whole box.
 
-The box's own border, black, is removed as a long straight line within 3.5 mm
-of the crop's edge. Patches under 0.25 mm² are dust. Under 2 mm² of ink in total,
-about one short written digit, the page is reported as having none. **Like every
-flag, this is advisory: a blank page is still submitted, and every crop is the
-whole box.**
+**Evidence.** Seven real photographs of this page as built (solid rules),
+printed on a real printer and photographed handheld: one phone, one printer,
+one room, one hand. On them:
 
-**What the thresholds rest on**, measured on 40 real phone photographs of the
-app-printed sheet (below local paper): printed rule cores p50 21, p99 84,
-p99.9 160, max 206; real strokes' darkest pixel p10 45, p50 81. Half of real
-strokes are no darker than the rules' upper range, which is why the straight-line
-tier exists. At 130, a rule stays above the step for 0.8 mm or more on about
-0.5 mm per metre of rule, never for more than 2.5 mm, and a quarter of real
-strokes reach it. Full working in `services/inkBox.ts`.
+| frame | written with | `ink` |
+|---|---|---|
+| 01 | nothing | `none` |
+| 02 | pencil, fields filled, writing across the box edge | `present`; only the part inside the box is in the crop |
+| 03 | light pencil | `present` |
+| 04 | lightest hard pencil, heavy shadow | `present` |
+| 05 | pen | `present` |
+| 06 | pen, freehand axes and a curve | `present`; the box takes in the axes |
+| 07 | pencil in the fields only, box empty | `none` |
+
+Grey levels were cross-checked against 40 real photographs of the app-printed
+sheet, whose rules are the same grey but dashed. Full working and every
+constant's source are in `services/inkBox.ts`.
 
 **What that does and does not cover:**
 
-- **Those photographs are of the dashed-rule sheet.** The generic page's rules
-  are the same 0.5 pt and 75% grey but solid, so the grey levels transfer and
-  the run-length and gap structure do not. **No photograph of the generic page
-  printed on a real printer has been measured yet.** The suite photographs the
-  real exported PDF synthetically: a blank page, and a blank page with the
-  Problem and Part fields filled in, read as no ink on all 13 capture recipes,
-  including with registration off by up to 3 mm.
-- **A ruler-drawn sketch** is found on 11 of 13 recipes in pen and 10 of 13 in
-  2B pencil. The misses are blurred and hurried photographs.
-- **A ruler-drawn line in faint hard pencil reads as blank.** It never reaches
-  the deep tier and it is straight. The page itself covers this, by telling the
-  student to write with a soft pencil or a pen. So an `ink_bbox: null` on a
-  sketch part is worth a look before it is believed.
+- **Scope: that one phone, printer and room.** Nothing here says how other
+  phones, printers or lighting behave.
+- **A solid printed rule at this grey reaches the line test in pieces** (on the
+  empty frames 1.3% and 2.9% of rule columns dip out, gaps up to 5.4 mm). The
+  pieces are joined by coverage across a narrow band. On a page under heavy
+  shadow they may not join, and a blank page there reads `uncertain`.
+- **Blurrier photographs never get `none`.** Their QR-block sharpness falls
+  under 0.18: the verified frames measure 0.184 to 0.207, and real phone
+  photographs of the printed sheet range from 0.125 to 0.214. On them a pencil
+  line ruled across the box is indistinguishable from a printed rule, so the
+  measure says `uncertain`.
+- **Synthetic runs are regression tripwires, not accuracy figures.** The suite
+  also photographs the real exported PDF with synthetic writing. No page with
+  writing comes out `none` there, and it is asserted on every recipe.
 
 ### 11.6 What the student was told
 

@@ -271,8 +271,12 @@ export const buildSubmissionJson = (s: SubmissionSources): Record<string, unknow
           page_file: r.pageFile,
           part_page: r.partPage,
           part_pages: r.partPages,
-          // Where the writing is, in this crop's pixels. Metadata only: the
-          // crop is the whole box, never trimmed. Null for a page with no ink.
+          // What the ink measure concluded: "present", "none" or "uncertain".
+          // "none" is claimed only on positive evidence; a page it could not
+          // confirm either way says "uncertain", which is NOT a claim of empty.
+          ink: crop.inkVerdict === 'ink' ? 'present' : crop.inkVerdict === 'blank' ? 'none' : 'uncertain',
+          // Where the writing is, in this crop's pixels, when `ink` is
+          // "present"; null otherwise. Metadata only: the crop is the whole box.
           ink_bbox: inkBoxJson(crop.inkBox),
         };
       }

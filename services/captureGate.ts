@@ -363,6 +363,18 @@ const qrSharpness = (
 };
 
 /**
+ * The QR-block sharpness of a registered photograph: the same metric the gate
+ * computes, from the registration's own symbol corners. Null when there is no
+ * symbol or the measurement is inconclusive. Used by the generic sheet's ink
+ * measure to decide whether a photograph is sharp enough to claim "blank".
+ */
+export const registeredQrSharpness = (image: Rgba, registration: RegistrationResult): number | null => {
+  if (!registration.qr) return null;
+  const c = registration.qr.corners;
+  return qrSharpness(toGray(image), [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft]);
+};
+
+/**
  * The darkest tile of the page.
  *
  * Measured through the registration's own transform, which is why this check

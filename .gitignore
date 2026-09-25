@@ -80,6 +80,7 @@ tests/captures/synthetic/
 # own blank template with his own handwriting on it. See tests/captures/README.md.
 tests/captures/students/
 tests/captures/android/
+tests/captures/generic_page/
 # ...and anything a probe renders FROM them.
 #
 # IGNORE EVERYTHING A PROBE RENDERS, AND NAME THE EXCEPTION INSTEAD.

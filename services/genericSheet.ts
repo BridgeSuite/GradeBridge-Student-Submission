@@ -202,7 +202,7 @@ export interface GenericCoverage {
   repeated: Array<{ part: GenericPart; pages: number }>;
   /** Pages with no part chosen. */
   unlabelled: number;
-  /** Pages the ink measure found nothing on. */
+  /** Pages the ink measure positively found nothing on. Uncertain pages are not counted. */
   blank: number;
   /** Parts that do have a page. */
   covered: number;
@@ -233,7 +233,7 @@ export const genericCoverage = (
     missing,
     repeated,
     unlabelled: present.filter(r => !r.part).length,
-    blank: present.filter(r => r.crop.inkBox === null).length,
+    blank: present.filter(r => r.crop.inkVerdict === 'blank').length,
     covered: parts.length - missing.length,
   };
 };
@@ -277,6 +277,7 @@ export interface GenericCut {
   bytes: number;
   flags: string[];
   inkBox: InkBox | null;
+  inkVerdict: 'ink' | 'blank' | 'uncertain';
 }
 
 /**
@@ -307,6 +308,7 @@ export const genericCropRecord = (
   fromPage: pageId,
   captureId,
   inkBox: cut.inkBox,
+  inkVerdict: cut.inkVerdict,
 });
 
 /**

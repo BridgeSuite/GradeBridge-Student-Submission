@@ -9,113 +9,151 @@
  * pixel. It reports a rectangle beside the crop, and whether there is any ink
  * at all, and the reading side decides what to do with either.
  *
+ * ## THE GOVERNING RULE: when the measure is unsure, it does not say "blank"
+ *
+ * Every threshold below is imperfect and always will be, so the failure has to
+ * be safe by construction, not by tuning. **A page with ink reported as blank is
+ * the serious failure**: a student may rewrite work that was fine. So the
+ * verdict has three values, and `blank` is a positive claim:
+ *
+ *   - `ink`: at least `INK_MIN_MM2` of confirmed ink. The ink box is reported.
+ *   - `blank`: NO confirmed ink at all, AND no evidence of any kind beyond what
+ *     bare paper and pale, box-spanning printed lines produce, AND a photograph
+ *     at least as sharp as the real frames on which blank was verified
+ *     (`BLANK_SHARPNESS_MIN`, applied by `cropGenericBox`). Only this verdict
+ *     tells the student "this looks blank".
+ *   - `uncertain`: everything else. No warning, and the package says
+ *     `uncertain`, which is not a claim of empty.
+ *
+ * Evidence against `blank`, each a thing the ink count sets aside: ink below
+ * the floor; ink-deep specks (thin broken pencil falls apart into specks);
+ * faint marks between `FAINT_STEP` and `INK_STEP` that are not a line;
+ * straight lines deeper than printed rules go; and straight lines that do not
+ * qualify as printed (they do not span the box, or they are darker along their
+ * length than any printed rule measured). In development each of these, when
+ * missing, let a page with ink be reported blank, and each is now held by a
+ * mutation-tested SAFETY check in `tests/generic-sheet-tests.mjs`.
+ *
  * ## What counts as ink
  *
- * Every threshold is a step below the local paper (`depthBelowPaper`): the
- * 90th percentile of the pixel's own 4 mm block, because a phone photograph
- * is never evenly lit and one threshold for the page reads a shadowed corner
- * as writing.
+ * Every threshold is a step below the LOCAL paper (`depthBelowPaper`): the
+ * 90th percentile of the pixel's own 4 mm block. **This is not a refinement.**
+ * On the real generic-page frames a global paper level did not separate ink
+ * from shadow at all: an earlier characterisation with one paper level per
+ * frame ranked the blank page above two written ones. The local step is what
+ * makes a depth threshold mean anything.
  *
- * **The printed rules and real writing overlap in depth, so no single grey
- * threshold separates them.** The generic page's rules are 0.5 pt at 75%
- * grey, solid, across the full width of all 25 bands. So the measure has two
- * tiers:
+ * Two tiers. **Deeper than `DEEP_STEP` is ink whatever its shape.** Between
+ * `INK_STEP` and `DEEP_STEP` is ink unless it is part of a long straight line
+ * (`RULE_RUN_MM`, found at `LINE_STEP`, gaps up to `RULE_GAP_MM` bridged).
+ * Nothing here knows where the rules are, how many there are or whether any
+ * exist: orientation comes from the QR and the box from the declared
+ * geometry. The box's black border is removed as a long straight line within
+ * `BORDER_ZONE_MM` of the crop's edge. A line is judged to span the box by the
+ * COVERAGE of its pieces across a `LINE_BAND_MM` band, because a solid printed
+ * rule reaches the line test in pieces (below) and tilts a pixel or two.
  *
- *   1. **Deeper than `DEEP_STEP` (130) is ink, whatever its shape.** A
- *      ruler-drawn axis or wire in pen or a soft pencil gets there; the rules
- *      essentially never do.
- *   2. **Between `INK_STEP` (40) and `DEEP_STEP` is ink unless it is part of a
- *      long straight line**: a run of at least `RULE_RUN_MM` (15 mm), found on
- *      the softer `LINE_STEP` (20) with gaps up to `RULE_GAP_MM` (1 mm)
- *      bridged, horizontal or vertical. Handwriting has no 15 mm straight
- *      strokes. **This is not keyed on the rules**: it knows nothing of where
- *      they are, how many there are or whether any exist.
+ * ## Which images set which constant
  *
- * Also removed: the box's border, as a long straight line within
- * `BORDER_ZONE_MM` of the crop's edge, however dark (the box is the declared
- * geometry, and a degraded fit may be 3 mm out); a 1 mm edge margin; and specks
- * under 0.25 mm². Under `INK_MIN_MM2` (2 mm²) in total, about one short written
- * digit, the page is reported as having no ink and the student is told it looks
- * blank. **Said, never blocked**, and the crop is stored whole either way.
+ * **Seven real frames of the generic page as built (solid rules)**, printed on
+ * a real printer and photographed handheld: one phone, one printer, one room,
+ * one hand (`tests/captures/generic_page/`, local and uncommitted; the
+ * instruments are the photographer's own, written in each page's margin).
+ * `tests/genericFrameProbe.mjs`, 2026-09-24, with this module's own method:
  *
- * ## The numbers the constants rest on
+ *   - Rule cores (clean columns): p50 23 to 40 by frame, p99 34 to 65; per-line
+ *     median at most 52 over 168 rules.
+ *   - Strokes' darkest pixel, by written frame: p5 28 to 61, p50 73 to 138.
+ *   - Bare paper: p99.9 5 to 20, p99.99 6 to 24, max 36 (04, under shadow).
+ *   - QR sharpness: 0.184 to 0.207.
  *
- * Measured 2026-09-24 by `tests/inkDepthProbe.mjs` on 40 real phone
- * photographs that registered on a map (7 of the maintainer's, 11 from an
- * Android phone, 22 of real coursework from two iPhones; 18 more could not be
- * measured and are listed by the probe). The photographs stay local and are
- * not committed; these numbers are what is kept. Depth below local paper:
+ * **40 real photographs of the app-printed sheet** (dashed rules, same 0.5 pt
+ * and 75% grey; `tests/inkDepthProbe.mjs`), for grey levels only: rule cores
+ * p99 84, p99.9 160; strokes' darkest p5 40, p50 81; bare paper p99.99 28;
+ * QR sharpness 0.125 to 0.214. Their run and gap structure does not transfer.
  *
- *   - **Rule cores** (247,585 dash-core columns with no writing near):
- *     p50 21, p90 50, p99 84, p99.9 160, max 206.
- *   - **Real strokes** (5,809 patches away from any rule): darkest pixel p5 40,
- *     p10 45, p50 81. Half of all real strokes never get deeper than 81, well
- *     inside the rules' range. That is why tier 2 exists.
- *   - **At 130**, a rule stays above the step for 0.8 mm or more on 0.52 mm per
- *     metre of rule, never for more than 2.5 mm. On the generic page's 4,462 mm
- *     of rule that projects to about 0.7 mm² of false ink, under the 2 mm²
- *     floor. 25% of real stroke patches reach 130. Lower steps rescue more
- *     strokes and let in longer runs: at 120 the longest is 8.7 mm, at 110
- *     14.8 mm. (Those longest runs may be strokes written along a rule rather
- *     than the rule itself, which would make 130 conservative.)
+ *   - `DEEP_STEP` 130, from the printed-sheet set: rules stay above it for
+ *     0.8 mm or more on 0.52 mm per metre, never over 2.5 mm; 25% of strokes
+ *     reach it.
+ *   - `INK_STEP` 30: above bare paper's p99.99 on every frame (6 to 24) and on
+ *     the printed-sheet set (28). On the frames 25, 30 and 35 gave identical
+ *     verdicts.
+ *   - `LINE_STEP` 15: the highest step at which both empty boxes (01, 07) read
+ *     blank for every gap and run tried; at 18, 07 reads uncertain. Bare paper
+ *     at 15 is isolated noise and never forms a 20 mm line.
+ *   - `FAINT_STEP` 20: at or above bare paper's p99.9 on every frame.
+ *   - `RULE_GAP_MM` 1.0: the smallest gap tried; every gap from 1 to 3 mm gave
+ *     the same verdicts at step 15, and larger gaps chain more real writing
+ *     into "lines" (05's counted ink falls from 1,123 to 632 mm² at 3 mm).
+ *   - `RULE_RUN_MM` 20: above the longest straight chain pencil prose makes on
+ *     the frames (13.1 mm at a 1 mm gap). **Real straight ink is not separable
+ *     by length**: 06's pen axes run 86 mm. The deep tier and the evidence rule
+ *     protect straight ink, not this constant.
+ *   - `LINE_BAND_MM` 0.6: without a band, no rule on the frames counted as
+ *     spanning the box.
+ *   - `PRINTED_LINE_MEDIAN_MAX` 60: above every real solid rule (52) and the
+ *     printed-sheet set's p99 (60).
+ *   - `BLANK_SHARPNESS_MIN` 0.18: just under the least sharp frame on which
+ *     blank was verified (0.184).
+ *   - `SPECK_MM2`, `FAINT_MAX_MM2`, `SPECK_EVIDENCE_MAX_MM2`,
+ *     `DEEP_LINE_MAX_MM2`, `RULE_DEPTH_P99`: from the printed-sheet set's bare
+ *     paper and rules, as recorded beside each; on the frames every one of
+ *     them measured 0 on both empty boxes.
+ *   - Safety floors, not tuned: `UNEXPLAINED_LINE_MAX_MM2` 1, `FULL_SPAN` 0.8,
+ *     `INK_MIN_MM2` 2. Geometry: `BORDER_ZONE_MM` 3.5.
  *
- * **What transfers and what does not.** Those photographs are of the
- * app-printed sheet, whose rules are the same 0.5 pt and 75% grey but DASHED
- * (1.2 on 1.2 mm). The grey levels transfer to the generic page. The run
- * length and gap structure do not. **No photograph of the generic page
- * printed on a real printer has been measured yet**; the suite photographs
- * the real exported PDF synthetically (`tests/generic-sheet-tests.mjs`).
+ * **No synthetic ink set any threshold.** `tests/generic-sheet-tests.mjs`
+ * photographs the real exported PDF with synthetic writing; those runs are
+ * regression tripwires and the SAFETY assertion, not evidence of accuracy.
  *
- * On those photographs of the real page, 13 capture recipes: blank, and blank
- * with the Problem and Part fields filled in, read as no ink on all 13, and
- * on all 13 again with registration off by up to 3 mm. With tier 2 switched
- * off, a blank page read as ink on 10 of 13. A ruler-drawn sketch is found on
- * 11 of 13 in pen and 10 of 13 in 2B pencil (the misses are the blurred and
- * hurried recipes).
+ * ## Does a solid rule stay continuous at LINE_STEP 15? Nearly, not wholly.
  *
- * ## What breaks it, and the case it does not cover
+ * On the two empty frames, 1.3% and 2.9% of clean rule columns dip to 15 or
+ * below; the dips are at most 1.4 mm on 01 and 5.4 mm on 07. So a solid rule
+ * reaches the line test in a few pieces, and coverage across the band joins
+ * them: all 24 rules on both frames span the box. On written frames the dips
+ * are larger where the page is shadowed (04: 23.7% of columns, gaps to 65 mm).
+ * A blank page under that shadow would read `uncertain`, not blank.
  *
- * - **A faint hard pencil drawn with a ruler reads as blank** (0 of 13). It
- *   never reaches `DEEP_STEP`, and it is straight, so tier 2 removes it.
- *   Freehand hard-pencil writing is still found, because it is not straight.
- *   **This case is covered by the page itself, not by this code**: the
- *   generic page tells the student to write with a soft pencil (2B or B) or a
- *   pen, and that hard pencils come out faint and photograph badly. **If that
- *   printed instruction is ever removed or softened, this measure gets weaker**,
- *   and that change should come back here.
- * - **Rules printed darker than 75% grey**, or with a heavier line, push rule
- *   pixels past 130 and a blank page toward "has ink". Re-run the probe.
- * - **Rules broken into dashes with gaps over 1 mm**, or a dot grid: tier 2
- *   no longer sees a line. The deep tier still keeps them out if they are
- *   pale. Re-run the probe.
- * - Changing `INK_STEP`, `DEEP_STEP`, `RULE_RUN_MM` or `RULE_GAP_MM` without
- *   re-running `tests/inkDepthProbe.mjs` on real photographs.
+ * ## What breaks it
+ *
+ * - **Scope.** One phone, one printer, one room. Other phones, printers and
+ *   lighting are not covered; the printed-sheet set is the only evidence from
+ *   other phones, and it has dashed rules.
+ * - **Rules printed darker or heavier** push them past `PRINTED_LINE_MEDIAN_MAX`
+ *   and `DEEP_STEP`: blank pages turn `uncertain` or `ink`. Safe direction.
+ * - **Shorter, broken or shadowed rules** stop spanning the box: blank pages
+ *   turn `uncertain`. Safe direction.
+ * - **A blurrier phone** falls under `BLANK_SHARPNESS_MIN`: no blank claims.
+ *   Safe direction.
+ * - **The page's own instruction.** The page tells the student to write with a
+ *   soft pencil (2B or B) or a pen, and that hard pencils photograph badly. 04,
+ *   the lightest hard pencil, still read as ink; fainter writing would read
+ *   `uncertain` before it read blank, but would lose its ink box. **Weaken that
+ *   printed instruction and more answers land on `uncertain`.**
+ * - Changing any constant without re-running both probes on real photographs.
  */
 
 import { InkBox } from '../types';
 import { Rgba } from './raster';
 
-/** Luminance below the local paper that counts as a mark. The same step `cropRegions` uses. */
-export const INK_STEP = 40;
-/**
- * Deeper than this below the local paper, a pixel is ink whatever its shape.
- * See "The numbers the constants rest on" above: the printed rules essentially
- * never get here, and a quarter of real strokes do.
- */
+/** REAL. Deeper than this below the local paper is a candidate mark. (The printed sheet's `cropRegions` keeps its own 40.) */
+export const INK_STEP = 30;
+/** REAL. Deeper than this below the local paper, a pixel is ink whatever its shape. */
 export const DEEP_STEP = 130;
 /** Side of the block the local paper level is estimated over. */
 export const PAPER_BLOCK_MM = 4;
-/** A straight dark run at least this long is a printed line, not writing. */
-export const RULE_RUN_MM = 15;
+/** REAL (frames). A straight run at least this long is set aside as a line: above pencil prose's 13.1 mm. */
+export const RULE_RUN_MM = 20;
 /**
- * Gaps a printed line may have and still be one line. A feint rule photographed
+ * REAL (frames). Gaps a printed line may have and still be one line. A feint rule photographed
  * at an angle, resampled and JPEG-compressed breaks into dashes a few pixels
  * apart; unbridged, each dash is too short to be a line and survives as "ink".
  */
 export const RULE_GAP_MM = 1.0;
-/** A printed line is found on this softer step, so its pale edges are found with it. */
-export const LINE_STEP = 20;
-/** Removed on either side of a found line, across it: its anti-aliased fringe. */
+/** REAL (frames). A printed line is found on this softer step, so a pale solid rule stays nearly whole. */
+export const LINE_STEP = 15;
+/** JUDGEMENT, not measured. Removed on either side of a found line, across it: its anti-aliased fringe. */
 export const LINE_FRINGE_MM = 0.3;
 /**
  * A long straight line this close to the crop's edge is the box's border,
@@ -126,18 +164,87 @@ export const LINE_FRINGE_MM = 0.3;
 export const BORDER_ZONE_MM = 3.5;
 /** Ignored at the crop's edge, where the box's border can leak in. */
 export const EDGE_MARGIN_MM = 1.0;
-/** A connected patch smaller than this is a speck. */
-export const SPECK_MM2 = 0.25;
-/** Less ink than this, in total, and the page is reported as blank. */
+/** REAL. A connected patch smaller than this is a speck: not counted as ink, kept as evidence. */
+export const SPECK_MM2 = 0.5;
+/**
+ * Rule cores' 99th percentile below local paper, measured. A straight line
+ * deeper than this, away from the border, is evidence against "blank".
+ */
+export const RULE_DEPTH_P99 = 84;
+/** More straight-line area than this deeper than RULE_DEPTH_P99, and the page is not blank. */
+export const DEEP_LINE_MAX_MM2 = 3;
+/**
+ * More ink-deep area than this in specks, and the page is not blank. Real bare
+ * paper gives about 3.0 mm² deeper than INK_STEP per 38,100 mm² box, as a mean;
+ * this is twice that. Its per-box spread is not yet measured.
+ */
+export const SPECK_EVIDENCE_MAX_MM2 = 6;
+/**
+ * Pieces of a straight line within this distance across it are taken as one
+ * line when judging whether it spans the box: the tilt a registered printed
+ * line keeps across 190 mm.
+ */
+export const LINE_BAND_MM = 0.6;
+/**
+ * REAL. A line spanning the box is a printed line only if its median depth
+ * along its length is at most this. Per-line median core depth of printed
+ * rules: at most 52 over 168 solid rules in the seven real generic-page frames;
+ * p99 60 over the dashed-rule photographs.
+ */
+export const PRINTED_LINE_MEDIAN_MAX = 60;
+/**
+ * REAL. "Blank" is claimed only on a photograph whose QR-block sharpness (the
+ * capture gate's metric) is at least this. The seven real generic-page frames,
+ * on which blank was verified, measure 0.184 to 0.207; this sits just under the
+ * least sharp. Real photographs of the printed sheet measure 0.125 to 0.214
+ * (p10 0.160, p50 0.202), so some real photographs will read "uncertain"
+ * instead of blank: the safe direction.
+ */
+export const BLANK_SHARPNESS_MIN = 0.18;
+/** A straight line spanning at least this fraction of the box is a printed line, consistent with blank. */
+export const FULL_SPAN = 0.8;
+/**
+ * More area than this on straight lines that do NOT span the box, and the page
+ * is not blank. A safety floor, not a tuned value: such a line is a sketch or
+ * chained handwriting until a printed-page photograph shows otherwise.
+ */
+export const UNEXPLAINED_LINE_MAX_MM2 = 1;
+/**
+ * Faint marks are counted from this step up to INK_STEP. Separate from
+ * LINE_STEP: finding a printed line wants a low step, so a pale rule stays
+ * whole; counting faint marks wants one above bare paper.
+ */
+export const FAINT_STEP = 20;
+/** More faint (FAINT_STEP to INK_STEP, not a line) area than this, and the page is not blank. */
+export const FAINT_MAX_MM2 = 5;
+/** Less confirmed ink than this and the page is not reported as having ink. */
 export const INK_MIN_MM2 = 2;
 /** The reported box is padded by this much, clamped to the crop. */
 export const INK_BOX_PAD_MM = 1.5;
 
+/**
+ * What the measure concluded. **`blank` is a positive claim** and is made only
+ * when there is evidence the box holds nothing but paper and pale printed
+ * lines. Anything short of confirmed ink that is not that is `uncertain`,
+ * never `blank`: a page with writing reported as blank may send a student to
+ * rewrite work that was fine, so the measure must fail toward "not sure".
+ */
+export type InkVerdict = 'ink' | 'blank' | 'uncertain';
+
 export interface InkMeasure {
+  verdict: InkVerdict;
   /** Null when there is no ink. */
   box: InkBox | null;
   /** Ink area in square millimetres, after everything above is removed. */
   inkMm2: number;
+  /** Marks between LINE_STEP and INK_STEP that are not a straight line. */
+  faintMm2: number;
+  /** Straight-line pixels, away from the border, deeper than rules usually go. */
+  deepLineMm2: number;
+  /** Straight-line pixels, away from the border, on a line that does not span the box. */
+  unexplainedMm2: number;
+  /** Ink-deep pixels dropped as specks. Dropped from the count, kept as evidence. */
+  speckMm2: number;
 }
 
 /**
@@ -183,10 +290,23 @@ export const depthBelowPaper = (image: Rgba, pxPerMm: number): Int16Array => {
  * @param image    the crop, as stored
  * @param pxPerMm  the crop's own resolution
  */
-export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
+/**
+ * Parameters a measurement probe may override, to scan candidate values over
+ * real photographs with this exact code. The app never passes any.
+ */
+export interface InkParams {
+  inkStep: number; lineStep: number; faintStep: number;
+  ruleRunMm: number; ruleGapMm: number; fullSpan: number;
+}
+
+export const measureInk = (image: Rgba, pxPerMm: number, override: Partial<InkParams> = {}): InkMeasure => {
+  const k: InkParams = {
+    inkStep: INK_STEP, lineStep: LINE_STEP, faintStep: FAINT_STEP,
+    ruleRunMm: RULE_RUN_MM, ruleGapMm: RULE_GAP_MM, fullSpan: FULL_SPAN, ...override,
+  };
   const { data, width: w, height: h } = image;
   const n = w * h;
-  if (n === 0) return { box: null, inkMm2: 0 };
+  if (n === 0) return { verdict: 'uncertain', box: null, inkMm2: 0, faintMm2: 0, deepLineMm2: 0, unexplainedMm2: 0, speckMm2: 0 };
 
   const depth = depthBelowPaper(image, pxPerMm);
   const dark = new Uint8Array(n);
@@ -195,11 +315,11 @@ export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
   // Ink is counted inside the edge margin; printed lines are FOUND over the
   // whole crop. A border whose core sits in the margin must still be seen as
   // a line, or its pale fringe just inside the margin survives as fragments.
-  for (let p = 0; p < n; p++) if (depth[p] > LINE_STEP) soft[p] = 1;
+  for (let p = 0; p < n; p++) if (depth[p] > k.lineStep) soft[p] = 1;
   for (let y = edge; y < h - edge; y++) {
     for (let x = edge; x < w - edge; x++) {
       const p = y * w + x;
-      if (depth[p] > INK_STEP) dark[p] = 1;
+      if (depth[p] > k.inkStep) dark[p] = 1;
     }
   }
 
@@ -209,12 +329,25 @@ export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
   // a rule, the border leaking in at an edge, a ruled line on some other
   // paper. The page is oriented by its QR and cropped by the declared box;
   // no detection anywhere is keyed on the rules.
-  const run = Math.round(RULE_RUN_MM * pxPerMm);
-  const gap = Math.max(1, Math.round(RULE_GAP_MM * pxPerMm));
+  const run = Math.round(k.ruleRunMm * pxPerMm);
+  const gap = Math.max(1, Math.round(k.ruleGapMm * pxPerMm));
   const fringe = Math.max(1, Math.round(LINE_FRINGE_MM * pxPerMm));
   const line = new Uint8Array(n);
+  // Lines spanning most of the box: what a printed rule or the border is. Only
+  // these are EXPLAINED, i.e. consistent with a blank page; any other straight
+  // line is removed from the ink count but counts against "blank". If the page
+  // ever gets shorter or broken rules, blank pages turn "uncertain", never the
+  // reverse: the coupling to the rules' length fails safe.
+  const explained = new Uint8Array(n);
   /** Marks runs along one line of pixels; `at(i)` is the i-th pixel's index. */
-  const markRuns = (length: number, at: (i: number) => number, across: number): void => {
+  //
+  // "Spans the box" is judged by COVERAGE, not by the longest piece. A solid
+  // rule photographed at this grey dips below the line step in places, so it
+  // arrives as several long pieces along one row; together they still cover the
+  // box. Measured on the seven real frames: see "Which images set which constant".
+  type Run = { lineNo: number; start: number; end: number; along: (i: number) => number; across: number };
+  const runs: Run[] = [];
+  const findRuns = (lineNo: number, length: number, at: (i: number) => number, across: number): void => {
     let start = -1, last = -1;
     for (let i = 0; i <= length; i++) {
       const on = i < length && soft[at(i)] === 1;
@@ -222,20 +355,70 @@ export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
         if (start < 0) start = i;
         last = i;
       } else if (start >= 0 && (i === length || i - last > gap)) {
-        if (last + 1 - start >= run) {
-          for (let j = start; j <= last; j++) {
-            for (let d = -fringe; d <= fringe; d++) {
-              const q = at(j) + d * across;
-              if (q >= 0 && q < n) line[q] = 1;
-            }
-          }
-        }
+        if (last + 1 - start >= run) runs.push({ lineNo, start, end: last, along: at, across });
         start = -1;
       }
     }
   };
-  for (let y = 0; y < h; y++) markRuns(w, (i) => y * w + i, w);
-  for (let x = 0; x < w; x++) markRuns(h, (i) => i * w + x, 1);
+  for (let y = 0; y < h; y++) findRuns(y, w, (i) => y * w + i, w);
+  const firstColumn = h;   // line numbers: rows are 0..h-1, columns are h..h+w-1
+  for (let x = 0; x < w; x++) findRuns(firstColumn + x, h, (i) => i * w + x, 1);
+  // Coverage of each row (and each column) by long runs, taken as the UNION of
+  // the positions covered within +-LINE_BAND_MM of it. A straight printed line
+  // is never exactly on one pixel row after registration: it tilts by a pixel
+  // or two across the box, so its pieces land on neighbouring rows and no one
+  // row holds them all.
+  const band = Math.max(fringe, Math.round(LINE_BAND_MM * pxPerMm));
+  const rowCov = new Uint8Array(n), colCov = new Uint8Array(n);
+  for (const r of runs) {
+    for (let j = r.start; j <= r.end; j++) (r.lineNo < firstColumn ? rowCov : colCov)[r.along(j)] = 1;
+  }
+  const bandCover = new Float64Array(h + w);
+  {
+    const seenCol = new Int32Array(w).fill(-1);
+    for (let y = 0; y < h; y++) {
+      let c = 0;
+      for (let d = -band; d <= band; d++) {
+        const yy = y + d;
+        if (yy < 0 || yy >= h) continue;
+        for (let x = 0; x < w; x++) if (rowCov[yy * w + x] && seenCol[x] !== y) { seenCol[x] = y; c++; }
+      }
+      bandCover[y] = c;
+    }
+    const seenRow = new Int32Array(h).fill(-1);
+    for (let x = 0; x < w; x++) {
+      let c = 0;
+      for (let d = -band; d <= band; d++) {
+        const xx = x + d;
+        if (xx < 0 || xx >= w) continue;
+        for (let y = 0; y < h; y++) if (colCov[y * w + xx] && seenRow[y] !== x) { seenRow[y] = x; c++; }
+      }
+      bandCover[firstColumn + x] = c;
+    }
+  }
+  // Spanning is not enough: a printed line is also PALE along its length. A
+  // pencil line ruled across the whole box spans it too, and on a blurred
+  // photograph it can be shallower than DEEP_STEP; only its depth tells it from
+  // a rule. So a spanning run explains a blank page only if its median depth is
+  // within what real printed lines measure (PRINTED_LINE_MEDIAN_MAX).
+  const runMedian = (r: Run): number => {
+    const v: number[] = [];
+    for (let j = r.start; j <= r.end; j++) v.push(depth[r.along(j)]);
+    v.sort((a, b) => a - b);
+    return v[v.length >> 1];
+  };
+  const covers = (r: Run): boolean =>
+    bandCover[r.lineNo] >= k.fullSpan * (r.lineNo < firstColumn ? w : h) &&
+    runMedian(r) <= PRINTED_LINE_MEDIAN_MAX;
+  for (const r of runs) {
+    const spans = covers(r);
+    for (let j = r.start; j <= r.end; j++) {
+      for (let d = -fringe; d <= fringe; d++) {
+        const q = r.along(j) + d * r.across;
+        if (q >= 0 && q < n) { line[q] = 1; if (spans) explained[q] = 1; }
+      }
+    }
+  }
   // The two tiers: a pixel deeper than DEEP_STEP is ink whatever its shape, so a
   // ruler-drawn pen or heavy-pencil line survives. Only the shallower band,
   // where rules and light strokes overlap, is subject to the straight-line test.
@@ -253,11 +436,30 @@ export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
     }
   }
 
+  // Evidence against "blank", gathered from what the two tiers set aside:
+  //  - straight-line pixels away from the border that are deeper than printed
+  //    rules usually go (a ruler-drawn line too pale for the deep tier);
+  //  - faint marks, between LINE_STEP and INK_STEP, that are not a line.
+  let deepLinePx = 0, unexplainedPx = 0;
+  const faint = new Uint8Array(n);
+  for (let y = edge; y < h - edge; y++) {
+    for (let x = edge; x < w - edge; x++) {
+      const p = y * w + x;
+      const interior = y >= zone && y < h - zone && x >= zone && x < w - zone;
+      if (line[p]) {
+        if (interior && depth[p] > LINE_STEP && !explained[p]) unexplainedPx++;
+        if (interior && depth[p] > RULE_DEPTH_P99) deepLinePx++;
+        continue;
+      }
+      if (depth[p] > k.faintStep && depth[p] <= k.inkStep) faint[p] = 1;
+    }
+  }
+
   // Connected patches, 8-connected; specks dropped, the rest counted and boxed.
   const speck = Math.max(1, Math.round(SPECK_MM2 * pxPerMm * pxPerMm));
   const seen = new Uint8Array(n);
   const stack: number[] = [];
-  let ink = 0;
+  let ink = 0, speckPx = 0;
   let bx0 = w, by0 = h, bx1 = -1, by1 = -1;
   for (let p = 0; p < n; p++) {
     if (!dark[p] || seen[p]) continue;
@@ -281,14 +483,49 @@ export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
         }
       }
     }
-    if (count < speck) continue;
+    // A speck is dropped from the ink count but NOT from the evidence: thin,
+    // broken pencil falls apart into specks, and a page of them is not blank.
+    if (count < speck) { speckPx += count; continue; }
     ink += count;
     if (cx0 < bx0) bx0 = cx0; if (cy0 < by0) by0 = cy0;
     if (cx1 > bx1) bx1 = cx1; if (cy1 > by1) by1 = cy1;
   }
 
-  const inkMm2 = ink / (pxPerMm * pxPerMm);
-  if (inkMm2 < INK_MIN_MM2 || bx1 < 0) return { box: null, inkMm2 };
+  // Faint patches, the same connectivity and speck size.
+  let faintPx = 0;
+  for (let p = 0; p < n; p++) {
+    if (!faint[p] || seen[p]) continue;
+    let count = 0;
+    seen[p] = 1;
+    stack.push(p);
+    while (stack.length) {
+      const q = stack.pop()!;
+      const qx = q % w, qy = (q - qx) / w;
+      count++;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = qy + dy;
+        if (ny < 0 || ny >= h) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = qx + dx;
+          if (nx < 0 || nx >= w) continue;
+          const r = ny * w + nx;
+          if (faint[r] && !seen[r]) { seen[r] = 1; stack.push(r); }
+        }
+      }
+    }
+    if (count >= speck) faintPx += count;
+  }
+
+  const mm2 = (px: number): number => px / (pxPerMm * pxPerMm);
+  const inkMm2 = mm2(ink), faintMm2 = mm2(faintPx), deepLineMm2 = mm2(deepLinePx);
+  const unexplainedMm2 = mm2(unexplainedPx), speckMm2 = mm2(speckPx);
+  if (inkMm2 < INK_MIN_MM2 || bx1 < 0) {
+    // Blank only on positive evidence: no confirmed ink AT ALL, faint marks no
+    // more than bare paper makes, and no straight line deeper than a rule.
+    const blank = ink === 0 && faintMm2 < FAINT_MAX_MM2 && deepLineMm2 < DEEP_LINE_MAX_MM2 &&
+      unexplainedMm2 < UNEXPLAINED_LINE_MAX_MM2 && speckMm2 < SPECK_EVIDENCE_MAX_MM2;
+    return { verdict: blank ? 'blank' : 'uncertain', box: null, inkMm2, faintMm2, deepLineMm2, unexplainedMm2, speckMm2 };
+  }
 
   const pad = Math.round(INK_BOX_PAD_MM * pxPerMm);
   return {
@@ -298,6 +535,11 @@ export const measureInk = (image: Rgba, pxPerMm: number): InkMeasure => {
       x1: Math.min(w, bx1 + 1 + pad),
       y1: Math.min(h, by1 + 1 + pad),
     },
+    verdict: 'ink',
     inkMm2,
+    faintMm2,
+    deepLineMm2,
+    unexplainedMm2,
+    speckMm2,
   };
 };

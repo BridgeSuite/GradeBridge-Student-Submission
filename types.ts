@@ -230,8 +230,13 @@ export interface CropRef {
    * is per page, `gen@{pageId}`, and this carries the map's own id.
    */
   mapRegionId?: string;
-  /** Generic sheet only. Where the ink is; null when the page has none. */
+  /** Generic sheet only. Where the ink is; null unless `inkVerdict` is 'ink'. */
   inkBox?: InkBox | null;
+  /**
+   * Generic sheet only. 'blank' is claimed only on positive evidence; anything
+   * unconfirmed is 'uncertain'. See `services/inkBox.ts`.
+   */
+  inkVerdict?: 'ink' | 'blank' | 'uncertain';
 }
 
 export interface SubmissionData {
