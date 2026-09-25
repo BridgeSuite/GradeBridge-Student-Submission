@@ -37,8 +37,11 @@ const LAYOUT_ONLY = args.includes('--layout-only');
 const APP_URL = args.includes('--url') ? args[args.indexOf('--url') + 1] : 'http://localhost:3001/GradeBridge-Student-Submission/';
 /** `--screenshots <dir>`: also save what the student sees as each refusal appears. */
 const SHOTS = args.includes('--screenshots') ? args[args.indexOf('--screenshots') + 1] : null;
+// From the environment, never a literal drive path (tests/no-personal-names.mjs
+// refuses those in tracked files). CHROME_PATH overrides.
 const CHROME = process.env.CHROME_PATH ?? (process.platform === 'win32'
-  ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : 'google-chrome');
+  ? join(process.env.ProgramFiles ?? process.env.PROGRAMFILES ?? '', 'Google', 'Chrome', 'Application', 'chrome.exe')
+  : 'google-chrome');
 
 const cryptoSvc = await loadModule('cryptoService.ts', 'rpb_crypto.mjs');
 const refusalMod = LAYOUT_ONLY ? null : await loadModule('services/loadRefusal.ts', 'rpb_refusal.mjs');
