@@ -16,6 +16,23 @@
 // distinction cost a cycle to learn, so it is written down here rather than
 // rediscovered as "this needs a token".
 //
+// **A credential is USED when one is available, to raise the rate limit**
+// (2026-09-25). Unauthenticated, GitHub allows 60 requests an hour per IP, and
+// every deploy refusal in this project that was not a real red run was that
+// budget running out, indistinguishable from a verdict at the moment it fires.
+// Authenticated, it is 5,000. The token is looked for in this order, first hit
+// wins: GITHUB_TOKEN, GH_TOKEN, then `gh auth token` if `gh` is on the PATH and
+// logged in. Finding none is not an error: the gate runs exactly as it always
+// has. Three rules, each held by a test:
+//
+//   - the token VALUE is never printed, logged or written; only its SOURCE is
+//     named, and only when one was used;
+//   - a token GitHub rejects (401) REFUSES, naming the token as the cause. It
+//     never falls back to unauthenticated: that would hide a stale credential
+//     and quietly restore the 60-an-hour limit this exists to remove;
+//   - a rate-limit refusal says whether the request was authenticated, which
+//     tells the operator whether the answer is "authenticate" or "wait".
+//
 // REFUSES on: a failed run, a cancelled run, no run at all, a run still in
 // progress, and any error reaching the API. **A gate that opens when it cannot
 // see is not a gate**, so a rate limit or a dropped connection refuses exactly
@@ -190,18 +207,60 @@ const onRemoteHint = () => {
   }
 };
 
+/**
+ * A token, and where it came from, or `null`. The value never leaves this
+ * object except in the Authorization header; everything printed uses `source`.
+ * `gh` absent, not logged in, slow or broken all mean "no token from gh", and
+ * none of them is an error: its output and its error text are discarded unread.
+ */
+const findToken = () => {
+  for (const name of ['GITHUB_TOKEN', 'GH_TOKEN']) {
+    const value = (process.env[name] ?? '').trim();
+    if (value) return { value, source: name };
+  }
+  try {
+    const value = execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000, windowsHide: true,
+    }).trim();
+    if (value && !/\s/.test(value)) return { value, source: 'gh auth token' };
+  } catch {
+    // Not installed, not logged in, or failed: unauthenticated, as before.
+  }
+  return null;
+};
+
+const token = findToken();
+const mode = token ? `authenticated via ${token.source}` : 'unauthenticated';
+if (token) say(`querying CI ${mode}`);
+
 let runs;
 let totalCount;
 try {
+  const headers = { 'User-Agent': 'gradebridge-deploy-gate', Accept: 'application/vnd.github+json' };
+  if (token) headers.Authorization = `Bearer ${token.value}`;
   const res = await fetch(`${API}/repos/${repo}/actions/runs?head_sha=${sha}&per_page=20`, {
-    headers: { 'User-Agent': 'gradebridge-deploy-gate', Accept: 'application/vnd.github+json' },
+    headers,
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-  if (res.status === 403 || res.status === 429) {
+  if (res.status === 401 && token) {
+    // Never retried without it: an operator who set a token wants it used.
+    refuse(`GitHub REJECTED the token (HTTP 401), found via ${token.source}.`, [
+      'The token is expired, revoked or wrong. Refusing rather than retrying',
+      'unauthenticated, which would hide it and bring back the 60-an-hour limit.',
+      token.source === 'gh auth token'
+        ? 'To clear it: run `gh auth login` again, or `gh auth logout` to deploy unauthenticated.'
+        : `To clear it: fix or unset ${token.source}.`,
+      'This is a failure to LOOK, not a finding about CI.',
+    ]);
+  } else if (res.status === 403 || res.status === 429) {
     const reset = res.headers.get('x-ratelimit-reset');
     refuse('the GitHub API refused the request — rate limit, or forbidden.', [
       `HTTP ${res.status} for ${repo}`,
+      `the request was ${mode}`,
       reset ? `the rate limit resets at ${new Date(Number(reset) * 1000).toISOString()}` : '',
+      token
+        ? 'An authenticated limit is 5,000 an hour: this is more likely forbidden than exhausted.'
+        : 'Unauthenticated, the limit is 60 an hour per IP. Authenticate (`gh auth login`) or wait for the reset.',
       'This is a failure to LOOK, not a finding about CI.',
       'Refusing rather than passing: a gate that cannot see must not open.',
     ].filter(Boolean));
