@@ -364,7 +364,10 @@ check('the refusal still says what to load instead', () => {
   const code = stripComments(refusalSrc).replace(/'\s*\+\s*'/g, '');
   assert(/it is missing the map that tells the application where your answers are on the page/.test(code),
     'the no-map wording changed');
-  assert(/Nothing has been loaded\./.test(code), 'the refusal no longer says nothing was loaded');
+  // Supplement 5: "Nothing has been loaded." was untrue whenever an assignment
+  // was already open; the refusal now speaks about the file.
+  assert(/This file has not been loaded\./.test(code), 'the refusal no longer says this file was not loaded');
+  assert(!/Nothing has been loaded/.test(code), 'the refusal says nothing was loaded again');
   assert(/Load the assignment zip your instructor gave you, the one you printed the question PDF from/.test(code),
     'the refusal no longer says what to load instead');
   assert(!/You can still photograph your pages/.test(stripComments(appSrc) + code), 'the false sentence is back');

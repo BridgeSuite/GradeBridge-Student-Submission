@@ -8,6 +8,8 @@ interface ProblemRendererProps {
   problemIndex: number;
   submissionData: SubmissionData;
   onSubmissionChange: (id: string, data: SubmissionData['key']) => void;
+  /** The generic answer page, where the student says which part each page is. */
+  genericSheet?: boolean;
 }
 
 const AI_GRADED_STRINGS = new Set([
@@ -57,7 +59,7 @@ const calculateProblemPoints = (subsections: Subsection[]): number => {
   return subsections.reduce((sum, sub) => sum + sub.points, 0);
 };
 
-const ProblemRenderer: React.FC<ProblemRendererProps> = ({ problem, problemIndex, submissionData, onSubmissionChange }) => {
+const ProblemRenderer: React.FC<ProblemRendererProps> = ({ problem, problemIndex, submissionData, onSubmissionChange, genericSheet = false }) => {
   const problemId = `p${problemIndex}`;
   const problemPoints = calculateProblemPoints(problem.subsections);
   const problemStatement = getStatement(problem.name, problem.description);
@@ -106,14 +108,17 @@ const ProblemRenderer: React.FC<ProblemRendererProps> = ({ problem, problemIndex
 
                   <div className="pl-2 space-y-4">
                     {isHandwritten(sub.submissionType) ? (
-                      // Stage 2b replaces this with the region marker. Until then a
-                      // handwritten part has no input of its own — the answer lives on
-                      // the uploaded pages.
+                      // A handwritten part has no input of its own: the answer lives
+                      // on the uploaded pages. Approved 2026-09-25 (Supplement 5),
+                      // replacing a sentence that promised page marking "in the
+                      // next update" after it had shipped. On the generic page the
+                      // student then says which part each page is; on the printed
+                      // sheet the QR does that, so the last clause is generic-only.
                       <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                         <span className="font-medium text-slate-700">Answer on paper.</span>{' '}
                         Write this part in your handwritten work and upload the page in
-                        <span className="font-medium"> Your Pages</span> above. Marking which page
-                        and area each part is on arrives in the next update.
+                        <span className="font-medium"> Your Pages</span> above
+                        {genericSheet ? ', then say which part it is.' : '.'}
                       </div>
                     ) : (
                       <SubmissionWidget

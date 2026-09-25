@@ -27,12 +27,15 @@ import { GENERIC_WORDING } from './genericWording';
 /**
  * A printed-sheet assignment that arrived with no map. Approved 2026-09-25,
  * replacing a message that said "You can still photograph your pages" directly
- * above a refusal, and promised whole pages to a grader.
+ * above a refusal, and promised whole pages to a grader. Its second paragraph
+ * was "Nothing has been loaded." until Supplement 5: a refused file leaves an
+ * already-open assignment in place, so that was untrue whenever one was open.
+ * It is a statement about the file now, true either way.
  */
 export const PRINTED_NO_MAP_REFUSAL =
   'This assignment file is incomplete: it is missing the map that tells the application ' +
   'where your answers are on the page.\n\n' +
-  'Nothing has been loaded.\n\n' +
+  'This file has not been loaded.\n\n' +
   'Load the assignment zip your instructor gave you, the one you printed the question PDF from, ' +
   'rather than the assignment_spec.json on its own. If the zip does the same thing, tell your instructor.';
 

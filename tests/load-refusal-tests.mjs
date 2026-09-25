@@ -58,7 +58,7 @@ const BAD_GENERIC = wording.GENERIC_WORDING.badGenericFile;
 // change to it fails here until the approval is recorded again.
 const PRINTED_REFUSAL =
   'This assignment file is incomplete: it is missing the map that tells the application ' +
-  'where your answers are on the page.\n\nNothing has been loaded.\n\n' +
+  'where your answers are on the page.\n\nThis file has not been loaded.\n\n' +
   'Load the assignment zip your instructor gave you, the one you printed the question PDF from, ' +
   'rather than the assignment_spec.json on its own. If the zip does the same thing, tell your instructor.';
 
@@ -142,6 +142,8 @@ check('neither refusal names a grader or says anything was loaded', () => {
   for (const m of [PRINTED_REFUSAL, BAD_GENERIC]) {
     assert(!/grader/i.test(m), `names a grader: ${m.slice(0, 60)}`);
     assert(!/You can still/i.test(m), 'says the student can carry on');
+    // Supplement 5: untrue whenever an assignment was already open.
+    assert(!/Nothing has been loaded/i.test(m), 'says nothing was loaded, which is untrue if an assignment is open');
   }
 });
 
@@ -232,6 +234,14 @@ await build({
       import LoadRefusalPanel from './components/LoadRefusalPanel';
       import CropReview from './components/CropReview';
       import GenericPageReview from './components/GenericPageReview';
+      import ProblemRenderer from './components/ProblemRenderer';
+      export const renderProblem = (genericSheet) => renderToStaticMarkup(React.createElement(ProblemRenderer, {
+        problem: { id: 'p1', name: 'Plane wave', description: '', subsections: [
+          { id: 's1', name: 'Phase velocity', description: '', points: 60, submissionType: 'Handwritten' },
+          { id: 's2', name: 'Wavelength', description: '', points: 40, submissionType: 'Handwritten' },
+        ] },
+        problemIndex: 0, submissionData: {}, onSubmissionChange: () => {},
+        ...(genericSheet === undefined ? {} : { genericSheet }) }));
       const noop = () => {}, anoop = async () => {};
       export const renderPanel = (message) => renderToStaticMarkup(React.createElement(LoadRefusalPanel, { message }));
       export const renderCropReview = (props) => renderToStaticMarkup(React.createElement(CropReview,
@@ -307,6 +317,43 @@ check('printed sheet: the four approved sentences are what is rendered', () => {
   assert(printedHtml.includes(`alt="Your answer to ${firstRow.partId}, as it will be collected"`), 'image description not approved text');
   assert(t.includes('You photographed this answer yourself, so it was not cut from the printed sheet.'), 'the sentence before item 3 was lost');
   assert(t.includes('Flagging a part does not stop you submitting.'), 'the sentence before item 4 was lost');
+});
+
+// =====================================================
+// 5. "Answer on paper", by sheet (Supplement 5)
+// =====================================================
+results.push('  5. the answer-on-paper note, by sheet');
+
+// The approved text, spelled out: the generic sentence, and the printed-sheet
+// one, which is the same with its final clause removed and nothing added.
+const ON_PAPER_GENERIC = 'Answer on paper. Write this part in your handwritten work and upload the page in Your Pages above, then say which part it is.';
+const ON_PAPER_PRINTED = 'Answer on paper. Write this part in your handwritten work and upload the page in Your Pages above.';
+const notes = (html) => [...html.matchAll(/<div class="rounded-lg border border-dashed[^"]*">([\s\S]*?)<\/div>/g)].map(m => textOf(m[1]));
+
+check('generic page: every handwritten part says to say which part it is, in the approved words', () => {
+  const n = notes(H.renderProblem(true));
+  assert(n.length === 2, `${n.length} notes for 2 parts`);
+  for (const t of n) assert(t === ON_PAPER_GENERIC, `note: ${JSON.stringify(t)}`);
+  assert(n.every(t => /say which part/.test(t)), 'the generic note does not say to say which part');
+});
+check('printed sheet: no handwritten part ever says "say which part" (the QR places the page)', () => {
+  for (const variant of [false, undefined]) {
+    const n = notes(H.renderProblem(variant));
+    assert(n.length === 2, `${n.length} notes for 2 parts`);
+    for (const t of n) {
+      assert(!/say which part/.test(t), `printed-sheet note asks the student to say which part: ${t}`);
+      assert(t === ON_PAPER_PRINTED, `note: ${JSON.stringify(t)}`);
+    }
+  }
+});
+check('neither sheet promises a feature that is coming', () => {
+  for (const v of [true, false]) assert(!/next update|arrives|coming soon/i.test(textOf(H.renderProblem(v))), 'a promise is back');
+});
+check('App: the sheet comes from isGenericSheet, the one predicate, and nowhere else', () => {
+  assert(/const isGeneric = isGenericSheet\(state\.assignment\);/.test(APP), 'isGeneric is not isGenericSheet(state.assignment)');
+  assert(/<ProblemRenderer[\s\S]{0,300}?genericSheet=\{isGeneric\}/.test(APP), 'ProblemRenderer is not told the sheet from isGeneric');
+  const PR = codeOnly(readFileSync(join(REPO, 'components', 'ProblemRenderer.tsx'), 'utf8'));
+  assert(!/\.sheet\b|isGenericSheet|'generic'/.test(PR), 'ProblemRenderer works out the sheet for itself');
 });
 
 rmSync(outDir, { recursive: true, force: true });

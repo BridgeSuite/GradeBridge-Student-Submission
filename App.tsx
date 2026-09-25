@@ -1530,6 +1530,7 @@ const App: React.FC = () => {
                        problemIndex={idx}
                        submissionData={state.submissionData}
                        onSubmissionChange={handleSubmissionChange}
+                       genericSheet={isGeneric}
                      />
                    ))}
                  </div>
