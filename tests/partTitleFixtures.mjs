@@ -21,7 +21,10 @@ globalThis.crypto ??= webcrypto;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
+/** The download check, held byte for byte since cbb0569. Its `review` is no longer compared. */
 export const PART_TITLE_GOLDEN_PATH = join(HERE, 'fixtures', 'part_title_golden_cbb0569.json');
+/** The review, at the commit carrying the approved multi-part wording (`tests/make-review-golden.mjs`). */
+export const REVIEW_GOLDEN_PATH = join(HERE, 'fixtures', 'review_golden_f8ab9d8.json');
 
 const cryptoSvc = await loadModule('cryptoService.ts', 'pt_crypto.mjs');
 export const sample = await cryptoSvc.decryptJson(readFileSync(join(HERE, 'fixtures', 'generic_sheet_sample.json'), 'utf8').trim());
@@ -54,7 +57,7 @@ export const buildReviewHarness = async () => {
         import GenericPageReview from './components/GenericPageReview';
         const noop = () => {}, anoop = async () => {};
         export const renderReview = (props) => renderToStaticMarkup(React.createElement(GenericPageReview,
-          { onLabel: noop, onReview: noop, onRetakePage: anoop, busy: null, ...props }));
+          { onChooseProblem: noop, onTogglePart: noop, onReview: noop, onRetakePage: anoop, busy: null, ...props }));
       `,
       resolveDir: REPO, loader: 'tsx', sourcefile: 'harness.tsx',
     },

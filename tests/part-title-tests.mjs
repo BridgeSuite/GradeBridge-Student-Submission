@@ -13,14 +13,16 @@
 // description, the coverage list, and the download check's list. The "has N
 // pages" sentence keeps the formal label alone, as approved.
 //
-// An assignment with no titles must render exactly as at cbb0569: held against
-// tests/fixtures/part_title_golden_cbb0569.json.
+// The download check is held to tests/fixtures/part_title_golden_cbb0569.json,
+// as deployed before the title work. The review is held to
+// tests/fixtures/review_golden_f8ab9d8.json, at the approved multi-part
+// wording; see section 3 for why the review moved.
 // =====================================================
 
 import { readFileSync } from 'node:fs';
 import { loadModule } from './captureSet.mjs';
 import {
-  PART_TITLE_GOLDEN_PATH, buildReviewHarness, todaysOutputs, parts, problems, crops, cropUrls, pages,
+  PART_TITLE_GOLDEN_PATH, REVIEW_GOLDEN_PATH, buildReviewHarness, todaysOutputs, parts, problems, crops, cropUrls, pages,
 } from './partTitleFixtures.mjs';
 
 let passed = 0, failed = 0;
@@ -89,42 +91,83 @@ check('whitespace inside a title is tidied, not left to break the line oddly', (
   eq(gen.partDisplayLabel(p1b, withNames(() => '  Symbols\n  and   units ')), 'Problem 1, part (b): Symbols and units', 'display label'));
 
 // =====================================================
-// 3. Without titles, exactly as deployed at cbb0569
+// 3. Without titles: the review as approved, the download check as at cbb0569
 // =====================================================
-results.push('  3. an assignment without titles renders exactly as before');
+// Two goldens, and three checks that protect different things:
+//
+// - the DOWNLOAD CHECK is held byte for byte to `part_title_golden_cbb0569.json`,
+//   as deployed before any title work. It has never moved and must not.
+// - the REVIEW is held byte for byte to `review_golden_f8ab9d8.json`, written at
+//   the commit carrying the approved multi-part wording
+//   (`FINDINGS_SS_MULTIPART_PAGES_2026-10-07` §4, rulings A and B). The
+//   cbb0569 review could not survive the change to labelling by problem, which
+//   moved the markup for every assignment; it is no longer compared.
+// - the PROPERTY check: without titles every problem and part shows its formal
+//   label alone. A golden says nothing changed; this says what is right, and
+//   still holds if a later, approved change writes a new golden.
+results.push('  3. an assignment without titles: the review as approved, the download check as at cbb0569');
 const golden = JSON.parse(readFileSync(PART_TITLE_GOLDEN_PATH, 'utf8'));
-check('the golden is the one frozen at cbb0569', () => eq(golden.builtAt, 'cbb0569', 'builtAt'));
+const reviewGolden = JSON.parse(readFileSync(REVIEW_GOLDEN_PATH, 'utf8'));
+check('the download-check golden is the one frozen at cbb0569', () => eq(golden.builtAt, 'cbb0569', 'builtAt'));
+check('the review golden is the one written at f8ab9d8, with the approved wording', () => {
+  eq(reviewGolden.builtAt, 'f8ab9d8', 'builtAt');
+  for (const k of ['noTitles', 'withTitles']) {
+    assert(reviewGolden[k].includes('>Which problem is this page for?<'), `${k} lacks the approved prompt`);
+  }
+});
+const sameAs = (now, want, what) => {
+  if (now === want) return;
+  let i = 0; while (now[i] === want[i]) i++;
+  throw new Error(`${what} differs at ${i}: ${JSON.stringify(now.slice(Math.max(0, i - 40), i + 60))}`);
+};
 for (const [what, props, noticeArgs] of [
   ['no problems passed', {}, []],
-  ['problems whose subsections have no names', { problems: withNames(() => '') }, [withNames(() => '')]],
-  ['problems whose names are blank', { problems: withNames(() => '  ') }, [withNames(() => '  ')]],
+  ['problems whose subsections have no names', { problems: withNames(() => '').map(p => ({ ...p, name: '' })) }, [withNames(() => '')]],
+  ['problems whose names are blank', { problems: withNames(() => '  ').map(p => ({ ...p, name: '  ' })) }, [withNames(() => '  ')]],
 ]) {
-  await checkAsync(`${what}: the review and the download check are byte-identical to the golden`, async () => {
+  await checkAsync(`${what}: the download check is byte-identical to the cbb0569 golden`, async () => {
     const now = await todaysOutputs(renderReview, props, noticeArgs);
-    if (now.review !== golden.review) {
-      let i = 0; while (now.review[i] === golden.review[i]) i++;
-      throw new Error(`review differs at ${i}: ${JSON.stringify(now.review.slice(i - 40, i + 60))}`);
-    }
     eq(now.notice, golden.notice, 'download check');
+  });
+  await checkAsync(`${what}: the review is byte-identical to the f8ab9d8 golden`, async () => {
+    const now = await todaysOutputs(renderReview, props, noticeArgs);
+    sameAs(now.review, reviewGolden.noTitles, 'review');
+  });
+  await checkAsync(`${what}: every problem and part is shown by its formal label alone`, async () => {
+    const { review } = await todaysOutputs(renderReview, props, noticeArgs);
+    const options = [...review.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].slice(0, 3).map(m => textOf(m[2]));
+    eq(options, ['Choose a problem', 'Problem 1', 'Problem 2'], 'problem options');
+    const ticks = [...review.matchAll(/<input[^>]*type="checkbox"[^>]*>\s*<span[^>]*>([^<]*)<\/span>/g)].map(m => textOf(m[1]));
+    eq(ticks.slice(0, 2), ['Problem 1, part (a)', 'Problem 1, part (b)'], 'tick labels');
+    assert(!/data-part-title/.test(review), 'a title line with no title');
+    assert(!/alt="[^"]*:/.test(review), 'a colon in an image description');
   });
 }
 
 // =====================================================
 // 4. With titles, in every approved place
 // =====================================================
-results.push('  4. with titles: dropdown, line under it, image description, coverage list, download check');
+// Since `WORKORDER_SS_MULTIPART_PAGES_2026-10-07` the dropdown chooses the
+// PROBLEM and a multi-part problem's parts are tick boxes. The approved colon
+// form is where a part is named: in each tick box, and for a one-part problem
+// in the dropdown itself and the line under it, exactly as before.
+results.push('  4. with titles: dropdown, tick boxes, line under it, image description, coverage list, download check');
 const html = renderReview({ parts, problems, crops, cropUrls, pages });
-check('the dropdown offers every part with its title', () => {
+check('with titles, the review is byte-identical to the f8ab9d8 golden', () => sameAs(html, reviewGolden.withTitles, 'review'));
+const tickLabels = (h) => [...h.matchAll(/<input[^>]*type="checkbox"[^>]*>\s*<span[^>]*>([^<]*)<\/span>/g)].map(m => textOf(m[1]));
+check('the dropdown offers every problem: a one-part problem with its part\'s title, a multi-part one with its own name', () => {
   const selects = html.match(/<select[\s\S]*?<\/select>/g) ?? [];
   eq(selects.length, 4, 'one dropdown per photo');
   for (const s of selects) {
     const opts = [...s.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map(m => [m[1], textOf(m[2])]);
-    eq(opts, [['', 'Choose a part'], ['1(a)', EXPECTED[0]], ['1(b)', EXPECTED[1]], ['2', EXPECTED[2]]], 'options');
+    eq(opts, [['', 'Choose a problem'], ['1', 'Problem 1: Plane wave in a lossless medium'], ['2', EXPECTED[2]]], 'options');
   }
 });
-check('once chosen, a line under the dropdown shows the part and title, and nothing else', () => {
+check('a multi-part problem\'s tick boxes name every part with its title', () =>
+  eq(tickLabels(html), [EXPECTED[0], EXPECTED[1]], 'tick labels (photo 1 is Problem 1; photos 2 and 3 are one-part)'));
+check('once a one-part problem is chosen, a line under the dropdown shows the part and title, and nothing else', () => {
   const lines = [...html.matchAll(/<p[^>]*data-part-title[^>]*>([\s\S]*?)<\/p>/g)].map(m => textOf(m[1]));
-  eq(lines, [EXPECTED[0], EXPECTED[2], EXPECTED[2]], 'the chosen-part lines (photos 1 to 3; photo 4 has no part)');
+  eq(lines, [EXPECTED[2], EXPECTED[2]], 'the chosen-part lines (photos 2 and 3; photo 1 has tick boxes, photo 4 no part)');
 });
 check('the image description carries the title', () => {
   const alts = [...html.matchAll(/<img[^>]*alt="([^"]*)"/g)].map(m => m[1]);
@@ -146,17 +189,33 @@ check('the download check lists the missing part with its title', () => {
 results.push('  5. a long title wraps (measured at 390 px by tests/part-title-browser.mjs)');
 const LONG = 'Symbols and units for the complex permittivity of a lossy dielectric at microwave frequencies';
 const longHtml = renderReview({ parts, problems: withNames(s => s.name === 'Phase velocity' ? LONG : s.name), crops, cropUrls, pages });
-check('the whole long title is in the line, the dropdown and the description: nothing is cut', () => {
+const longOneHtml = renderReview({ parts, problems: withNames(s => s.name === 'Skin depth of copper' ? LONG : s.name), crops, cropUrls, pages });
+const CUTS = /\b(truncate|text-ellipsis|whitespace-nowrap|line-clamp-\d+|overflow-hidden|overflow-x-hidden)\b/;
+check('the whole long title is in the tick box and the description: nothing is cut', () => {
   const full = `Problem 1, part (a): ${LONG}`;
-  assert(longHtml.includes(`data-part-title="">${full}</p>`) || textOf(longHtml).includes(full), 'the line does not carry the whole title');
-  assert(longHtml.includes(`>${full}</option>`), 'the option does not carry the whole title');
+  assert(tickLabels(longHtml).includes(full), 'the tick box does not carry the whole title');
   assert(longHtml.includes(`alt="Photo 1, ${full}"`), 'the description does not carry the whole title');
 });
+check('a one-part problem\'s long title is whole in the line and the dropdown', () => {
+  const full = `Problem 2: ${LONG}`;
+  const line = (longOneHtml.match(/<p[^>]*data-part-title[^>]*>([\s\S]*?)<\/p>/) ?? [])[1];
+  assert(line !== undefined && textOf(line) === full, `the line does not carry the whole title: ${line}`);
+  assert(longOneHtml.includes(`>${full}</option>`), 'the option does not carry the whole title');
+});
 check('the line is allowed to wrap: no truncate, ellipsis, nowrap, clamp or hidden overflow', () => {
-  const cls = (longHtml.match(/<p class="([^"]*)" data-part-title/) ?? [])[1];
+  const cls = (longOneHtml.match(/<p class="([^"]*)" data-part-title/) ?? [])[1];
   assert(cls !== undefined, 'no chosen-part line');
   assert(/\bbreak-words\b/.test(cls), `the line does not wrap long words: ${cls}`);
-  assert(!/\b(truncate|text-ellipsis|whitespace-nowrap|line-clamp-\d+|overflow-hidden|overflow-x-hidden)\b/.test(cls), `the line can cut: ${cls}`);
+  assert(!CUTS.test(cls), `the line can cut: ${cls}`);
+});
+check('a tick box is allowed to wrap, and is at least 44 px tall', () => {
+  const classes = [...longHtml.matchAll(/<label[^>]*for="tick-[^"]*"[^>]*class="([^"]*)"|<label[^>]*class="([^"]*)"[^>]*for="tick-/g)]
+    .map(m => m[1] ?? m[2]);
+  assert(classes.length > 0, 'no tick boxes');
+  for (const cls of classes) {
+    assert(/\bbreak-words\b/.test(cls) && /\bmin-h-\[44px\]/.test(cls), `tick box: ${cls}`);
+    assert(!CUTS.test(cls), `the tick box can cut: ${cls}`);
+  }
 });
 
 cleanup();

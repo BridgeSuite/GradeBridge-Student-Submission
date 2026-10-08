@@ -1,8 +1,20 @@
 # GradeBridge — submission ZIP interface
 
-**Version:** v7.1
-**Date:** 2026-09-24
+**Version:** v7.2
+**Date:** 2026-10-07
 **App version:** v4.1.0 (not deployed until the new student-facing wording is approved)
+
+> ## v7.2 — no field changes. On the generic answer page, one page may carry several parts.
+>
+> A student may now say a photographed page holds several parts of one problem.
+> **Such a page is written once under each part it carries** (§11.8): the same
+> `page_file` appears under more than one crop. No field is added, removed or
+> renamed, and a page carrying one part is packaged exactly as in v7.1, byte for
+> byte (`tests/multipart-pages-tests.mjs`, against a golden written by
+> `0b82d9b`). The printed sheet and electronic submissions are unchanged.
+>
+> **If you grade generic crops,** read §11.8's rule before grading a crop whose
+> `page_file` appears under another part.
 
 > ## v7.1 — additive. Two things; neither changes an existing field.
 >
@@ -618,10 +630,12 @@ for a submission with no crops at all. Every crop in such a submission also
 says `part_source: "student"`. There is no new top-level key: the payload's
 top-level keys are exactly the handwritten list in §3.
 
-### 11.3 The crops: one per page, the whole box
+### 11.3 The crops: one per page and part, the whole box
 
-Each registered page gives **one crop: the whole writing box, never trimmed to
-the writing**. Trimming is a heuristic applied to the thing being graded. Faint
+Each registered page gives **one crop for each part the student said it
+carries** (one, on most pages; several on a shared page, §11.8; one
+`unlabelled` crop on a page with none), and **every crop is the whole writing
+box, never trimmed to the writing**. Trimming is a heuristic applied to the thing being graded. Faint
 pencil, a sparse sketch or one line low on the page can read as empty, and
 nobody downstream can recover what a trim cuts. Instead the app records where
 the ink is (`ink_bbox`) and leaves any tightening to you.
@@ -747,6 +761,134 @@ There is no question text, because the assignment file carries none on this
 path. There is no assignment identity on the page itself, because the QR says
 only that it is the generic page. The assignment is identified by where the
 student uploaded, as always.
+
+### 11.8 A page that carries several parts (v7.2)
+
+`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`. Students are told that a problem's
+parts do not need to start on separate pages, as long as each is marked (a),
+(b) and so on. So for each page the student chooses the **problem**, then ticks
+the parts of it the page carries. Parts of two different problems never share a
+page.
+
+**A shared page is written once under each part it carries.** A page with 5(a)
+to 5(d) gives the crops `5a_1`, `5b_1`, `5c_1` and `5d_1`, each a full copy of
+the page, each with its own `part_id` and the **same `page_file`**. A problem on
+two pages gives each ticked part two crops, ordered by `part_page`. **No field
+is added, removed or renamed**; every crop keeps §11.4's seventeen keys. A page
+with exactly one part ticked is packaged exactly as before. A problem chosen
+with every part unticked is an `unlabelled` crop, never dropped.
+
+One page carrying 5(a) to 5(d), as the app writes it (generated from the
+builder by `tests/spec-matches-code.mjs`, which fails if this block and the code
+disagree; not typed):
+
+```json
+"crops": {
+  "5a_1": {
+    "region_id": "gen",
+    "part_id": "5(a)",
+    "part_source": "student",
+    "page_k": 1,
+    "is_drawing": false,
+    "max_points": 25,
+    "crop_source": "registration",
+    "student_review": "signed_off",
+    "quality_flags": [],
+    "file": "crops/5a_1.jpg",
+    "width": 1325,
+    "height": 1381,
+    "page_file": "page_1.jpg",
+    "part_page": 1,
+    "part_pages": 1,
+    "ink": "present",
+    "ink_bbox": {
+      "x0": 34,
+      "y0": 108,
+      "x1": 906,
+      "y1": 525
+    }
+  },
+  "5b_1": {
+    "region_id": "gen",
+    "part_id": "5(b)",
+    "part_source": "student",
+    "page_k": 1,
+    "is_drawing": false,
+    "max_points": 25,
+    "crop_source": "registration",
+    "student_review": "signed_off",
+    "quality_flags": [],
+    "file": "crops/5b_1.jpg",
+    "width": 1325,
+    "height": 1381,
+    "page_file": "page_1.jpg",
+    "part_page": 1,
+    "part_pages": 1,
+    "ink": "present",
+    "ink_bbox": {
+      "x0": 34,
+      "y0": 108,
+      "x1": 906,
+      "y1": 525
+    }
+  },
+  "5c_1": {
+    "region_id": "gen",
+    "part_id": "5(c)",
+    "part_source": "student",
+    "page_k": 1,
+    "is_drawing": false,
+    "max_points": 25,
+    "crop_source": "registration",
+    "student_review": "signed_off",
+    "quality_flags": [],
+    "file": "crops/5c_1.jpg",
+    "width": 1325,
+    "height": 1381,
+    "page_file": "page_1.jpg",
+    "part_page": 1,
+    "part_pages": 1,
+    "ink": "present",
+    "ink_bbox": {
+      "x0": 34,
+      "y0": 108,
+      "x1": 906,
+      "y1": 525
+    }
+  },
+  "5d_1": {
+    "region_id": "gen",
+    "part_id": "5(d)",
+    "part_source": "student",
+    "page_k": 1,
+    "is_drawing": false,
+    "max_points": 25,
+    "crop_source": "registration",
+    "student_review": "signed_off",
+    "quality_flags": [],
+    "file": "crops/5d_1.jpg",
+    "width": 1325,
+    "height": 1381,
+    "page_file": "page_1.jpg",
+    "part_page": 1,
+    "part_pages": 1,
+    "ink": "present",
+    "ink_bbox": {
+      "x0": 34,
+      "y0": 108,
+      "x1": 906,
+      "y1": 525
+    }
+  }
+}
+```
+
+The four crops share `page_file`, `width`, `height`, `ink` and `ink_bbox`,
+because they are the same picture. `max_points` is each part's own.
+
+**The rule for a grader:** **when the same `page_file` appears under more than
+one part, the page carries other parts too; grade only the work marked with
+this part's label.**
 
 ---
 

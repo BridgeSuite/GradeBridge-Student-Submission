@@ -644,7 +644,7 @@ await build({
       import PageUploader from './components/PageUploader';
       const noop = () => {}, anoop = async () => {};
       export const renderReview = (props) => renderToStaticMarkup(React.createElement(GenericPageReview,
-        { onLabel: noop, onReview: noop, onRetakePage: anoop, busy: null, cropUrls: {}, ...props }));
+        { onChooseProblem: noop, onTogglePart: noop, onReview: noop, onRetakePage: anoop, busy: null, cropUrls: {}, ...props }));
       export const renderUploader = (props) => renderToStaticMarkup(React.createElement(PageUploader,
         { pages: [], pageUrls: {}, onAddPage: anoop, onReplacePage: anoop, onRemovePage: noop,
           onMovePage: noop, onRotatePage: anoop, ...props }));
@@ -666,16 +666,32 @@ const { renderReview, renderUploader } = await import(pathToFileURL(harnessFile)
 const textOf = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 const html = renderReview({ parts, crops, pages });
-check('every page gets a part choice offering every part, by its label', () => {
+// Since `WORKORDER_SS_MULTIPART_PAGES_2026-10-07` S1 the page is labelled by
+// problem, then by tick boxes for the parts of a multi-part problem.
+const rows = html.split(/<li /).slice(1);
+const ticksOf = (row) => [...row.matchAll(/<input[^>]*type="checkbox"[^>]*>/g)]
+  .map(m => [(/value="([^"]*)"/.exec(m[0]) ?? [])[1], /checked=""/.test(m[0])]);
+check('every page gets a problem choice offering every problem, by its label', () => {
   const selects = html.match(/<select[\s\S]*?<\/select>/g) ?? [];
   assert(selects.length === 4, `${selects.length} selects for 4 pages`);
-  for (const p of parts) assert(selects[0].includes(`>${p.label}<`), `${p.label} not offered`);
+  for (const s of selects) {
+    assert(s.includes('>Problem 1<') && s.includes('>Problem 2<'), 'a problem is not offered');
+  }
 });
 check('the choice shows what the student chose, beside the crop', () => {
   const selects = html.match(/<select[\s\S]*?<\/select>/g);
-  assert(/value="1\(a\)" selected=""/.test(selects[0]), 'photo 1 does not show 1(a)');
-  assert(/value="1\(b\)" selected=""/.test(selects[1]), 'photo 2 does not show 1(b)');
+  assert(/value="1" selected=""/.test(selects[0]), 'photo 1 does not show Problem 1');
+  assert(/value="1" selected=""/.test(selects[1]), 'photo 2 does not show Problem 1');
   assert(/value="" selected=""/.test(selects[3]), 'photo 4 does not show as unchosen');
+  assertEqual(ticksOf(rows[0]), [['1(a)', true], ['1(b)', false]], 'photo 1 ticks');
+  assertEqual(ticksOf(rows[1]), [['1(a)', false], ['1(b)', true]], 'photo 2 ticks');
+  assertEqual(ticksOf(rows[3]), [], 'photo 4 has a problem to tick');
+});
+check('a one-part problem shows no tick boxes', () => {
+  const k = P.genericCropKey('gen', 'pgD');
+  const one = renderReview({ parts, crops: P.chooseGenericProblem(crops, k, 2, parts), pages });
+  assertEqual(ticksOf(one.split(/<li /)[4]), [], 'Problem 2 ticks');
+  assert(/value="2" selected=""/.test(one.match(/<select[\s\S]*?<\/select>/g)[3]), 'photo 4 does not show Problem 2');
 });
 check('the review names what is missing and never says it blocks', () => {
   const t = textOf(html);
@@ -706,10 +722,13 @@ rmSync(outDir, { recursive: true, force: true });
 
 const codeOnly = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const APP = codeOnly(readFileSync(join(REPO, 'App.tsx'), 'utf8'));
-check('App: the review\'s choice is wired to labelGenericCrop', () => {
-  assert(/onLabel=\{handleLabelCrop\}/.test(APP), 'GenericPageReview is not given the label handler');
-  assert(/const handleLabelCrop = [\s\S]{0,200}?labelGenericCrop\(prev\.crops, key, partId\)/.test(APP),
-    'the handler does not label');
+check('App: the review\'s problem choice and tick boxes are wired to chooseGenericProblem and toggleGenericPart', () => {
+  assert(/onChooseProblem=\{handleChooseProblem\}/.test(APP), 'GenericPageReview is not given the problem handler');
+  assert(/onTogglePart=\{handleTogglePart\}/.test(APP), 'GenericPageReview is not given the tick handler');
+  assert(/const handleChooseProblem = [\s\S]{0,200}?chooseGenericProblem\(prev\.crops, key, problemNumber, prev\.assignment\?\.parts \?\? \[\]\)/.test(APP),
+    'the problem handler does not choose');
+  assert(/const handleTogglePart = [\s\S]{0,200}?toggleGenericPart\(prev\.crops, key, partId, prev\.assignment\?\.parts \?\? \[\]\)/.test(APP),
+    'the tick handler does not tick');
 });
 check('App: generic pages are cut as the generic sheet, and re-cuts keep their labels', () => {
   assert(/registerAndCropPage\(blob, layout, \{ generic \}\)/.test(APP), 'registration not told');

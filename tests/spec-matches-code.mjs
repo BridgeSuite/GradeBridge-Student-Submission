@@ -93,10 +93,52 @@ check('the code\'s archive name matches the pattern the spec states',
 check('the payload entry shares the archive stem',
   `${pkg.submissionBaseName(ASSIGNMENT_ID, ISO)}.json` === actual.replace(/\.zip$/, '.json'));
 
+// =====================================================
+// §11.8's example is the builder's output, not typing
+// =====================================================
+// `WORKORDER_SS_MULTIPART_PAGES_2026-10-07` S4: "section 11's example is
+// regenerated from the code, not typed". The shared-page example is the first
+// ```json block under the §11.8 heading. It is compared, character for
+// character, with what the shipped builder writes for one page carrying 5(a)
+// to 5(d). To regenerate it after a deliberate change:
+//
+//   node tests/spec-matches-code.mjs --write-shared-page-example
+//
+// and commit the spec with the change that moved it.
+{
+  const { writeFileSync } = await import('node:fs');
+  const { buildGeneric, genericAssignment, genericPagesAndCrops } = await import('./genericPackageFixtures.mjs');
+  const P = await loadModule('tests/genericPipeline.ts', 'sm_generic.mjs');
+  const parts = ['a', 'b', 'c', 'd'].map(l => ({
+    part_id: `5(${l})`, problem_number: 5, subsection_letter: l, label: `Problem 5, part (${l})`, max_points: 25,
+  }));
+  const { pages, crops, blobs } = genericPagesAndCrops(P, ['pg1']);
+  const shared = P.chooseGenericProblem(crops, P.genericCropKey('gen', 'pg1'), 5, parts);
+  const { payload } = await buildGeneric(P, genericAssignment(parts), pages, shared, blobs);
+  const generated = `"crops": ${JSON.stringify(payload.crops, null, 2)}`;
+
+  const HEADING = '### 11.8 ';
+  const at = spec.indexOf(HEADING);
+  check(`${SPEC} has a §11.8 for the shared page`, at >= 0);
+  if (at >= 0) {
+    const open = spec.indexOf('```json\n', at);
+    const close = spec.indexOf('\n```', open + 8);
+    const inSpec = spec.slice(open + 8, close);
+    if (process.argv.includes('--write-shared-page-example')) {
+      writeFileSync(join(REPO, SPEC), spec.slice(0, open + 8) + generated + spec.slice(close));
+      console.log(`  wrote §11.8's example into ${SPEC} from the builder\n`);
+    } else {
+      check('§11.8\'s example is exactly what the builder writes for one page carrying 5(a) to 5(d)',
+        open > at && inSpec === generated,
+        'regenerate it with --write-shared-page-example, after checking the change is meant');
+    }
+  }
+}
+
 if (failed > 0) {
   console.error(`\n  ${failed} check(s) failed. Either the code changed and ${SPEC} ` +
     `was not updated, or ${SPEC} was edited into disagreement with the code. Fix ` +
     `whichever is wrong — do not edit this test to agree with both.\n`);
   process.exit(1);
 }
-console.log(`  ${SPEC} agrees with the code on the archive filename\n`);
+console.log(`  ${SPEC} agrees with the code on the archive filename and §11.8's example\n`);

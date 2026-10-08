@@ -3,7 +3,10 @@ import {
   AlertTriangle, Camera, Check, CheckCircle2, Flag, Image as ImageIcon, Info, RefreshCw, Upload,
 } from 'lucide-react';
 import { CropRef, GenericPart, PageRef, StudentReview } from '../types';
-import { genericCoverage, genericCropsInPageOrder, partDisplayLabel, partSubsectionTitle } from '../services/genericSheet';
+import {
+  GenericProblem, chosenPartIds, chosenProblemNumber, genericCoverage, genericCropsInPageOrder,
+  partDisplayLabel, partSubsectionTitle, problemsOf,
+} from '../services/genericSheet';
 import { GENERIC_WORDING as W } from '../services/genericWording';
 
 /**
@@ -11,9 +14,13 @@ import { GENERIC_WORDING as W } from '../services/genericWording';
  * step (`WORKORDER_SS_PAGE_LABELLING_2026-09-24` §2).
  *
  * One row per photographed page: the whole box, as the grader will see it,
- * with the part the student says it is beside it. The choice is a native
- * `<select>`, which is the one control every phone renders as a proper picker,
- * and it stays editable: relabelling never needs a retake.
+ * with what the student says it is beside it. **The student chooses the
+ * problem, then ticks the parts of it the page carries**
+ * (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`, S1): every part starts ticked, a
+ * one-part problem has nothing to tick, and parts of two problems cannot share
+ * a page. The problem is a native `<select>`, which is the one control every
+ * phone renders as a proper picker; the parts are tick boxes at least 44 px
+ * tall. Both stay editable: relabelling never needs a retake.
  *
  * Above the list, what the labels add up to: parts with no page, a part with
  * several pages while another has none, pages with no part, pages that look
@@ -35,7 +42,10 @@ interface GenericPageReviewProps {
   /** crop key → object URL for the stored crop bitmap. */
   cropUrls: Record<string, string>;
   pages: PageRef[];
-  onLabel: (cropKey: string, partId: string) => void;
+  /** The student chose a page's problem; `0` clears it. Every part of it starts ticked. */
+  onChooseProblem: (cropKey: string, problemNumber: number) => void;
+  /** The student ticked or unticked one part of the page's problem. */
+  onTogglePart: (cropKey: string, partId: string) => void;
   onReview: (cropKey: string, review: StudentReview) => void;
   /** Replace this page's photograph and cut its box again. The label is kept. */
   onRetakePage: (pageId: string, file: File) => Promise<void>;
@@ -49,9 +59,21 @@ const REVIEW_LABEL: Record<StudentReview, string> = {
 };
 
 const GenericPageReview: React.FC<GenericPageReviewProps> = ({
-  parts, problems, crops, cropUrls, pages, onLabel, onReview, onRetakePage, busy,
+  parts, problems, crops, cropUrls, pages, onChooseProblem, onTogglePart, onReview, onRetakePage, busy,
 }) => {
   const shown = (p: GenericPart): string => partDisplayLabel(p, problems);
+  const groups = problemsOf(parts);
+  /**
+   * What the problem list shows. A one-part problem is its one part, title and
+   * all, exactly as the part list showed it. A multi-part problem is
+   * "Problem N", with the problem's own name after a colon when it has one.
+   */
+  const problemShown = (g: GenericProblem): string => {
+    if (g.parts.length === 1) return shown(g.parts[0]);
+    const name = problems?.[g.problemNumber - 1] as { name?: unknown } | undefined;
+    const title = typeof name?.name === 'string' ? name.name.replace(/\s+/g, ' ').trim() : '';
+    return title ? `Problem ${g.problemNumber}: ${title}` : `Problem ${g.problemNumber}`;
+  };
   const retakeRef = useRef<HTMLInputElement>(null);
   const retakeTarget = useRef<string | null>(null);
   const [hasCamera] = useState(() =>
@@ -136,10 +158,13 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
           const url = cropUrls[key];
           const isBusy = busy === key || busy === `page-${crop.fromPage}`;
           const n = photoNumber(crop);
-          const selectId = `part-for-${key}`;
-          const chosen = parts.find(p => p.part_id === crop.partId);
-          const labelled = chosen !== undefined;
-          const chosenTitle = chosen ? partSubsectionTitle(chosen, problems) : '';
+          const selectId = `problem-for-${key}`;
+          const problemNumber = chosenProblemNumber(crop, parts);
+          const problem = groups.find(g => g.problemNumber === problemNumber) ?? null;
+          const ticked = chosenPartIds(crop, parts);
+          const chosen = parts.filter(p => ticked.includes(p.part_id));
+          const labelled = chosen.length > 0;
+          const chosenTitle = problem && problem.parts.length === 1 ? partSubsectionTitle(problem.parts[0], problems) : '';
 
           return (
             <li key={key} className="p-4 sm:p-6">
@@ -161,25 +186,55 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
               </label>
               <select
                 id={selectId}
-                value={labelled ? crop.partId : ''}
+                value={problem ? String(problem.problemNumber) : ''}
                 disabled={isBusy}
-                onChange={(e) => onLabel(key, e.target.value)}
+                onChange={(e) => onChooseProblem(key, Number(e.target.value) || 0)}
                 className={`w-full min-h-[44px] rounded-lg border px-3 text-base bg-white mb-3 ${
                   labelled ? 'border-gray-300 text-gray-900' : 'border-red-300 text-gray-500'
                 }`}
               >
                 <option value="">{W.choosePlaceholder}</option>
-                {parts.map(p => <option key={p.part_id} value={p.part_id}>{shown(p)}</option>)}
+                {groups.map(g => (
+                  <option key={g.problemNumber} value={String(g.problemNumber)}>{problemShown(g)}</option>
+                ))}
               </select>
 
               {/* The phone draws the closed dropdown and clips a long title to its
-                  width; this line is what guarantees it can be read. Part and
-                  title only, wrapping, never cut. Only when there is a title, so
-                  an assignment without them renders exactly as before. */}
-              {chosen && chosenTitle && (
+                  width; this line is what guarantees it can be read. Only for a
+                  one-part problem with a title: a multi-part problem's parts are
+                  read in full from their tick boxes below. */}
+              {problem && problem.parts.length === 1 && chosenTitle && (
                 <p className="-mt-1 mb-3 text-sm font-medium text-gray-900 break-words" data-part-title>
-                  {shown(chosen)}
+                  {shown(problem.parts[0])}
                 </p>
+              )}
+
+              {/* A multi-part problem: every part starts ticked; untick what is
+                  not on this page. A one-part problem has nothing to tick. */}
+              {problem && problem.parts.length > 1 && (
+                <fieldset className="mb-3" data-part-ticks>
+                  <legend className="block text-sm font-medium text-gray-800 mb-1">{W.partsPrompt}</legend>
+                  <div className="space-y-1">
+                    {problem.parts.map(p => {
+                      const tickId = `tick-${key}-${p.part_id}`;
+                      return (
+                        <label
+                          key={p.part_id} htmlFor={tickId}
+                          className="flex items-center gap-3 min-h-[44px] px-3 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 break-words cursor-pointer"
+                        >
+                          <input
+                            id={tickId} type="checkbox" value={p.part_id}
+                            checked={ticked.includes(p.part_id)}
+                            disabled={isBusy}
+                            onChange={() => onTogglePart(key, p.part_id)}
+                            className="w-5 h-5 flex-shrink-0"
+                          />
+                          <span className="min-w-0">{shown(p)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
               )}
 
               {!labelled && (
@@ -192,7 +247,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                 {url ? (
                   <img
                     src={url}
-                    alt={`${W.photoHeading(n)}${chosen ? `, ${shown(chosen)}` : ''}`}
+                    alt={`${W.photoHeading(n)}${chosen.map(p => `, ${shown(p)}`).join('')}`}
                     className="w-full h-auto max-h-[60vh] object-contain bg-white"
                   />
                 ) : (

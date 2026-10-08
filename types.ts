@@ -225,6 +225,21 @@ export interface CropRef {
    */
   partSource?: PartSource;
   /**
+   * Generic sheet only. The problem the student chose for this page, by its
+   * `problem_number`. Kept even when every part is unticked, so the choice
+   * stays on screen. Absent on work saved before a page could carry several
+   * parts (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`).
+   */
+  problemNumber?: number;
+  /**
+   * Generic sheet only. Every part of that problem the page carries, in the
+   * file's order. `partId` above is kept as the first of them, or `''`, so work
+   * saved before this field existed loads, and so does this work after a
+   * rollback, with its first part only. **Read a generic crop's parts through
+   * `chosenPartIds` in `services/genericSheet.ts`, never from either field.**
+   */
+  partIds?: string[];
+  /**
    * Generic sheet only. The map's `region_id` the crop was cut from. There is
    * one region and one crop per PAGE, so the record's key (`regionId` above)
    * is per page, `gen@{pageId}`, and this carries the map's own id.
