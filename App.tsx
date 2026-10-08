@@ -33,8 +33,8 @@ import {
 import { LayoutMapError, parseLayoutCsv } from './services/layoutMap';
 import { registerAndCropPage } from './services/pageCrops';
 import {
-  genericCompletenessNotice, genericCoverage, genericCropRecord, isGenericSheet,
-  labelGenericCrop, mergeRecutCrops,
+  chooseGenericProblem, genericCompletenessNotice, genericCoverage, genericCropRecord, isGenericSheet,
+  mergeRecutCrops, toggleGenericPart,
 } from './services/genericSheet';
 import { GENERIC_WORDING } from './services/genericWording';
 import { assignmentLoadRefusal, type LoadRefusal } from './services/loadRefusal';
@@ -580,10 +580,18 @@ const App: React.FC = () => {
     });
   };
 
-  /** Generic sheet: the student chose, or changed, the part a page is. */
-  const handleLabelCrop = (key: string, partId: string) => {
+  /** Generic sheet: the student chose, or changed, the problem a page is. Its parts start ticked. */
+  const handleChooseProblem = (key: string, problemNumber: number) => {
     setState(prev => {
-      const crops = labelGenericCrop(prev.crops, key, partId);
+      const crops = chooseGenericProblem(prev.crops, key, problemNumber, prev.assignment?.parts ?? []);
+      return crops === prev.crops ? prev : { ...prev, crops };
+    });
+  };
+
+  /** Generic sheet: the student ticked or unticked one part of a page's problem. */
+  const handleTogglePart = (key: string, partId: string) => {
+    setState(prev => {
+      const crops = toggleGenericPart(prev.crops, key, partId, prev.assignment?.parts ?? []);
       return crops === prev.crops ? prev : { ...prev, crops };
     });
   };
@@ -1492,7 +1500,8 @@ const App: React.FC = () => {
                      crops={state.crops}
                      cropUrls={cropUrls}
                      pages={state.pages}
-                     onLabel={handleLabelCrop}
+                     onChooseProblem={handleChooseProblem}
+                     onTogglePart={handleTogglePart}
                      onReview={handleReviewCrop}
                      onRetakePage={handleRetakeGenericPage}
                      busy={cropBusy}

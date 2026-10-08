@@ -247,7 +247,7 @@ await build({
       export const renderCropReview = (props) => renderToStaticMarkup(React.createElement(CropReview,
         { onReview: noop, onDirectCapture: anoop, onRephotographPage: anoop, busy: null, ...props }));
       export const renderGenericReview = (props) => renderToStaticMarkup(React.createElement(GenericPageReview,
-        { onLabel: noop, onReview: noop, onRetakePage: anoop, busy: null, cropUrls: {}, ...props }));
+        { onChooseProblem: noop, onTogglePart: noop, onReview: noop, onRetakePage: anoop, busy: null, cropUrls: {}, ...props }));
     `,
     resolveDir: REPO, loader: 'tsx', sourcefile: 'refusal-harness.tsx',
   },

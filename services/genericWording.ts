@@ -47,8 +47,13 @@ export const GENERIC_WORDING = {
     'This is exactly what is collected from each page: the box, under the part you choose. ' +
     'You can change a part at any time.',
   photoHeading: (n: number): string => `Photo ${n}`,
-  choosePrompt: 'Which part is this page?',
-  choosePlaceholder: 'Choose a part',
+  // PENDING APPROVAL (WORKORDER_SS_MULTIPART_PAGES_2026-10-07): `choosePrompt`
+  // and `choosePlaceholder` changed from "Which part is this page?" and
+  // "Choose a part", because the page is now labelled by problem first;
+  // `partsPrompt` is new.
+  choosePrompt: 'Which problem is this page?',
+  choosePlaceholder: 'Choose a problem',
+  partsPrompt: 'Which parts of it are on this page? Untick any that are not.',
   unlabelledNote:
     'No part chosen yet. This page is still submitted, but it will not be filed under any part.',
   retakeThisPage: 'Retake this page',

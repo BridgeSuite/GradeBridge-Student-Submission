@@ -54,7 +54,7 @@ export const buildReviewHarness = async () => {
         import GenericPageReview from './components/GenericPageReview';
         const noop = () => {}, anoop = async () => {};
         export const renderReview = (props) => renderToStaticMarkup(React.createElement(GenericPageReview,
-          { onLabel: noop, onReview: noop, onRetakePage: anoop, busy: null, ...props }));
+          { onChooseProblem: noop, onTogglePart: noop, onReview: noop, onRetakePage: anoop, busy: null, ...props }));
       `,
       resolveDir: REPO, loader: 'tsx', sourcefile: 'harness.tsx',
     },
