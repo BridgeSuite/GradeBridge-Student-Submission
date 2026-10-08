@@ -13,6 +13,11 @@
  * tell the two apart, so no student-facing sentence may assume a grader exists.
  * A change to any string here needs approval again.
  *
+ * **APPROVED by Andre, 2026-10-07** (`FINDINGS_SS_MULTIPART_PAGES_2026-10-07`
+ * §4, ruling A): `choosePrompt`, `choosePlaceholder` and `partsPrompt` below,
+ * and the dropdown's "Problem N: {the problem's name}" (or "Problem N") for a
+ * multi-part problem, built in `GenericPageReview.tsx`.
+ *
  * Strings the generic path REUSES unchanged from the printed-sheet path are
  * not here: "Looks right", "Something is wrong", "Flagged", "Not checked yet",
  * "{n} of {m} checked", the blank-page sentence, and the download gate's
@@ -47,11 +52,12 @@ export const GENERIC_WORDING = {
     'This is exactly what is collected from each page: the box, under the part you choose. ' +
     'You can change a part at any time.',
   photoHeading: (n: number): string => `Photo ${n}`,
-  // PENDING APPROVAL (WORKORDER_SS_MULTIPART_PAGES_2026-10-07): `choosePrompt`
-  // and `choosePlaceholder` changed from "Which part is this page?" and
-  // "Choose a part", because the page is now labelled by problem first;
-  // `partsPrompt` is new.
-  choosePrompt: 'Which problem is this page?',
+  // APPROVED by Andre, 7 October 2026 (FINDINGS_SS_MULTIPART_PAGES_2026-10-07
+  // §4, ruling A). The page is labelled by problem first, so `choosePrompt` and
+  // `choosePlaceholder` replace "Which part is this page?" and "Choose a part",
+  // and `partsPrompt` is new. "...this page for?", not "...this page?",
+  // because a page is not a problem.
+  choosePrompt: 'Which problem is this page for?',
   choosePlaceholder: 'Choose a problem',
   partsPrompt: 'Which parts of it are on this page? Untick any that are not.',
   unlabelledNote:
