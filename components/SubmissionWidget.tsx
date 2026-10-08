@@ -4,6 +4,10 @@ import { SUBMISSION_TYPES, AI_GRADED_TYPES, AI_GRADED_WORD_RANGES } from '../con
 import { SubmissionData } from '../types';
 import { Image as ImageIcon, Trash2, X, Lightbulb, HelpCircle } from 'lucide-react';
 import { LatexContent } from './KatexRenderer';
+import { PDF_WORDING } from '../services/pdfIntake';
+
+/** An image this path can use: what the browser calls an image, or HEIC by name. */
+const isImageFile = (f: File): boolean => f.type.startsWith('image/') || isHeic(f);
 
 interface SubmissionWidgetProps {
   type: string;
@@ -18,6 +22,8 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [converting, setConverting] = useState(false);
+  /** Shown in the page, not in an alert: a suppressed alert would refuse in silence. */
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>, field: 'textAnswer' | 'aiAnswer') => {
     onChange(id, { ...data, [field]: e.target.value });
@@ -32,6 +38,15 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
 
   const processFiles = async (files: File[]) => {
     const currentImages = data?.imageAnswers || [];
+
+    // Ruling 2 (`WORKORDER_SS_PDF_INTAKE_2026-10-08`): refused by type, before
+    // anything else, so a PDF can never become a `data:application/pdf` picture.
+    const notImage = files.find(f => !isImageFile(f));
+    if (notImage) {
+      setRefusal(PDF_WORDING.electronicNotImage(notImage.name || 'That file'));
+      return;
+    }
+    setRefusal(null);
 
     if (currentImages.length + files.length > maxImages) {
       alert(`Maximum ${maxImages} images allowed for this problem.`);
@@ -175,6 +190,11 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
             </p>
           </div>
         </div>
+        {refusal && (
+          <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-md px-3 py-2" role="alert">
+            {refusal}
+          </p>
+        )}
 
         {images.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
@@ -278,6 +298,11 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
               </p>
             </div>
           </div>
+          {refusal && (
+            <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-md px-3 py-2" role="alert">
+              {refusal}
+            </p>
+          )}
           {images.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
               {images.map((img, idx) => (
