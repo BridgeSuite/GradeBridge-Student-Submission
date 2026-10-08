@@ -478,12 +478,10 @@ export const mergeRecutCrops = (
   for (const [key, crop] of Object.entries(cut)) {
     const old = crop.partSource === 'student' ? prev[key] : undefined;
     if (!old) { out[key] = crop; continue; }
-    // The problem and every tick come across. Work saved before a page could
-    // carry several parts has only `partId`, and keeps exactly that.
-    const kept: CropRef = { ...crop, partId: old.partId };
-    if (old.partIds !== undefined) kept.partIds = [...old.partIds];
-    if (old.problemNumber !== undefined) kept.problemNumber = old.problemNumber;
-    out[key] = kept;
+    // The problem and every tick come across, read through `chosenPartIds` like
+    // every other reader. Work saved before a page could carry several parts
+    // has only `partId`, and keeps exactly that one part.
+    out[key] = withParts(crop, old.problemNumber, chosenPartIds(old));
   }
   return out;
 };

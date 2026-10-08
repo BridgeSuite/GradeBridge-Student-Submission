@@ -278,6 +278,40 @@ results.push('  4. coverage stays advisory, and counts pages');
   });
 }
 
+// =====================================================
+// 5. One reader of a page's parts (ruling 3)
+// =====================================================
+// Andre's condition on keeping `partId` beside `partIds`: every place that reads
+// a generic crop's part goes through `chosenPartIds`. Held over the source, so a
+// later `crop.partId` on this path fails here rather than reading one part of a
+// shared page. Only `chosenPartIds` reads the fields and only `withParts` writes
+// them; comments are ignored.
+results.push('  5. every reader of a generic crop\'s part goes through chosenPartIds');
+{
+  const codeOnly = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+  const REPO = new URL('..', import.meta.url);
+  const body = (src, name) => {
+    const at = src.indexOf(`const ${name} = (`);
+    const end = src.indexOf('\n};', at);
+    return at < 0 ? '' : src.slice(at, end);
+  };
+  const raw = /\.partIds?\b/g;
+  const sheet = codeOnly(readFileSync(new URL('services/genericSheet.ts', REPO), 'utf8'));
+  await checkAsync('services/genericSheet.ts: only chosenPartIds reads .partId/.partIds, only withParts writes them', async () => {
+    const rest = sheet.replace(body(sheet, 'chosenPartIds'), '').replace(body(sheet, 'withParts'), '');
+    eq(rest.match(raw) ?? [], [], 'raw reads elsewhere');
+    assert(body(sheet, 'chosenPartIds').length > 0 && body(sheet, 'withParts').length > 0, 'functions not found');
+  });
+  await checkAsync('components/GenericPageReview.tsx reads no .partId or .partIds', async () =>
+    eq(codeOnly(readFileSync(new URL('components/GenericPageReview.tsx', REPO), 'utf8')).match(raw) ?? [], [], 'raw reads'));
+  await checkAsync('services/submissionPackage.ts: the generic branch reads parts only from resolveGenericCrops', async () => {
+    const pkg = codeOnly(readFileSync(new URL('services/submissionPackage.ts', REPO), 'utf8'));
+    const generic = pkg.slice(pkg.indexOf('if (isGenericSheetSubmission(s)) {'), pkg.indexOf('for (const crop of cropList(s.crops))'));
+    assert(generic.length > 0 && /resolveGenericCrops\(/.test(generic), 'generic branch not found');
+    eq(generic.match(raw) ?? [], [], 'raw reads in the generic branch');
+  });
+}
+
 console.log(results.join('\n'));
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);
