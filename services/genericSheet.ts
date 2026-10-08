@@ -139,19 +139,119 @@ export const partDisplayLabel = (
 export const genericCropKey = (mapRegionId: string, pageId: string): string => `${mapRegionId}@${pageId}`;
 
 /**
- * The student chose a part for a page, or chose again.
+ * The parts a generic page carries, in the file's order. **The one reader of a
+ * generic crop's parts** (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`, ruling 3):
+ * nothing else reads `partId` or `partIds` on this path.
+ *
+ * `partIds` when the page was labelled by problem and ticks; otherwise the one
+ * `partId` that work saved before then could carry; otherwise none. Given the
+ * parts list, an id it no longer lists is dropped, and the rest are put in its
+ * order.
+ */
+export const chosenPartIds = (
+  crop: Pick<CropRef, 'partId' | 'partIds'>, parts?: readonly GenericPart[],
+): string[] => {
+  const ids = crop.partIds ?? (crop.partId ? [crop.partId] : []);
+  if (!parts) return [...ids];
+  const order = new Map(parts.map((p, i) => [p.part_id, i]));
+  return ids.filter(id => order.has(id)).sort((a, b) => order.get(a)! - order.get(b)!);
+};
+
+/** One problem on the generic page, and its parts in the file's order. */
+export interface GenericProblem {
+  problemNumber: number;
+  parts: GenericPart[];
+}
+
+/** The parts list grouped by problem, in the order the problems first appear. */
+export const problemsOf = (parts: readonly GenericPart[]): GenericProblem[] => {
+  const out: GenericProblem[] = [];
+  const at = new Map<number, GenericProblem>();
+  for (const p of parts) {
+    let g = at.get(p.problem_number);
+    if (!g) { g = { problemNumber: p.problem_number, parts: [] }; at.set(p.problem_number, g); out.push(g); }
+    g.parts.push(p);
+  }
+  return out;
+};
+
+/**
+ * The problem a page is labelled with, or null. Work saved before a page could
+ * carry several parts has no `problemNumber`; its problem is its one part's.
+ */
+export const chosenProblemNumber = (
+  crop: Pick<CropRef, 'partId' | 'partIds' | 'problemNumber'>, parts: readonly GenericPart[],
+): number | null => {
+  if (typeof crop.problemNumber === 'number') return crop.problemNumber;
+  const first = chosenPartIds(crop, parts)[0];
+  return first === undefined ? null : parts.find(p => p.part_id === first)!.problem_number;
+};
+
+/** The crop carrying these parts, with `partId` kept as the first of them. */
+const withParts = (crop: CropRef, problemNumber: number | undefined, ids: string[]): CropRef => {
+  const next: CropRef = { ...crop, partId: ids[0] ?? '', partIds: ids };
+  if (problemNumber === undefined) delete next.problemNumber;
+  else next.problemNumber = problemNumber;
+  return next;
+};
+
+/**
+ * The student chose the problem a page is, or chose again. **Every part of the
+ * new problem starts ticked**, and ticks for another problem do not carry over
+ * (ruling 1). Choosing the problem it already is changes nothing, so its ticks
+ * survive. A number that is no problem (`0`) clears the choice.
  *
  * **Only the label moves.** The picture, its sign-off and its capture id stay
  * as they are: the student relabelling a page has not retaken it, and the
  * personal-information confirmation covers the pictures, not their labels.
- * `''` clears the choice.
+ */
+export const chooseGenericProblem = (
+  crops: Record<string, CropRef>, key: string, problemNumber: number, parts: readonly GenericPart[],
+): Record<string, CropRef> => {
+  const crop = crops[key];
+  if (!crop || crop.partSource !== 'student') return crops;
+  const group = problemsOf(parts).find(g => g.problemNumber === problemNumber);
+  if (!group) {
+    if (chosenProblemNumber(crop, parts) === null && chosenPartIds(crop).length === 0) return crops;
+    return { ...crops, [key]: withParts(crop, undefined, []) };
+  }
+  if (chosenProblemNumber(crop, parts) === problemNumber) return crops;
+  return { ...crops, [key]: withParts(crop, problemNumber, group.parts.map(p => p.part_id)) };
+};
+
+/**
+ * The student ticked or unticked one part of the page's problem. A part of any
+ * other problem is refused, so parts of two problems can never share a page.
+ * Unticking the last part leaves the problem chosen and the page unlabelled
+ * (ruling 2): it is still packaged, as `unlabelled`, never dropped.
+ */
+export const toggleGenericPart = (
+  crops: Record<string, CropRef>, key: string, partId: string, parts: readonly GenericPart[],
+): Record<string, CropRef> => {
+  const crop = crops[key];
+  if (!crop || crop.partSource !== 'student') return crops;
+  const problem = chosenProblemNumber(crop, parts);
+  const part = parts.find(p => p.part_id === partId);
+  if (problem === null || !part || part.problem_number !== problem) return crops;
+  const now = new Set(chosenPartIds(crop, parts));
+  if (now.has(partId)) now.delete(partId); else now.add(partId);
+  return { ...crops, [key]: withParts(crop, problem, parts.filter(p => now.has(p.part_id)).map(p => p.part_id)) };
+};
+
+/**
+ * The student chose ONE part for a page, or chose again: the labelling there
+ * was before a page could carry several parts, kept so that flow stays
+ * expressible and its tests stay as written. `''` clears the choice. Only the
+ * label moves, as above.
  */
 export const labelGenericCrop = (
   crops: Record<string, CropRef>, key: string, partId: string,
 ): Record<string, CropRef> => {
   const crop = crops[key];
-  if (!crop || crop.partSource !== 'student' || crop.partId === partId) return crops;
-  return { ...crops, [key]: { ...crop, partId } };
+  if (!crop || crop.partSource !== 'student') return crops;
+  const now = chosenPartIds(crop);
+  if (crop.problemNumber === undefined && now.join('\n') === partId) return crops;
+  return { ...crops, [key]: withParts(crop, undefined, partId ? [partId] : []) };
 };
 
 /** The generic crops, in the order their pages are in the pool: capture order. */
@@ -204,20 +304,26 @@ export interface ResolvedGenericCrop {
  * page cannot leave a stale file name behind. Within a part, pages keep their
  * capture order — the order they sit in the page pool, which the student can
  * change with the arrows — and are numbered 1, 2, … in it.
+ *
+ * **A page carrying several parts is written once under each of them**
+ * (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`, design point 2): 5(a) to 5(d) on
+ * one page give `5a_1` to `5d_1`, each the whole page, each with the same
+ * `pageFile`, in the file's part order. A page with one part gives one entry,
+ * exactly as before, and a page with none gives one `unlabelled` entry.
  */
 export const resolveGenericCrops = (
   crops: Record<string, CropRef>, pages: PageRef[], parts: readonly GenericPart[],
 ): ResolvedGenericCrop[] => {
   const byId = new Map(parts.map(p => [p.part_id, p]));
   const slugs = partSlugs(parts);
-  const ordered = genericCropsInPageOrder(crops, pages);
+  const ordered = genericCropsInPageOrder(crops, pages).map(crop => ({ crop, ids: chosenPartIds(crop, parts) }));
   const totals = new Map<string, number>();
-  for (const c of ordered) if (byId.has(c.partId)) totals.set(c.partId, (totals.get(c.partId) ?? 0) + 1);
+  for (const { ids } of ordered) for (const id of ids) totals.set(id, (totals.get(id) ?? 0) + 1);
 
   const seen = new Map<string, number>();
   const pageFile = new Map(pages.map(p => [p.id, p.file]));
-  return ordered.map(crop => {
-    const part = byId.get(crop.partId) ?? null;
+  return ordered.flatMap(({ crop, ids }) => (ids.length > 0 ? ids : [null]).map(id => {
+    const part = id === null ? null : byId.get(id)!;
     const stem = part ? slugs.get(part.part_id)! : 'unlabelled';
     const n = (seen.get(stem) ?? 0) + 1;
     seen.set(stem, n);
@@ -230,7 +336,7 @@ export const resolveGenericCrops = (
       partPages: part ? totals.get(part.part_id)! : null,
       pageFile: pageFile.get(crop.fromPage ?? '') ?? null,
     };
-  });
+  }));
 };
 
 /** What the review shows above the list, and what the download gate is built from. */
@@ -276,7 +382,8 @@ export const genericCoverage = (
     missing,
     repeated,
     unlabelled: present.filter(r => !r.part).length,
-    blank: present.filter(r => r.crop.inkVerdict === 'blank').length,
+    // Counted by page: a blank page carrying four parts is four entries and one page.
+    blank: new Set(present.filter(r => r.crop.inkVerdict === 'blank').map(r => r.crop.regionId)).size,
     covered: parts.length - missing.length,
   };
 };
@@ -360,7 +467,7 @@ export const genericCropRecord = (
 
 /**
  * Puts freshly cut crops over the old ones. On the printed sheet a re-cut
- * simply replaces; **a retaken generic page keeps the part the student chose
+ * simply replaces; **a retaken generic page keeps the problem and parts the student chose
  * for it**, because retaking a photograph is not a change of mind about what
  * the page is.
  */
@@ -369,8 +476,14 @@ export const mergeRecutCrops = (
 ): Record<string, CropRef> => {
   const out = { ...prev };
   for (const [key, crop] of Object.entries(cut)) {
-    const kept = crop.partSource === 'student' ? prev[key]?.partId : undefined;
-    out[key] = kept ? { ...crop, partId: kept } : crop;
+    const old = crop.partSource === 'student' ? prev[key] : undefined;
+    if (!old) { out[key] = crop; continue; }
+    // The problem and every tick come across. Work saved before a page could
+    // carry several parts has only `partId`, and keeps exactly that.
+    const kept: CropRef = { ...crop, partId: old.partId };
+    if (old.partIds !== undefined) kept.partIds = [...old.partIds];
+    if (old.problemNumber !== undefined) kept.problemNumber = old.problemNumber;
+    out[key] = kept;
   }
   return out;
 };

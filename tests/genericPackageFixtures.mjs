@@ -50,6 +50,30 @@ export const genericAssignment = (parts = genericParts()) => ({
   ],
 });
 
+/**
+ * The S1 and S2 assignment (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`): one
+ * one-part problem, `1`, and one four-part problem, `2(a)` to `2(d)`.
+ */
+export const multipartParts = () => [
+  { part_id: '1', problem_number: 1, subsection_letter: 'a', label: 'Problem 1', max_points: 20 },
+  ...['a', 'b', 'c', 'd'].map(l => ({
+    part_id: `2(${l})`, problem_number: 2, subsection_letter: l, label: `Problem 2, part (${l})`, max_points: 20,
+  })),
+];
+
+export const multipartAssignment = () => ({
+  ...genericAssignment(multipartParts()),
+  id: 'multipart-pages', title: 'Multipart Pages',
+  problems: [
+    { id: 'p1', name: 'Resistor choice', description: '', subsections: [
+      { id: 's1', name: 'Select R', description: '', points: 20, submissionType: 'Handwritten' },
+    ] },
+    { id: 'p2', name: 'Source superposition', description: '', subsections: ['Open-circuit voltage',
+      'Short-circuit current', 'Thevenin resistance', 'Load power'].map((name, i) => (
+      { id: `s${i + 1}`, name, description: '', points: 20, submissionType: 'Handwritten' })) },
+  ],
+});
+
 /** Page ids in capture order, and the one-part label each gets in the old flow ('' = unlabelled). */
 export const OLD_FLOW_LABELS = [
   ['pg1', '1(a)'], ['pg2', '2'], ['pg3', ''], ['pg4', '1(a)'], ['pg5', '1(b)'],
