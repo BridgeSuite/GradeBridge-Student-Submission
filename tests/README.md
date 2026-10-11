@@ -29,6 +29,18 @@ the envelope were rewritten to prove the opposite claims rather than deleted.
   answer; recorded in the payload with its wording version. The component is
   rendered with the real React server renderer.
 
+- `pdf-intake-tests.mjs` — a PDF becomes pages (`WORKORDER_SS_PDF_INTAKE_2026-10-08`).
+  The shipped `services/pdfIntake.ts` runs with the pinned pdf.js on
+  `@napi-rs/canvas`, over **three real tablet exports** in
+  `fixtures/pdf_intake/` (GoodNotes, Notability, Samsung Notes, hash-checked):
+  every page renders at 1,700 × 2,200, registers on four marks and passes the
+  capture gate; Notability's blank third page is skipped and named; the
+  GoodNotes badge is tested with and without. Encrypted, damaged, empty and
+  too-long PDFs are refused by name, and a PDF carrying a name in its metadata
+  and its file name is packaged with the name nowhere in the archive.
+  `pdf-intake-browser.mjs` (`npm run check:pdf-intake`, needs Chrome and
+  `vite preview` of a build) drives the same files through the built app.
+
 Where a property lives in `App.tsx`, which cannot be imported in Node, the
 wiring is asserted over the shipped source, and each such check says which
 mutation it was watched failing on.

@@ -7,6 +7,9 @@ import { PAGE_TOTAL_SIZE_TARGET } from '../constants';
 import { IngestedPage, formatBytes, ingestPage } from '../imageIngest';
 import InAppBrowserNotice from './InAppBrowserNotice';
 import { GENERIC_WORDING } from '../services/genericWording';
+import { PDF_WORDING, isPdfFile, partitionByRegistration, renderedPageName } from '../services/pdfIntake';
+import { splitPdfFile } from '../services/pdfLoader';
+import { registerAndCropPage } from '../services/pageCrops';
 
 interface PageUploaderProps {
   pages: PageRef[];
@@ -43,6 +46,8 @@ const PageUploader: React.FC<PageUploaderProps> = ({
 
   const [busy, setBusy] = useState<{ current: number; total: number; name: string } | null>(null);
   const [rejections, setRejections] = useState<Rejection[]>([]);
+  /** Pages of a PDF that were skipped because no answer sheet registered on them (ruling 7). */
+  const [notUsed, setNotUsed] = useState<Rejection[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [hasCamera, setHasCamera] = useState(false);
   const [rotatingId, setRotatingId] = useState<string | null>(null);
@@ -81,18 +86,83 @@ const PageUploader: React.FC<PageUploaderProps> = ({
     : [];
 
   /**
+   * A PDF becomes its pages (`WORKORDER_SS_PDF_INTAKE_2026-10-08`). Each page is
+   * rendered, then goes through `ingestPage` exactly as a photograph does, and
+   * the caller adds it exactly as a photograph is added — which is where it is
+   * registered and cropped. Nothing else about the photograph path changes.
+   *
+   * Two rules a photograph does not need:
+   *  - **All or nothing until registration.** A file that cannot be read is
+   *    refused whole, by name; no page of it is added.
+   *  - **A page with no answer sheet on it is skipped and named** (ruling 7).
+   *    Notability appends a blank page on export, and refusing the file for it
+   *    would block every Notability student. Each page is registered once here
+   *    to find out; the pages that register are added in the PDF's order.
+   *
+   * The ingest step's advisory warnings are cleared on a rendered page. They
+   * measure the camera — "more even light usually fixes it" — and a rendered
+   * page has no camera: on the three real exports every page tripped the
+   * contrast warning (spread 23–33 against 60) because a clean page is white.
+   */
+  const pdfToPages = async (
+    file: File, failures: Rejection[], skipped: Rejection[], onePageOnly: boolean,
+  ): Promise<IngestedPage[]> => {
+    const sourceName = file.name || 'document.pdf';
+    const split = await splitPdfFile(file);
+    if (split.ok === false) {
+      failures.push({ sourceName, reason: split.message });
+      return [];
+    }
+    if (onePageOnly && split.pageCount !== 1) {
+      failures.push({ sourceName, reason: PDF_WORDING.replaceNeedsOnePage(split.pageCount) });
+      return [];
+    }
+
+    const checked: Array<{ pageNumber: number; page: IngestedPage; usable: boolean }> = [];
+    for (const rendered of split.pages) {
+      setBusy({ current: rendered.pageNumber, total: split.pageCount, name: sourceName });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      const name = renderedPageName(sourceName, rendered.pageNumber);
+      const result = await ingestPage(new File([rendered.image], name, { type: 'image/png' }));
+      if (!result.page) {
+        failures.push({ sourceName: name, reason: result.reason ?? PDF_WORDING.damaged });
+        return [];
+      }
+      const page: IngestedPage = { ...result.page, warnings: [] };
+      const { registration } = await registerAndCropPage(page.blob, null);
+      checked.push({ pageNumber: rendered.pageNumber, page, usable: registration.usable });
+    }
+
+    const { kept, notUsed: skippedPages } = partitionByRegistration(checked, c => c.usable);
+    if (skippedPages.length > 0) {
+      skipped.push({ sourceName, reason: PDF_WORDING.pagesNotUsed(skippedPages, split.pageCount) });
+    }
+    return kept.map(c => c.page);
+  };
+
+  /**
    * One page at a time, released before the next starts. Eight 12-megapixel
    * photos decoded concurrently will take a budget phone's tab down with it.
    */
   const processFiles = async (files: File[], replaceId?: string) => {
     if (files.length === 0) return;
     const failures: Rejection[] = [];
+    const skipped: Rejection[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       setBusy({ current: i + 1, total: files.length, name: file.name || 'page' });
       // Yield so the progress line paints before a long decode blocks the thread.
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      if (isPdfFile(file)) {
+        const fromPdf = await pdfToPages(file, failures, skipped, Boolean(replaceId));
+        for (const page of fromPdf) {
+          if (replaceId) await onReplacePage(replaceId, page);
+          else await onAddPage(page);
+        }
+        continue;
+      }
 
       const result = await ingestPage(file);
       if (!result.page) {
@@ -108,6 +178,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
 
     setBusy(null);
     setRejections(failures);
+    setNotUsed(skipped);
   };
 
   const handleChoose = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,7 +284,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
           <input
             ref={chooseRef}
             type="file"
-            accept="image/*,.heic,.heif"
+            accept="image/*,.heic,.heif,application/pdf,.pdf"
             multiple
             onChange={handleChoose}
             className="hidden"
@@ -233,7 +304,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
           <input
             ref={replaceRef}
             type="file"
-            accept="image/*,.heic,.heif"
+            accept="image/*,.heic,.heif,application/pdf,.pdf"
             onChange={handleReplace}
             className="hidden"
           />
@@ -280,6 +351,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
               JPG, PNG or HEIC — drag and drop works too. Large photos are fine; each page is
               resized for you.
             </p>
+            <p className="text-xs text-gray-500">{PDF_WORDING.accepted}</p>
           </div>
         </div>
 
@@ -316,6 +388,35 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                 type="button"
                 onClick={() => setRejections([])}
                 className="p-1 rounded hover:bg-red-100 text-red-700 flex-shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* --- Pages of a PDF that carried no answer sheet (ruling 7) --- */}
+        {notUsed.length > 0 && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3" role="status">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2 text-sm text-amber-900">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-semibold">{PDF_WORDING.notUsedHeading}</p>
+                  <ul className="space-y-1">
+                    {notUsed.map((r, idx) => (
+                      <li key={idx}>
+                        <span className="font-medium">{r.sourceName}</span> — {r.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotUsed([])}
+                className="p-1 rounded hover:bg-amber-100 text-amber-800 flex-shrink-0"
                 aria-label="Dismiss"
               >
                 <X className="w-4 h-4" />
