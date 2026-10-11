@@ -174,7 +174,7 @@ what it was:
 |---|---|
 | `inputMode` | `"electronic"` or `"handwritten"`. Absent means electronic. |
 | `aiFeedback` | Per-assignment AI-feedback flag, carried through to Gradescope. Absent means off. |
-| `nonHandwrittenAccepted` | `true` when this assignment accepts typeset or otherwise non-handwritten answers. Absent or `false` means answers must be handwritten, and the app tells the student so before any page is added; `true` shows the permissive wording instead. Only a literal `true` counts. Never blocks an upload. |
+| `handwritingExpected` | `true` when a handwriting expectation applies to this assignment; the app states it to the student before any page is added. Absent or `false` means none was set, and the app says nothing on the subject. Only a literal `true` counts. Never blocks an upload. |
 
 `coursePublicKey` is no longer read (v4.0.0). A spec that still carries one loads
 and builds exactly the same submission as one that does not.

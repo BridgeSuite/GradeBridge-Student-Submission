@@ -62,14 +62,13 @@ export interface Assignment {
    */
   aiFeedback?: boolean;
   /**
-   * `true` means this assignment accepts non-handwritten answers (typeset,
-   * typed, produced any way). Absent or `false` means the default: answers
-   * must be handwritten. Only a literal `true` lifts the rule; anything else
-   * takes the default. Set by the Assignment Maker; this app only reads it, to
-   * choose which wording the student is shown. It never blocks an upload.
-   * `services/submissionRule.ts`.
+   * `true` means a handwriting expectation applies to this assignment, and the
+   * student is shown it before adding pages. Absent, `false` or anything else
+   * means none was set, and the app says nothing on the subject. Set by the
+   * Assignment Maker; this app only reads it. It never blocks an upload.
+   * `services/handwritingExpectation.ts`.
    */
-  nonHandwrittenAccepted?: boolean;
+  handwritingExpected?: boolean;
   /**
    * The layout map, carried inside the spec instead of beside it.
    *

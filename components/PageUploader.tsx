@@ -6,8 +6,7 @@ import { PageRef } from '../types';
 import { PAGE_TOTAL_SIZE_TARGET } from '../constants';
 import { IngestedPage, formatBytes, ingestPage } from '../imageIngest';
 import InAppBrowserNotice from './InAppBrowserNotice';
-import SubmissionRuleNotice from './SubmissionRuleNotice';
-import { SubmissionRule } from '../services/submissionRule';
+import HandwritingExpectationNotice from './HandwritingExpectationNotice';
 import { GENERIC_WORDING } from '../services/genericWording';
 import { PDF_WORDING, isPdfFile, partitionByRegistration, renderedPageName } from '../services/pdfIntake';
 import { splitPdfFile } from '../services/pdfLoader';
@@ -30,10 +29,10 @@ interface PageUploaderProps {
    */
   genericSheet?: boolean;
   /**
-   * Which submission rule this assignment states, from `submissionRuleFor`.
-   * Required, so a caller cannot forget it and leave the student told nothing.
+   * Whether the assignment carries a stated handwriting expectation, from
+   * `handwritingExpectedFor`. Only `true` shows it; anything else shows nothing.
    */
-  submissionRule: SubmissionRule;
+  handwritingExpected?: boolean;
 }
 
 interface Rejection {
@@ -43,7 +42,7 @@ interface Rejection {
 
 const PageUploader: React.FC<PageUploaderProps> = ({
   pages, pageUrls, onAddPage, onReplacePage, onRemovePage, onMovePage, onRotatePage,
-  genericSheet = false, submissionRule,
+  genericSheet = false, handwritingExpected = false,
 }) => {
   const chooseRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -259,10 +258,11 @@ const PageUploader: React.FC<PageUploaderProps> = ({
             nothing at all in an ordinary browser or once dismissed. */}
         <InAppBrowserNotice />
 
-        {/* Before any page is added, whatever is already in: the cost of being
-            told late is work already done the wrong way. One of two wordings,
-            from the assignment's own field; never blocks an upload. */}
-        <SubmissionRuleNotice rule={submissionRule} />
+        {/* The assignment's stated handwriting expectation, before any page is
+            added and still there after: the cost of being told late is work
+            already done the wrong way. Silence when the assignment sets none.
+            Never blocks an upload. */}
+        {handwritingExpected === true && <HandwritingExpectationNotice />}
 
         {/* Generic page only, and before any photograph: the page itself
             prints this, but one collected weeks ago may not have been read.
