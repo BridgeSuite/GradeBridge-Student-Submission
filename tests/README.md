@@ -41,6 +41,15 @@ the envelope were rewritten to prove the opposite claims rather than deleted.
   `pdf-intake-browser.mjs` (`npm run check:pdf-intake`, needs Chrome and
   `vite preview` of a build) drives the same files through the built app.
 
+- `submission-rule-tests.mjs` — handwritten is the default, and an assignment
+  says when it is not (`WORKORDER_SS_SUBMISSION_RULE_PER_ASSIGNMENT_2026-10-10`).
+  The two wordings are held to rule 10 by an independent copy in the test;
+  `PageUploader` is rendered on both sheets with the field absent, `false` and
+  `true`, and shows exactly one wording, before the upload controls, with or
+  without pages. Only a literal `true` lifts the rule, the course is never read,
+  the notice carries no control, and no string a student sees says
+  "answer page".
+
 Where a property lives in `App.tsx`, which cannot be imported in Node, the
 wiring is asserted over the shipped source, and each such check says which
 mutation it was watched failing on.

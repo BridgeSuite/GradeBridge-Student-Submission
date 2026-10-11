@@ -62,6 +62,15 @@ export interface Assignment {
    */
   aiFeedback?: boolean;
   /**
+   * `true` means this assignment accepts non-handwritten answers (typeset,
+   * typed, produced any way). Absent or `false` means the default: answers
+   * must be handwritten. Only a literal `true` lifts the rule; anything else
+   * takes the default. Set by the Assignment Maker; this app only reads it, to
+   * choose which wording the student is shown. It never blocks an upload.
+   * `services/submissionRule.ts`.
+   */
+  nonHandwrittenAccepted?: boolean;
+  /**
    * The layout map, carried inside the spec instead of beside it.
    *
    * `layoutCsv` is the EXACT text of `layout_{ID}.csv` — unchanged, newlines

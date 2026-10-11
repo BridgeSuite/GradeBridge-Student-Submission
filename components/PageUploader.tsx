@@ -6,6 +6,8 @@ import { PageRef } from '../types';
 import { PAGE_TOTAL_SIZE_TARGET } from '../constants';
 import { IngestedPage, formatBytes, ingestPage } from '../imageIngest';
 import InAppBrowserNotice from './InAppBrowserNotice';
+import SubmissionRuleNotice from './SubmissionRuleNotice';
+import { SubmissionRule } from '../services/submissionRule';
 import { GENERIC_WORDING } from '../services/genericWording';
 import { PDF_WORDING, isPdfFile, partitionByRegistration, renderedPageName } from '../services/pdfIntake';
 import { splitPdfFile } from '../services/pdfLoader';
@@ -27,6 +29,11 @@ interface PageUploaderProps {
    * student is told the part is theirs to say. See `services/genericSheet.ts`.
    */
   genericSheet?: boolean;
+  /**
+   * Which submission rule this assignment states, from `submissionRuleFor`.
+   * Required, so a caller cannot forget it and leave the student told nothing.
+   */
+  submissionRule: SubmissionRule;
 }
 
 interface Rejection {
@@ -36,7 +43,7 @@ interface Rejection {
 
 const PageUploader: React.FC<PageUploaderProps> = ({
   pages, pageUrls, onAddPage, onReplacePage, onRemovePage, onMovePage, onRotatePage,
-  genericSheet = false,
+  genericSheet = false, submissionRule,
 }) => {
   const chooseRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -251,6 +258,11 @@ const PageUploader: React.FC<PageUploaderProps> = ({
             browser costs photographs, and it costs them here. It renders
             nothing at all in an ordinary browser or once dismissed. */}
         <InAppBrowserNotice />
+
+        {/* Before any page is added, whatever is already in: the cost of being
+            told late is work already done the wrong way. One of two wordings,
+            from the assignment's own field; never blocks an upload. */}
+        <SubmissionRuleNotice rule={submissionRule} />
 
         {/* Generic page only, and before any photograph: the page itself
             prints this, but one collected weeks ago may not have been read.
