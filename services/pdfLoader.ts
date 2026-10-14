@@ -71,6 +71,9 @@ const surfaces: PdfSurfaces<Blob> = {
     (canvas as HTMLCanvasElement).width = 0;
     (canvas as HTMLCanvasElement).height = 0;
   },
+  // A page that is one photograph: its JPEG as it sits in the file. The one
+  // JPEG encode still happens in `ingestPage`, after it is downsampled there.
+  fromJpeg: (bytes) => new Blob([bytes as BlobPart], { type: 'image/jpeg' }),
 };
 
 /**

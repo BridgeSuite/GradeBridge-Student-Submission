@@ -4,9 +4,9 @@
 // `WORKORDER_SS_PDF_INTAKE_2026-10-08`, with Andre Knoesen's rulings of the
 // same day. The shipped `services/pdfIntake.ts` runs here with the same
 // pdf.js the app pins (6.3.289, legacy build), drawing onto `@napi-rs/canvas`
-// where the browser draws onto a <canvas>. Everything after the PNG — the
+// where the browser draws onto a <canvas>. Everything after the PNG â€” the
 // JPEG the ingest step writes, registration, the capture gate, the generic
-// crop and the submission package — is the shipped code too.
+// crop and the submission package â€” is the shipped code too.
 //
 // The acceptance inputs are REAL tablet exports, not PDFs this suite wrote:
 // three files from GoodNotes, Notability and Samsung Notes, exported on
@@ -30,7 +30,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import JSZip from 'jszip';
 import jpeg from 'jpeg-js';
 import { PNG } from 'pngjs';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { jsPDF } from 'jspdf';
 import { loadModule, GENERIC_PAYLOAD, GENERIC_PNG } from './captureSet.mjs';
 
@@ -50,7 +50,7 @@ const assertEqual = (actual, expected, msg) => {
   if (a !== e) throw new Error(`${msg}\n          expected: ${e}\n          actual:   ${a}`);
 };
 
-console.log('\nPDF intake — a tablet export becomes pages\n');
+console.log('\nPDF intake â€” a tablet export becomes pages\n');
 
 const I = await loadModule('services/pdfIntake.ts', 'pdf_intake.mjs');
 const C = await loadModule('constants.ts', 'pdf_constants.mjs');
@@ -72,13 +72,14 @@ const surfaces = {
   create: (w, h) => { const canvas = createCanvas(w, h); return { canvas, context: canvas.getContext('2d') }; },
   encode: async (canvas) => new Uint8Array(await canvas.encode('png')),
   release: () => {},
+  fromJpeg: (bytes) => bytes,
 };
 const split = (bytes, options) => I.splitPdf(bytes, engine, surfaces, options);
 
 /**
  * What `ingestPage` does to a page that arrives at its target size: nothing
- * but the one JPEG encode at `PAGE_JPEG_QUALITY`. No resample — that is
- * asserted separately, below — so this is the stored page, byte for byte in
+ * but the one JPEG encode at `PAGE_JPEG_QUALITY`. No resample â€” that is
+ * asserted separately, below â€” so this is the stored page, byte for byte in
  * kind if not in encoder.
  */
 const ingestLikeApp = (png) => {
@@ -103,9 +104,20 @@ const REAL = [
 ];
 for (const r of REAL) {
   r.bytes = new Uint8Array(readFileSync(join(FIX, r.file)));
-  await checkAsync(`${r.app}: the fixture is the export of 8 October (SHA-256 ${r.sha.slice(0, 12)}…)`, async () =>
+  await checkAsync(`${r.app}: the fixture is the export of 8 October (SHA-256 ${r.sha.slice(0, 12)}â€¦)`, async () =>
     assert(createHash('sha256').update(r.bytes).digest('hex') === r.sha, `${r.file} has changed`));
 }
+// `WORKORDER_SS_PDF_PAGE_THAT_IS_A_PHOTOGRAPH_2026-10-14`: a real Microsoft
+// Print To PDF export of 11 October, one page that is one 4426 Ã— 5728 RGB JPEG.
+// Its `/Author` was rewritten in place to a synthetic name before it reached
+// this repository (same encoding, same byte length).
+const PRINTED = {
+  file: 'printtopdf_2026-10-11.pdf', app: 'Print To PDF',
+  sha: '43895e5ea4b7bd394a2555a20c82768589a7dd11213a56dfe1f2a56fa1b4a5a8',
+};
+PRINTED.bytes = new Uint8Array(readFileSync(join(FIX, PRINTED.file)));
+await checkAsync(`${PRINTED.app}: the fixture is the export of 11 October (SHA-256 ${PRINTED.sha.slice(0, 12)}â€¦)`, async () =>
+  assert(createHash('sha256').update(PRINTED.bytes).digest('hex') === PRINTED.sha, `${PRINTED.file} has changed`));
 
 // ---------- 1. the resolution ----------
 
@@ -115,7 +127,7 @@ await checkAsync('the render long edge IS the stored long edge, not a copy of it
   assert(I.PDF_RENDER_LONG_EDGE_PX === C.PAGE_MAX_EDGE && C.PAGE_MAX_EDGE === 2200,
     `${I.PDF_RENDER_LONG_EDGE_PX} vs ${C.PAGE_MAX_EDGE}`);
 });
-await checkAsync('US Letter renders to exactly 1,700 × 2,200 (200 DPI)', async () => {
+await checkAsync('US Letter renders to exactly 1,700 Ã— 2,200 (200 DPI)', async () => {
   const s = I.renderScale(612, 792);
   assertEqual([Math.round(612 * s), Math.round(792 * s)], [1700, 2200], 'Letter');
   assert(Math.abs(s * 72 - 200) < 1e-9, `${s * 72} DPI`);
@@ -146,14 +158,19 @@ const generic = { row: null };
 
 const timings = [];
 for (const r of REAL) {
-  const out = await split(r.bytes);
+  const paths = [];
+  const out = await split(r.bytes, { onPage: (p) => paths.push(p) });
   r.split = out;
   await checkAsync(`${r.app}: opens and splits into ${r.pages} pages, in order`, async () => {
     assert(out.ok, out.message);
     assertEqual(out.pages.map(p => p.pageNumber), Array.from({ length: r.pages }, (_, i) => i + 1), 'page numbers');
   });
   if (!out.ok) continue;
-  await checkAsync(`${r.app}: every page is 1,700 × 2,200`, async () =>
+  await checkAsync(`${r.app}: no page takes the image fast path â€” every page renders, as before`, async () => {
+    assertEqual(paths.map(p => p.path), out.pages.map(() => 'render'), 'paths');
+    assert(paths.every(p => p.reason !== 'no reader'), `the reader could not follow it: ${JSON.stringify(paths)}`);
+  });
+  await checkAsync(`${r.app}: every page is 1,700 Ã— 2,200`, async () =>
     assertEqual(out.pages.map(p => [p.width, p.height]), out.pages.map(() => [1700, 2200]), 'sizes'));
   await checkAsync(`${r.app}: what comes back carries pixels, a page number and a size, and nothing else`, async () => {
     for (const p of out.pages) assertEqual(Object.keys(p).sort(), ['height', 'image', 'pageNumber', 'width'], 'keys');
@@ -185,7 +202,7 @@ for (const r of REAL) {
         P.registeredQrSharpness(p.stored.image, p.reg));
       assert(cut.image.width > 1400 && cut.image.height > 1400 &&
         Math.max(cut.image.width, cut.image.height) <= P.GENERIC_CROP_LONG_EDGE_PX,
-        `${cut.image.width}×${cut.image.height}`);
+        `${cut.image.width}Ã—${cut.image.height}`);
       assert(cut.inkVerdict === 'ink', `ink verdict ${cut.inkVerdict}`);
       p.cut = cut;
     });
@@ -462,6 +479,300 @@ await checkAsync('the electronic path refuses a non-image by type before it can 
 await checkAsync('isPdfFile recognises a PDF by type or by name, and nothing else', async () => {
   assert(I.isPdfFile({ type: 'application/pdf', name: 'x' }) && I.isPdfFile({ type: '', name: 'Page.PDF' }), 'missed');
   assert(!I.isPdfFile({ type: 'image/jpeg', name: 'scan.jpg' }) && !I.isPdfFile({ type: '', name: 'pdf.png' }), 'false hit');
+});
+
+// ---------- 6. a page that is one photograph is unwrapped, not rendered ----------
+
+results.push('  6. a page that is one photograph goes down the photograph path (WORKORDER_SS_PDF_PAGE_THAT_IS_A_PHOTOGRAPH)');
+
+/**
+ * What `ingestPage` does to a JPEG: decode, step down in halves to the stored
+ * size, one JPEG encode. Same arithmetic as `imageIngest.ts`; the canvas is
+ * Node's where the browser's would be.
+ */
+const ingestJpegLikeApp = async (jpegBytes) => {
+  const img = await loadImage(Buffer.from(jpegBytes));
+  const W = img.width, H = img.height;
+  const scale = Math.min(1, C.PAGE_MAX_EDGE / Math.max(W, H));
+  const tW = Math.max(1, Math.round(W * scale)), tH = Math.max(1, Math.round(H * scale));
+  const halveFirst = W > tW * 2 && H > tH * 2;
+  const draw = (src, w, h) => {
+    const c = createCanvas(w, h);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, w, h);
+    return c;
+  };
+  let current = draw(img, halveFirst ? Math.round(W / 2) : tW, halveFirst ? Math.round(H / 2) : tH);
+  while (current.width > tW * 2 && current.height > tH * 2) {
+    current = draw(current, Math.max(tW, Math.round(current.width / 2)), Math.max(tH, Math.round(current.height / 2)));
+  }
+  if (current.width !== tW || current.height !== tH) current = draw(current, tW, tH);
+  const rgba = current.getContext('2d').getImageData(0, 0, tW, tH).data;
+  const bytes = new Uint8Array(jpeg.encode({ data: Buffer.from(rgba.buffer, rgba.byteOffset, rgba.byteLength), width: tW, height: tH },
+    Math.round(C.PAGE_JPEG_QUALITY * 100)).data);
+  const back = jpeg.decode(bytes, { useTArray: true, formatAsRGBA: true });
+  return { bytes, image: { data: back.data, width: back.width, height: back.height } };
+};
+
+/**
+ * The registration a fast-path page must match its render on: the same marks,
+ * the same QR fields, and a residual within this many millimetres of the
+ * render's (both well inside the 1.0 mm budget). Chosen against the findings:
+ * across fifteen real pages residual ran 0.12â€“0.22 mm, so 0.25 mm admits the
+ * whole spread of normal pages and nothing that moves a crop.
+ */
+const RESIDUAL_TOLERANCE_MM = 0.25;
+const QR_EXPECTED = () => ({ assignmentId: 'GBGEN1', token: 'HWMSTR', k: 1, n: 1, layoutId: P.GENERIC_LAYOUT_ID });
+const sameRegistration = (reg, ref, label) => {
+  assert(reg.usable && reg.status === 'ok', `${label}: status ${reg.status}: ${reg.message}`);
+  assert(reg.marksFound === ref.marksFound, `${label}: ${reg.marksFound} marks, the reference found ${ref.marksFound}`);
+  assertEqual(reg.qr.fields, ref.qr.fields, `${label}: QR`);
+  const d = Math.abs(reg.residualMm - ref.residualMm);
+  assert(d <= RESIDUAL_TOLERANCE_MM,
+    `${label}: residual ${reg.residualMm.toFixed(3)} mm against ${ref.residualMm.toFixed(3)} mm (Î” ${d.toFixed(3)})`);
+};
+
+const printed = { paths: [] };
+{
+  const t0 = performance.now();
+  printed.fast = await split(PRINTED.bytes, { onPage: (p) => printed.paths.push(p) });
+  printed.fastMs = performance.now() - t0;
+}
+await checkAsync('Print To PDF: its one page takes the image fast path', async () => {
+  assert(printed.fast.ok, printed.fast.message);
+  assertEqual(printed.paths, [{ pageNumber: 1, path: 'image' }], 'paths');
+});
+await checkAsync('Print To PDF: intake completes in under two seconds', async () =>
+  assert(printed.fastMs < 2000, `${Math.round(printed.fastMs)} ms`));
+await checkAsync('Print To PDF: what comes back is the page\'s own JPEG, at its own size, with the same four keys', async () => {
+  const p = printed.fast.pages[0];
+  assertEqual(Object.keys(p).sort(), ['height', 'image', 'pageNumber', 'width'], 'keys');
+  assertEqual([p.width, p.height], [4426, 5728], 'size');
+  assert(p.image[0] === 0xff && p.image[1] === 0xd8, 'not a JPEG');
+  const at = Buffer.from(PRINTED.bytes).indexOf(Buffer.from(p.image.slice(0, 64)));
+  assert(at > 0 && Buffer.from(PRINTED.bytes.subarray(at, at + p.image.length)).equals(Buffer.from(p.image)),
+    'the bytes are not the image stream as it sits in the file');
+});
+await checkAsync('Print To PDF: the JPEG handed on carries none of the file\'s metadata (the /Author name)', async () => {
+  const img = Buffer.from(printed.fast.pages[0].image);
+  for (const token of ['Tomasz', 'Welbrink']) {
+    for (const enc of ['latin1', 'utf16le']) assert(!img.includes(Buffer.from(token, enc)), `${token} in ${enc}`);
+    assert(!img.includes(Buffer.from(token, 'utf16le').swap16()), `${token} in UTF-16BE`);
+  }
+  assert(Buffer.from(PRINTED.bytes).includes(Buffer.from('Welbrink', 'utf16le').swap16()),
+    'the fixture does not carry the name: the check above would be vacuous');
+});
+
+printed.render = await split(PRINTED.bytes, { imagePages: false });
+await checkAsync('Print To PDF, forced to render: still renders (the comparison has a reference)', async () =>
+  assert(printed.render.ok && printed.render.pages.length === 1, printed.render.message));
+if (printed.fast.ok && printed.render.ok) {
+  const t0 = performance.now();
+  printed.fastStored = await ingestJpegLikeApp(printed.fast.pages[0].image);
+  printed.ingestMs = performance.now() - t0;
+  printed.fastReg = P.registerPage(printed.fastStored.image);
+  printed.renderStored = ingestLikeApp(printed.render.pages[0].image);
+  printed.renderReg = P.registerPage(printed.renderStored.image);
+  await checkAsync('Print To PDF: the render registers on four marks with the expected QR (the reference is sound)', async () => {
+    assert(printed.renderReg.usable && printed.renderReg.marksFound === 4, `${printed.renderReg.status}, ${printed.renderReg.marksFound} marks`);
+    assertEqual(printed.renderReg.qr.fields, QR_EXPECTED(), 'QR');
+  });
+  await checkAsync('Print To PDF: the fast path is stored at the size a render is (1,700 Ã— 2,200)', async () =>
+    assertEqual([printed.fastStored.image.width, printed.fastStored.image.height], [1700, 2200], 'stored size'));
+  await checkAsync(`Print To PDF: the fast path registers as the render does â€” same marks, same QR, residual within ${RESIDUAL_TOLERANCE_MM} mm`, async () =>
+    sameRegistration(printed.fastReg, printed.renderReg, 'fast path'));
+  await checkAsync('Print To PDF: the fast-path page passes the capture gate', async () => {
+    const v = G.runCaptureGate(printed.fastStored.image);
+    assert(v.pass, `${v.failed}: ${v.message}`);
+  });
+  results.push(`        (fast path: split ${Math.round(printed.fastMs)} ms, ingest ${Math.round(printed.ingestMs)} ms; ` +
+    `residual ${printed.fastReg.residualMm?.toFixed(3)} mm fast, ${printed.renderReg.residualMm?.toFixed(3)} mm rendered)`);
+}
+
+// ---------- 7. each gate condition, broken one at a time ----------
+
+results.push('  7. the fixture, broken one gate condition at a time, renders instead and registers the same');
+
+const R = await loadModule('services/pdfImagePage.ts', 'pdf_image_page.mjs');
+const JPEG = (await (await R.openImagePageReader(PRINTED.bytes)).page(1)).jpeg;
+/** The fixture's own content stream, as Print To PDF wrote it: a white fill, two clips, the image. */
+const BASE_CONTENT = [
+  '0.750000 0.000000 0.000000 -0.750000 0.000000 792.000000 cm', 'q', 'q',
+  '1.000000 0.000000 0.000000 1.000000 0.000000 0.000000 cm', '1.000000 1.000000 1.000000 rg',
+  '0.000000 0.000000 m', '816.000000 0.000000 l', '816.000000 1056.000000 l', '0.000000 1056.000000 l', 'h', 'f*', 'Q',
+  'q', '0.000000 0.005432 m', '816.000000 0.005432 l', '816.000000 1055.989990 l', '0.000000 1055.989990 l',
+  '0.000000 0.005432 l', 'h', 'W* n', 'q', '1.000000 0.000000 0.000000 1.000000 0.000000 0.000000 cm',
+  '0.000000 0.000000 m', '816.000000 0.000000 l', '816.000000 1056.000000 l', '0.000000 1056.000000 l', 'h', 'W* n',
+  '0.184323 0.000000 0.000000 0.184323 0.000000 0.005432 cm', 'q',
+  '4427.000000 0.000000 0.000000 -5728.999512 0.000000 5728.999512 cm', '/Image1 Do', 'Q', 'Q', 'Q', 'Q',
+].join('\n');
+/** An 8 Ã— 8 white image, unfiltered: a second image that changes no pixel. */
+const WHITE_8 = '<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length 64 >>';
+
+/** The fixture's page rebuilt around its own JPEG, with exactly one thing changed. */
+const rebuild = ({ content = BASE_CONTENT, imageExtra = '', colorSpace = '/DeviceRGB', pageExtra = '', resourcesExtra = '', xobjectExtra = '', extra = [] } = {}) => {
+  const chunks = [];
+  let length = 0;
+  const offsets = [];
+  const add = (b) => { const u = typeof b === 'string' ? Buffer.from(b, 'latin1') : Buffer.from(b); chunks.push(u); length += u.length; };
+  const obj = (n, dict, stream) => {
+    offsets[n] = length;
+    add(`${n} 0 obj\n${dict}\n`);
+    if (stream) { add('stream\n'); add(stream); add('\nendstream\n'); }
+    add('endobj\n');
+  };
+  add('%PDF-1.4\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Image1 4 0 R ${xobjectExtra} >> ` +
+    `${resourcesExtra} >> /Contents 5 0 R ${pageExtra} >>`);
+  obj(4, `<< /Type /XObject /Subtype /Image /Width 4426 /Height 5728 /BitsPerComponent 8 /ColorSpace ${colorSpace} ` +
+    `/Filter /DCTDecode /Length ${JPEG.length} ${imageExtra} >>`, JPEG);
+  const body = Buffer.from(content, 'latin1');
+  obj(5, `<< /Length ${body.length} >>`, body);
+  extra.forEach((e, i) => obj(6 + i, e.dict, e.stream));
+  const count = 6 + extra.length;
+  const xref = length;
+  add(`xref\n0 ${count}\n0000000000 65535 f \n`);
+  for (let n = 1; n < count; n++) add(`${String(offsets[n]).padStart(10, '0')} 00000 n \n`);
+  add(`trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Uint8Array(Buffer.concat(chunks));
+};
+const insertBeforeImage = (ops) => BASE_CONTENT.replace('/Image1 Do', `${ops}\n/Image1 Do`);
+
+const BREAKAGES = [
+  { condition: 'one-image', label: 'a second image (8 Ã— 8, white, painted first)', reason: 'one-image',
+    pdf: () => rebuild({ xobjectExtra: '/Im2 6 0 R', extra: [{ dict: WHITE_8, stream: new Uint8Array(64).fill(255) }],
+      content: `${BASE_CONTENT}\nq 6 0 0 6 400 1040 cm /Im2 Do Q` }) },
+  { condition: 'text', label: 'one invisible text operation', reason: 'text',
+    pdf: () => rebuild({ resourcesExtra: '/Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >>',
+      content: `BT /F1 8 Tf 3 Tr 300 4 Td (x) Tj ET\n${BASE_CONTENT}` }) },
+  { condition: 'drawing', label: 'a short stroke in the bottom margin', reason: 'drawing',
+    pdf: () => rebuild({ content: `${BASE_CONTENT}\n0.5 w 400 1050 m 410 1050 l S` }) },
+  { condition: 'drawing', label: 'a small white fill painted AFTER the image', reason: 'drawing',
+    pdf: () => rebuild({ content: `${BASE_CONTENT}\n1 1 1 rg 400 1040 6 6 re f` }) },
+  { condition: 'coverage', label: 'the image shrunk to 96%, centred', reason: 'coverage',
+    pdf: () => rebuild({ content: insertBeforeImage('0.96 0 0 0.96 0.02 0.02 cm') }) },
+  { condition: 'coverage', label: 'a clip 1.5% inside the page edge', reason: 'coverage',
+    pdf: () => rebuild({ content: `9 12 594 768 re W n\n${BASE_CONTENT}` }) },
+  { condition: 'colour', label: 'a CalRGB colour space', reason: 'colour',
+    pdf: () => rebuild({ colorSpace: '[/CalRGB << /WhitePoint [0.9505 1 1.089] >>]' }) },
+  { condition: 'colour', label: 'a soft mask (fully opaque)', reason: 'colour',
+    pdf: () => rebuild({ imageExtra: '/SMask 6 0 R', extra: [{ dict: WHITE_8, stream: new Uint8Array(64).fill(255) }] }) },
+  { condition: 'colour', label: 'a /Decode array (the identity)', reason: 'colour',
+    pdf: () => rebuild({ imageExtra: '/Decode [0 1 0 1 0 1]' }) },
+  { condition: 'rotation', label: '/Rotate 180', reason: 'rotation',
+    pdf: () => rebuild({ pageExtra: '/Rotate 180' }) },
+  { condition: 'annotations', label: 'one annotation (a 2 pt white square)', reason: 'annotations',
+    pdf: () => rebuild({ pageExtra: '/Annots [<< /Type /Annot /Subtype /Square /Rect [300 2 302 4] /C [1 1 1] /F 4 >>]' }) },
+];
+
+await checkAsync('the rebuild itself, unaltered, takes the fast path and registers as the fixture does (the control)', async () => {
+  const paths = [];
+  const out = await split(rebuild(), { onPage: (p) => paths.push(p) });
+  assert(out.ok, out.message);
+  assertEqual(paths.map(p => p.path), ['image'], 'path');
+  assert(Buffer.from(out.pages[0].image).equals(Buffer.from(JPEG)), 'different bytes');
+});
+
+const breakageTimes = [];
+for (const b of BREAKAGES) {
+  await checkAsync(`${b.condition}: ${b.label} â†’ falls back to the render path, and registers the same`, async () => {
+    const paths = [];
+    const t0 = performance.now();
+    const out = await split(b.pdf(), { onPage: (p) => paths.push(p) });
+    breakageTimes.push(performance.now() - t0);
+    assert(out.ok, out.message);
+    assert(paths.length === 1 && paths[0].path === 'render', `path ${JSON.stringify(paths)}`);
+    assert(paths[0].reason === b.reason, `refused for ${paths[0].reason} (${paths[0].detail}), not ${b.reason}`);
+    sameRegistration(P.registerPage(ingestLikeApp(out.pages[0].image).image), printed.fastReg, b.label);
+  });
+}
+if (breakageTimes.length) {
+  results.push(`        (${breakageTimes.length} renders, ${Math.round(Math.min(...breakageTimes))}â€“${Math.round(Math.max(...breakageTimes))} ms each)`);
+}
+
+// Conditions the reader settles without a render: nothing could register differently, so none is rendered.
+const gateOnly = async (label, pdf, reason, detail) => {
+  await checkAsync(`gate: ${label} â†’ refused for ${reason}`, async () => {
+    const r = await (await R.openImagePageReader(pdf)).page(1);
+    assert(!r.ok && r.reason === reason && (!detail || detail.test(r.detail)), JSON.stringify(r.ok ? 'accepted' : r));
+  });
+};
+await gateOnly('the image drawn upside down', rebuild({ content: BASE_CONTENT.replace(
+  '4427.000000 0.000000 0.000000 -5728.999512 0.000000 5728.999512 cm', '4427 0 0 5728.999512 0 0 cm') }), 'coverage', /upside down|mirrored/);
+/** The rebuild with one string in it replaced; offsets after it move, so lengths are kept equal. */
+const patched = (from, to) => {
+  assert(from.length === to.length, 'a patch must keep the byte length');
+  const pdf = Buffer.from(rebuild());
+  const at = pdf.indexOf(from);
+  assert(at > 0, `${from} not found`);
+  pdf.write(to, at, 'latin1');
+  return new Uint8Array(pdf);
+};
+await gateOnly('a square image stretched over the page', patched('/Width 4426', '/Width 5728'), 'coverage', /stretched/);
+await gateOnly('a JPEG under a second filter', patched('/Filter /DCTDecode', '/Filter[/A85 /DCT]'), 'colour', /not a JPEG alone/);
+await gateOnly('a JPEG whose own header disagrees with the PDF on its size', patched('/Height 5728', '/Height 5727'), 'colour', /size disagrees/);
+await gateOnly('a CMYK colour space', rebuild({ colorSpace: '/DeviceCMYK' }), 'colour', /DeviceCMYK/);
+await checkAsync('gate: an encrypted file is not read here at all, so every page renders', async () =>
+  assert(await R.openImagePageReader(encrypted) === null, 'the reader opened an encrypted file'));
+await checkAsync('gate: a file the reader cannot follow (noise after a header) gives no reader, not an exception', async () =>
+  assert(await R.openImagePageReader(garbage) === null, 'reader opened noise'));
+
+// ---------- 8. the budgets ----------
+
+results.push('  8. the per-page budget covers the encode; the whole file has a ceiling');
+
+/** A one-or-more-page document that renders at once, so only `encode` or the page count can be slow. */
+const instantEngine = (pages, renderMs = 0) => ({ open: () => ({
+  destroy: () => {},
+  promise: Promise.resolve({ numPages: pages, getPage: async () => ({
+    getViewport: ({ scale }) => ({ width: 612 * scale, height: 792 * scale }),
+    render: () => ({ promise: new Promise(r => setTimeout(r, renderMs)), cancel: () => {} }),
+    cleanup: () => {},
+  }) }),
+}) });
+const slowEncode = (ms) => ({ ...surfaces, create: () => ({ canvas: null, context: { fillRect() {} } }),
+  encode: () => new Promise(r => setTimeout(() => r(new Uint8Array([1])), ms)) });
+
+await checkAsync('per page: a page whose render and encode both fit the budget is accepted (control)', async () => {
+  const out = await I.splitPdf(REAL[0].bytes, instantEngine(1), slowEncode(10), { pageTimeoutMs: 400, imagePages: false });
+  assert(out.ok && out.pages.length === 1, JSON.stringify(out));
+});
+await checkAsync('per page: a page that renders at once but encodes past the budget is refused as too slow', async () => {
+  const out = await I.splitPdf(REAL[0].bytes, instantEngine(1), slowEncode(600), { pageTimeoutMs: 150, imagePages: false });
+  assert(out.ok === false && out.refusal === 'too_slow' && out.message === I.PDF_WORDING.tooSlow, JSON.stringify(out));
+});
+await checkAsync('whole file: pages that each fit their own budget are refused once the file runs past its ceiling', async () => {
+  const out = await I.splitPdf(REAL[0].bytes, instantEngine(10, 40), slowEncode(0), {
+    pageTimeoutMs: 1000, fileTimeoutMs: 150, imagePages: false });
+  assert(out.ok === false && out.refusal === 'too_slow', JSON.stringify(out));
+  assert(!('pages' in out), 'a refusal carried pages');
+});
+await checkAsync('whole file: the same file inside its ceiling is accepted whole (control)', async () => {
+  const out = await I.splitPdf(REAL[0].bytes, instantEngine(10, 5), slowEncode(0), {
+    pageTimeoutMs: 1000, fileTimeoutMs: 5000, imagePages: false });
+  assert(out.ok && out.pages.length === 10, JSON.stringify(out.ok ? out.pages.length : out));
+});
+await checkAsync('the file ceiling is a real ceiling: below the page count times the per-page guard', async () =>
+  assert(I.PDF_FILE_TIMEOUT_MS < I.PDF_MAX_PAGES * I.PDF_PAGE_TIMEOUT_MS && I.PDF_FILE_TIMEOUT_MS >= I.PDF_PAGE_TIMEOUT_MS,
+    `${I.PDF_FILE_TIMEOUT_MS} vs ${I.PDF_MAX_PAGES} Ã— ${I.PDF_PAGE_TIMEOUT_MS}`));
+
+// ---------- 9. what the student is told ----------
+
+results.push('  9. no student-facing string in the PDF path gives resolution advice');
+
+const wordings = Object.values(I.PDF_WORDING).map(w => typeof w === 'function' ? w(...[[2, 3], 41].slice(0, w.length)) : w);
+await checkAsync('no PDF wording names a dpi figure or a resolution', async () => {
+  const hit = wordings.filter(w => /dpi|dots per inch|resolution|\d+\s*(px|pixels)/i.test(String(w)));
+  assert(hit.length === 0, hit.join(' | '));
+});
+await checkAsync('the too-slow refusal does not send the student back to a notes app', async () =>
+  assert(!/notes app/i.test(I.PDF_WORDING.tooSlow), I.PDF_WORDING.tooSlow));
+await checkAsync('the PDF uploader\'s own text names no dpi figure', async () => {
+  for (const f of ['components/PageUploader.tsx', 'services/pdfLoader.ts']) assert(!/dpi/i.test(src(f)), f);
 });
 
 // ---------- report ----------
