@@ -23,6 +23,10 @@
  * "{n} of {m} checked", the blank-page sentence, and the download gate's
  * heading, headline, choice and buttons.
  *
+ * **"answer page" became "answer template", 2026-10-10**, in `notTheAnswerPage`
+ * (twice), by `WORKORDER_SS_SUBMISSION_RULE_PER_ASSIGNMENT_2026-10-10` "Done
+ * when" 4, which is Andre's direction. Nothing else in the sentence moved.
+ *
  * The flagging footnote in `GenericPageReview.tsx` is no longer the printed
  * sheet's: its second sentence is "The flag goes with your submission, beside
  * the picture." (approved 2026-09-25), because the printed sheet's version
@@ -39,8 +43,8 @@ export const GENERIC_WORDING = {
 
   /** PageUploader, on a photograph of some other sheet. Replaces the layout-mismatch sentence. */
   notTheAnswerPage:
-    'This is not the answer page this assignment uses, so nothing was taken from it. ' +
-    'Write your answers on the GradeBridge answer page.',
+    'This is not the answer template this assignment uses, so nothing was taken from it. ' +
+    'Write your answers on the GradeBridge answer template.',
 
   /** PageUploader footer. Replaces the sentence about the code in the top-right corner. */
   uploaderFooter:

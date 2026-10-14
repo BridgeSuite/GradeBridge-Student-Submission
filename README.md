@@ -166,7 +166,7 @@ Every field below is one this app actually reads; the shape is `types.ts`.
 ```
 
 **Assignment level.** `id`, `courseCode`, `title`, `preamble`, `problems`,
-`createdAt` and `updatedAt` are always present. Two are written only when the
+`createdAt` and `updatedAt` are always present. These are written only when the
 assignment carries them, so a spec from before a field existed is byte-for-byte
 what it was:
 
@@ -174,6 +174,7 @@ what it was:
 |---|---|
 | `inputMode` | `"electronic"` or `"handwritten"`. Absent means electronic. |
 | `aiFeedback` | Per-assignment AI-feedback flag, carried through to Gradescope. Absent means off. |
+| `handwritingExpected` | `true` when a handwriting expectation applies to this assignment; the app states it to the student before any page is added. Absent or `false` means none was set, and the app says nothing on the subject. Only a literal `true` counts. Never blocks an upload. |
 
 `coursePublicKey` is no longer read (v4.0.0). A spec that still carries one loads
 and builds exactly the same submission as one that does not.

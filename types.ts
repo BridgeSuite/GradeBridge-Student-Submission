@@ -62,6 +62,14 @@ export interface Assignment {
    */
   aiFeedback?: boolean;
   /**
+   * `true` means a handwriting expectation applies to this assignment, and the
+   * student is shown it before adding pages. Absent, `false` or anything else
+   * means none was set, and the app says nothing on the subject. Set by the
+   * Assignment Maker; this app only reads it. It never blocks an upload.
+   * `services/handwritingExpectation.ts`.
+   */
+  handwritingExpected?: boolean;
+  /**
    * The layout map, carried inside the spec instead of beside it.
    *
    * `layoutCsv` is the EXACT text of `layout_{ID}.csv` — unchanged, newlines

@@ -41,6 +41,25 @@ the envelope were rewritten to prove the opposite claims rather than deleted.
   `pdf-intake-browser.mjs` (`npm run check:pdf-intake`, needs Chrome and
   `vite preview` of a build) drives the same files through the built app.
 
+- `handwriting-expectation-tests.mjs` — the assignment carries a handwriting
+  expectation, or it carries nothing (`WORKORDER_SS_SUBMISSION_RULE_PER_ASSIGNMENT_2026-10-10`,
+  revised). The wording is held to the work order's appendix by an independent
+  copy in the test. `PageUploader` is rendered on both sheets, before and after a
+  page is added: `handwritingExpected: true` shows the wording, and absent,
+  `false` or malformed leaves the page identical to the stated one with the
+  notice taken out, so no softened line can appear. Only a literal `true`
+  counts, the course is never read, the notice carries no control, and no
+  string a student sees says "answer page" or "answer sheet".
+- `handwriting-expectation-browser.mjs` — **the one browser check inside
+  `npm test`**, because the work order asks for phone width on every build.
+  It builds the real app into a temporary directory, serves it, and drives
+  headless Chrome at 390 x 844. With the field set, before and after a real
+  page is added, the notice renders once with the appendix text, no element of
+  it overflows its box, no ancestor clips it, and the page has no horizontal
+  overflow. Without the field, neither paragraph is anywhere on the page. A
+  missing Chrome fails by name rather than skipping; `CHROME_PATH` overrides.
+  About 45 seconds.
+
 Where a property lives in `App.tsx`, which cannot be imported in Node, the
 wiring is asserted over the shipped source, and each such check says which
 mutation it was watched failing on.

@@ -85,9 +85,9 @@ export const PDF_WORDING = {
       : `Pages ${pages.slice(0, -1).join(', ')} and ${pages[pages.length - 1]}`;
     const it = pages.length === 1 ? 'it' : 'them';
     const was = pages.length === 1 ? 'was' : 'were';
-    return `${list} of ${total} ${was} not used: no answer sheet was found on ${it}. ` +
+    return `${list} of ${total} ${was} not used: no answer template was found on ${it}. ` +
       `If ${pages.length === 1 ? 'that page is' : 'those pages are'} blank, nothing is lost. If you wrote ` +
-      `an answer there, write it on the answer page and export again.`;
+      `an answer there, write it on the answer template and export again.`;
   },
   /**
    * Ruling 2: the electronic image answers take images and nothing else. A
