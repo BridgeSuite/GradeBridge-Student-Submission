@@ -81,22 +81,43 @@ check('the page fixture is the PDF exported from the live Assignment Maker (inde
   // The 300 dpi rendering is only a convenience for Node, which has no PDF
   // renderer. Where MuPDF is installed it is re-rendered and compared, so the
   // PNG cannot drift from the PDF it claims to be.
+  //
+  // The samples go through a file, never stdout. PyMuPDF writes its deprecation
+  // warning for the `fitz` alias to STDOUT, and 100 bytes of it once arrived
+  // ahead of the pixmap and failed this check on a fixture that had not
+  // drifted (14 October 2026). Importing `pymupdf` silences that warning; the
+  // file keeps the next thing a library prints out of the image data.
   let rendered = null;
+  const scratch = mkdtempSync(join(tmpdir(), 'gs-render-'));
   try {
-    rendered = execFileSync('python', ['-c',
-      'import sys, fitz; p = fitz.open(sys.argv[1])[0].get_pixmap(dpi=300, colorspace=fitz.csGRAY); ' +
-      'sys.stdout.buffer.write(p.samples)', GENERIC_PDF], { maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = join(scratch, 'samples.gray');
+    execFileSync('python', ['-c',
+      'import sys, pymupdf; p = pymupdf.open(sys.argv[1])[0].get_pixmap(dpi=300, colorspace=pymupdf.csGRAY); ' +
+      'open(sys.argv[2], "wb").write(p.samples)', GENERIC_PDF, out], { stdio: 'ignore' });
+    rendered = readFileSync(out);
   } catch { /* no python or no MuPDF */ }
+  finally { rmSync(scratch, { recursive: true, force: true }); }
   if (rendered) {
-    check('the 300 dpi PNG is exactly the PDF, rendered', () => {
-      const png = PNG.sync.read(readFileSync(GENERIC_PNG));
-      assert(rendered.length === png.width * png.height, `render is ${rendered.length} bytes`);
+    const png = PNG.sync.read(readFileSync(GENERIC_PNG));
+    const differs = (pngData) => {
+      if (rendered.length !== png.width * png.height) return `render is ${rendered.length} bytes`;
       for (let i = 0; i < rendered.length; i++) {
-        if (rendered[i] !== png.data[i * 4]) throw new Error(`pixel ${i} differs`);
+        if (rendered[i] !== pngData[i * 4]) return `pixel ${i} differs`;
       }
+      return null;
+    };
+    check('the 300 dpi PNG is exactly the PDF, rendered', () => {
+      const why = differs(png.data);
+      assert(!why, why);
+    });
+    check('…and the comparison is not vacuous: one pixel altered in a copy of the PNG is caught', () => {
+      const copy = Buffer.from(png.data);
+      const i = (Math.floor(png.height / 2) * png.width + Math.floor(png.width / 2)) * 4;
+      copy[i] = copy[i] ^ 0xff;
+      assertEqual(differs(copy), `pixel ${i / 4} differs`, 'the altered pixel');
     });
   } else {
-    skip('the 300 dpi PNG is exactly the PDF, rendered', 'MuPDF (python fitz) not available');
+    skip('the 300 dpi PNG is exactly the PDF, rendered', 'MuPDF (python pymupdf) not available');
   }
 }
 

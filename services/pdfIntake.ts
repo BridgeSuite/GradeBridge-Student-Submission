@@ -6,7 +6,9 @@
  * perspective, no shadow and no camera shake. So a PDF is split here into one
  * bitmap per page, and each bitmap then joins the photograph path unchanged:
  * `ingestPage`, then `registerAndCropPage`. **There is no PDF pipeline beyond
- * this file.** What leaves it is pixels, a page number and a size.
+ * this file** and `pdfImagePage.ts`, which spots a page that is one photograph
+ * so that it is unwrapped rather than rendered. What leaves here is pixels, a
+ * page number and a size.
  *
  * That last sentence is also the metadata rule. A tablet export can carry its
  * author's name in the document info dictionary or an XMP stream. Nothing here
@@ -20,6 +22,7 @@
  */
 
 import { PAGE_MAX_EDGE } from '../constants';
+import { ImagePageReader, ImagePageRefusal, openImagePageReader } from './pdfImagePage';
 
 /**
  * The long edge each page is rendered to: 2,200 px, which is 200 DPI on a US
@@ -46,8 +49,24 @@ export const PDF_MAX_PAGES = 40;
 
 /** Opening the file: past this the student is told, rather than left waiting. */
 export const PDF_OPEN_TIMEOUT_MS = 20_000;
-/** One page. A vector page renders in tens of milliseconds; this is for the pathological one. */
-export const PDF_PAGE_TIMEOUT_MS = 15_000;
+/**
+ * One page, everything the student waits for: render AND the encode after it,
+ * or the unwrapping of a page that is one photograph. A guard against a page
+ * that hangs, not a ceiling on resolution: since the image fast path, the
+ * page that once ran 15–17 s (a 25 MP Print To PDF page) no longer renders at
+ * all, and the slowest page that still renders took 0.56 s on the machine the
+ * findings of 14 October were measured on. 45 s leaves a phone ten times
+ * slower than that machine room for a page fifteen times worse than it.
+ */
+export const PDF_PAGE_TIMEOUT_MS = 45_000;
+/**
+ * The whole file, opening included. Forty pages at the per-page guard would be
+ * half an hour; nothing stopped the old ten-minute case. 120 s holds a full
+ * `PDF_MAX_PAGES` file of vector pages (0.4 s each measured, so 16 s) on a
+ * phone up to seven times slower than the measuring machine, and twelve pages
+ * of an office-copier scan (0.56 s each) on one fifteen times slower.
+ */
+export const PDF_FILE_TIMEOUT_MS = 120_000;
 
 /** How a PDF can be refused. Each has its own words in `PDF_WORDING`. */
 export type PdfRefusal = 'empty' | 'encrypted' | 'damaged' | 'too_many_pages' | 'too_slow' | 'unavailable';
@@ -69,9 +88,12 @@ export const PDF_WORDING = {
   tooManyPages: (n: number): string =>
     `This PDF has ${n} pages, and at most ${PDF_MAX_PAGES} can be added from one file. ` +
     'Export only the pages with your answers on them.',
+  // True of every way a PDF runs out of time: opening, one page, or the whole
+  // file. No resolution advice: the student is asked for something they can
+  // always do, not for a setting they would have to find.
   tooSlow:
-    'This PDF took too long to open on this device. Export it again from your notes app, ' +
-    'or save the pages as images and add those.',
+    'This PDF took too long to read on this device, so none of its pages were added. ' +
+    'Take a photo of each page and add the photos instead, or try the PDF on a computer.',
   /** The reader itself never arrived: the chunk could not be fetched. Not the file's fault. */
   unavailable: 'The PDF reader could not be loaded. Check your connection and add the file again.',
   /** Replace swaps one page; a multi-page PDF there has no meaning. */
@@ -160,7 +182,18 @@ export interface PdfSurfaces<Out> {
   create(width: number, height: number): { canvas: unknown; context: CanvasRenderingContext2D };
   encode(canvas: unknown): Promise<Out>;
   release(canvas: unknown): void;
+  /**
+   * A page that is one photograph: its own JPEG bytes, as what `encode` would
+   * have returned. Browser: a JPEG Blob, which `ingestPage` decodes and
+   * downsamples like any photograph. Nothing is drawn.
+   */
+  fromJpeg(bytes: Uint8Array): Out | Promise<Out>;
 }
+
+/** Which way a page went. For the test suite only; the app never asks, and the student is never told. */
+export type PdfPagePath =
+  | { pageNumber: number; path: 'image' }
+  | { pageNumber: number; path: 'render'; reason: ImagePageRefusal | 'no reader'; detail: string };
 
 export interface RenderedPdfPage<Out> {
   /** 1-based, the PDF's own order. */
@@ -203,15 +236,33 @@ export const classifyOpenError = (err: unknown): PdfRefusal => {
  * renders but carries no answer sheet is skipped and named, and the rest go
  * through.
  *
+ * **A page that is one photograph is not rendered.** `pdfImagePage.ts` decides,
+ * from the page's own content stream, whether the page is a single JPEG
+ * covering it; if so its bytes go to the photograph path as they are. Anything
+ * else, including anything that reader cannot follow, renders as before.
+ *
+ * **Two budgets.** Each page gets `pageTimeoutMs` for everything the student
+ * waits for on it, encode included; the file gets `fileTimeoutMs` from the
+ * moment this is called. Either running out refuses the file as too slow.
+ *
  * Never throws and never waits forever: every outcome is a value.
  */
 export const splitPdf = async <Out>(
   data: Uint8Array, engine: PdfEngine, surfaces: PdfSurfaces<Out>,
-  options: { openTimeoutMs?: number; pageTimeoutMs?: number; maxPages?: number } = {},
+  options: {
+    openTimeoutMs?: number; pageTimeoutMs?: number; fileTimeoutMs?: number; maxPages?: number;
+    /** False renders every page. The suite uses it to compare the two paths; the app never does. */
+    imagePages?: boolean;
+    /** Told which way each page went. The suite listens; the app does not. */
+    onPage?: (path: PdfPagePath) => void;
+  } = {},
 ): Promise<PdfSplit<Out>> => {
+  const started = Date.now();
   const openTimeout = options.openTimeoutMs ?? PDF_OPEN_TIMEOUT_MS;
   const pageTimeout = options.pageTimeoutMs ?? PDF_PAGE_TIMEOUT_MS;
+  const fileTimeout = options.fileTimeoutMs ?? PDF_FILE_TIMEOUT_MS;
   const maxPages = options.maxPages ?? PDF_MAX_PAGES;
+  const left = (): number => fileTimeout - (Date.now() - started);
   const refuse = (refusal: PdfRefusal, pageCount = 0): PdfSplit<Out> =>
     ({ ok: false, refusal, pageCount, message: refusalMessage(refusal, pageCount) });
 
@@ -222,7 +273,7 @@ export const splitPdf = async <Out>(
   const task = engine.open(data.slice());
   let doc: PdfDocumentLike;
   try {
-    const opened = await withTimeout(task.promise, openTimeout);
+    const opened = await withTimeout(task.promise, Math.max(0, Math.min(openTimeout, left())));
     if (opened === TIMED_OUT) {
       try { await task.destroy(); } catch { /* already gone */ }
       return refuse('too_slow');
@@ -238,13 +289,31 @@ export const splitPdf = async <Out>(
     if (!pageCount) return refuse('empty');
     if (pageCount > maxPages) return refuse('too_many_pages', pageCount);
 
-    const pages: RenderedPdfPage<Out>[] = [];
-    for (let n = 1; n <= pageCount; n++) {
+    // The reader is only trusted when it counts the same pages pdf.js does, so
+    // that its page n is pdf.js's page n.
+    let reader: ImagePageReader | null = null;
+    if (options.imagePages !== false) {
+      const opened = await withTimeout(openImagePageReader(data), Math.max(0, left()));
+      if (opened === TIMED_OUT) return refuse('too_slow', pageCount);
+      reader = opened && opened.pageCount === pageCount ? opened : null;
+    }
+
+    /** One page, from start to the bytes the caller receives. Its own promise, so one budget covers it all. */
+    const onePage = async (n: number, cancel: { job: { cancel(): void } | null }): Promise<RenderedPdfPage<Out>> => {
+      const fast = reader ? await reader.page(n) : null;
+      if (fast && fast.ok) {
+        options.onPage?.({ pageNumber: n, path: 'image' });
+        return { pageNumber: n, image: await surfaces.fromJpeg(fast.jpeg), width: fast.width, height: fast.height };
+      }
+      options.onPage?.(fast && fast.ok === false
+        ? { pageNumber: n, path: 'render', reason: fast.reason, detail: fast.detail }
+        : { pageNumber: n, path: 'render', reason: 'no reader', detail: 'the reader could not follow this file' });
+
       let surface: { canvas: unknown; context: CanvasRenderingContext2D } | null = null;
       try {
         const page = await doc.getPage(n);
         const natural = page.getViewport({ scale: 1 });
-        if (!(natural.width > 0) || !(natural.height > 0)) return refuse('damaged', pageCount);
+        if (!(natural.width > 0) || !(natural.height > 0)) throw new Error('page has no size');
         const viewport = page.getViewport({ scale: renderScale(natural.width, natural.height) });
         const width = Math.max(1, Math.round(viewport.width));
         const height = Math.max(1, Math.round(viewport.height));
@@ -258,18 +327,31 @@ export const splitPdf = async <Out>(
         const job = page.render({
           canvas: surface.canvas, canvasContext: surface.context, viewport, background: '#ffffff',
         });
-        const rendered = await withTimeout(job.promise, pageTimeout);
-        if (rendered === TIMED_OUT) {
-          job.cancel();
-          return refuse('too_slow', pageCount);
-        }
+        cancel.job = job;
+        await job.promise;
+        cancel.job = null;
         const image = await surfaces.encode(surface.canvas);
-        pages.push({ pageNumber: n, image, width, height });
         page.cleanup();
-      } catch {
-        return refuse('damaged', pageCount);
+        return { pageNumber: n, image, width, height };
       } finally {
         if (surface) surfaces.release(surface.canvas);
+      }
+    };
+
+    const pages: RenderedPdfPage<Out>[] = [];
+    for (let n = 1; n <= pageCount; n++) {
+      const budget = Math.min(pageTimeout, left());
+      if (budget <= 0) return refuse('too_slow', pageCount);
+      const cancel: { job: { cancel(): void } | null } = { job: null };
+      try {
+        const done = await withTimeout(onePage(n, cancel), budget);
+        if (done === TIMED_OUT) {
+          cancel.job?.cancel();
+          return refuse('too_slow', pageCount);
+        }
+        pages.push(done);
+      } catch {
+        return refuse('damaged', pageCount);
       }
     }
     return { ok: true, pageCount, pages };

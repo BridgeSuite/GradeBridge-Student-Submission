@@ -129,7 +129,8 @@ const PageUploader: React.FC<PageUploaderProps> = ({
       setBusy({ current: rendered.pageNumber, total: split.pageCount, name: sourceName });
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       const name = renderedPageName(sourceName, rendered.pageNumber);
-      const result = await ingestPage(new File([rendered.image], name, { type: 'image/png' }));
+      // A rendered page is a PNG; a page that was one photograph is its own JPEG.
+      const result = await ingestPage(new File([rendered.image], name, { type: rendered.image.type || 'image/png' }));
       if (!result.page) {
         failures.push({ sourceName: name, reason: result.reason ?? PDF_WORDING.damaged });
         return [];
