@@ -121,7 +121,7 @@ if (decoded.readUInt32BE(0) !== 0x0061736d) {
  * modules and at depths of up to five. Fixing them one at a time would leave
  * the next one to kill CI a suite later.
  */
-const vendorFromDisk = {
+export const vendorFromDisk = {
   name: 'vendor-wasm-from-disk',
   setup(pluginBuild) {
     pluginBuild.onLoad({ filter: /zxingReaderWasm\.ts$/ }, (args) => (

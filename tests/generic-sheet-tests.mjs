@@ -41,6 +41,7 @@ import { execFileSync } from 'node:child_process';
 import { PNG } from 'pngjs';
 import {
   loadModule, makeCapture, renderGenericSheet, RECIPES, GENERIC_PAYLOAD, GENERIC_PDF, GENERIC_PNG, INK,
+  vendorFromDisk,
 } from './captureSet.mjs';
 import { GOLDEN_PATH, buildBoth } from './packageFixtures.mjs';
 
@@ -677,7 +678,9 @@ await build({
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   loader: { '.css': 'empty' },
   // heic2any touches `window` as it loads; only image upload uses it, never rendering.
-  plugins: [{ name: 'stub-heic2any', setup(b) {
+  // `PageUploader` reaches `vendor/zxingReaderWasm.ts` through `services/pageCrops`.
+  // Bundling that literal costs tens of GB and kills the runner: see `tests/captureSet.mjs`.
+  plugins: [vendorFromDisk, { name: 'stub-heic2any', setup(b) {
     b.onResolve({ filter: /^heic2any$/ }, () => ({ path: 'heic2any', namespace: 'stub' }));
     b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export default () => null;', loader: 'js' }));
   } }],
