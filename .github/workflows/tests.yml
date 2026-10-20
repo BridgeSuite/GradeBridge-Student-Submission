@@ -63,7 +63,11 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # PINNED, not `ubuntu-latest`. On 2026-10-19 that label starts meaning
+    # Ubuntu 26, which changes the machine under the suite without a commit.
+    # Pinned so the image moves when somebody decides to move it. Raised by the
+    # annotations on Student Submission run 38824487218, 2026-10-15.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
