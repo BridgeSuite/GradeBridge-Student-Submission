@@ -6,7 +6,6 @@ import { PageRef } from '../types';
 import { PAGE_TOTAL_SIZE_TARGET } from '../constants';
 import { IngestedPage, formatBytes, ingestPage } from '../imageIngest';
 import InAppBrowserNotice from './InAppBrowserNotice';
-import HandwritingExpectationNotice from './HandwritingExpectationNotice';
 import { GENERIC_WORDING } from '../services/genericWording';
 import { PDF_WORDING, isPdfFile, partitionByRegistration, renderedPageName } from '../services/pdfIntake';
 import { splitPdfFile } from '../services/pdfLoader';
@@ -28,11 +27,6 @@ interface PageUploaderProps {
    * student is told the part is theirs to say. See `services/genericSheet.ts`.
    */
   genericSheet?: boolean;
-  /**
-   * Whether the assignment carries a stated handwriting expectation, from
-   * `handwritingExpectedFor`. Only `true` shows it; anything else shows nothing.
-   */
-  handwritingExpected?: boolean;
 }
 
 interface Rejection {
@@ -42,7 +36,7 @@ interface Rejection {
 
 const PageUploader: React.FC<PageUploaderProps> = ({
   pages, pageUrls, onAddPage, onReplacePage, onRemovePage, onMovePage, onRotatePage,
-  genericSheet = false, handwritingExpected = false,
+  genericSheet = false,
 }) => {
   const chooseRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -258,12 +252,6 @@ const PageUploader: React.FC<PageUploaderProps> = ({
             browser costs photographs, and it costs them here. It renders
             nothing at all in an ordinary browser or once dismissed. */}
         <InAppBrowserNotice />
-
-        {/* The assignment's stated handwriting expectation, before any page is
-            added and still there after: the cost of being told late is work
-            already done the wrong way. Silence when the assignment sets none.
-            Never blocks an upload. */}
-        {handwritingExpected === true && <HandwritingExpectationNotice />}
 
         {/* Generic page only, and before any photograph: the page itself
             prints this, but one collected weeks ago may not have been read.

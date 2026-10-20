@@ -27,7 +27,7 @@
 // `gate-tests.mjs` hold them.
 // =====================================================
 
-import { webcrypto } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 globalThis.crypto ??= webcrypto;
 
 import { readFileSync } from 'node:fs';
@@ -330,10 +330,13 @@ check('the guard is called once, on the assembled payload, before the paths spli
 // adds it here on purpose, and a reviewer reading the diff sees it arrive.
 console.log('  4. the payload keys, closed');
 
+// `files` added 2026-10-19 for work item W3 of the assignment route: the
+// SHA-256 of every archive entry except the payload. It is written last,
+// because it cannot exist until the other entries do.
 const TOP_ELECTRONIC = ['course_code', 'assignment_id', 'pdf_filename', 'ai_feedback', 'submission_data',
-  'last_saved', 'personal_info_confirmed', 'personal_info_wording'];
+  'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'files'];
 const TOP_HANDWRITTEN = ['course_code', 'assignment_id', 'ai_feedback', 'submission_data', 'last_saved',
-  'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops'];
+  'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops', 'files'];
 const ANSWER_KEYS = ['answer', 'images_submitted'];
 const PAGE_KEYS = ['file', 'width', 'height', 'k', 'n', 'registration', 'marks_found', 'marks_detected',
   'marks_declined', 'residual_mm', 'held_out_mm'];
@@ -369,6 +372,55 @@ check('no identity-shaped key in either payload', () => {
   assertEqual(idg.identityKeysIn(handwritten.submissionJson), [], 'handwritten');
   assertEqual(idg.identityKeysIn(electronic.submissionJson), [], 'electronic');
 });
+
+// =====================================================
+// 5. The file fingerprints
+// =====================================================
+// W3 of the assignment route of 2026-10-19. The relay recomputes each hash from
+// the file it extracts, so these are taken over the decoded bytes, and the
+// payload is not among them because it cannot fingerprint itself.
+console.log('  5. the file fingerprints');
+
+const sha256OfBytes = bytes =>
+  createHash('sha256').update(Buffer.from(bytes)).digest('hex');
+
+for (const [label, built, manifest] of [
+  ['handwritten', handwritten, hwManifest],
+  ['electronic', electronic, elManifest],
+]) {
+  const payloadName = `${built.baseName}.json`;
+
+  check(`${label}: files names every entry except the payload`, () =>
+    assertEqual(Object.keys(built.submissionJson.files).sort(),
+      built.entries.filter(n => n !== payloadName).sort(),
+      'the fingerprinted set is not the archive minus the payload'));
+
+  check(`${label}: the payload does not fingerprint itself`, () =>
+    assert(!(payloadName in built.submissionJson.files),
+      'the payload fingerprints itself, which cannot be checked'));
+
+  check(`${label}: every fingerprint is 64 lowercase hex characters`, () => {
+    for (const [name, hex] of Object.entries(built.submissionJson.files)) {
+      assert(/^[0-9a-f]{64}$/.test(hex), `${name} carries ${hex}`);
+    }
+  });
+
+  check(`${label}: every fingerprint matches the bytes in the archive`, () => {
+    for (const [name, hex] of Object.entries(built.submissionJson.files)) {
+      const bytes = manifest.get(name);
+      assert(bytes, `${name} is fingerprinted but not in the archive`);
+      assertEqual(hex, sha256OfBytes(bytes), `${name} does not match its bytes`);
+    }
+  });
+
+  check(`${label}: a single flipped byte changes the fingerprint`, () => {
+    const [name] = Object.keys(built.submissionJson.files);
+    const bytes = Uint8Array.from(manifest.get(name));
+    bytes[0] ^= 0xff;
+    assert(sha256OfBytes(bytes) !== built.submissionJson.files[name],
+      `${name} hashes the same after a byte is flipped`);
+  });
+}
 
 // ---------- report ----------
 console.log(results.join('\n'));

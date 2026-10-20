@@ -38,7 +38,6 @@ import {
 } from './services/genericSheet';
 import { GENERIC_WORDING } from './services/genericWording';
 import { assignmentLoadRefusal, type LoadRefusal } from './services/loadRefusal';
-import { handwritingExpectedFor } from './services/handwritingExpectation';
 import LoadRefusalPanel from './components/LoadRefusalPanel';
 import { initQrReader } from './services/qrDecode';
 import {
@@ -1484,7 +1483,6 @@ const App: React.FC = () => {
                      onMovePage={handleMovePage}
                      onRotatePage={handleRotatePage}
                      genericSheet={isGeneric}
-                     handwritingExpected={handwritingExpectedFor(state.assignment)}
                    />
                  )}
 

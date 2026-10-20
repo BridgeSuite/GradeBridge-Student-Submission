@@ -54,10 +54,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Assignment Section - Step 1 */}
         {/*
           There is no "Student Info" step above this any more (2026-09-03).
-          Identity comes from Gradescope's authenticated submitter, so the app
-          does not ask, and nothing here is gated behind a text field: the first
-          step is now something the student can actually do, and it is available
-          the moment the page loads.
+          Identity comes from the authenticated submitter, so the app does not
+          ask, and nothing here is gated behind a text field: the first step is
+          now something the student can actually do, and it is available the
+          moment the page loads.
+
+          CORRECTED 2026-10-19. This said Gradescope. The student uploads the
+          suitcase to CANVAS, and the relay downloads it from there against the
+          roster, so Canvas is what knows who submitted
+          (ROUTE_ASSIGNMENTS_P3P2_2026-10-19.md, step 3). Comment only; no
+          student ever saw the word.
         */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">

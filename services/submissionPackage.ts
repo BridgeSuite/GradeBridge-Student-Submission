@@ -398,6 +398,47 @@ export const serialiseSubmissionJson = (submissionJson: Record<string, unknown>)
  *   `services/identityGuard.ts`. Checked on the assembled payload, once, for
  *   both paths.
  */
+/**
+ * The bytes of one archive entry, whatever shape it arrived in.
+ *
+ * The electronic path carries base64 text, because JSZip decodes it; the relay
+ * recomputes the hash from the file it extracts, so the hash has to be taken
+ * over the decoded bytes rather than over the text.
+ */
+const entryBytes = async (entry: PackageEntry): Promise<Uint8Array> => {
+  const { data } = entry;
+  if (typeof data === 'string') {
+    const binary = atob(data);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+    return out;
+  }
+  if (data instanceof Uint8Array) return data;
+  return new Uint8Array(await data.arrayBuffer());
+};
+
+const sha256Hex = async (bytes: Uint8Array): Promise<string> => {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+/**
+ * Entry name to SHA-256, for every file in the archive except the payload.
+ *
+ * The payload cannot fingerprint itself, so what the relay checks is that every
+ * file it extracts matches what the app recorded. Required by work item W3 of
+ * the assignment route of 2026-10-19.
+ */
+const fileFingerprints = async (
+  rest: readonly PackageEntry[],
+): Promise<Record<string, string>> => {
+  const files: Record<string, string> = {};
+  for (const entry of rest) files[entry.name] = await sha256Hex(await entryBytes(entry));
+  return files;
+};
+
 export const buildSubmissionPackage = async (
   sources: SubmissionSources, assets: PackageAssets,
 ): Promise<BuiltPackage> => {
@@ -427,8 +468,6 @@ export const buildSubmissionPackage = async (
     zip.file(name, data, options);
     entries.push(name);
   };
-
-  add(`${baseName}.json`, serialiseSubmissionJson(submissionJson));
 
   // **A handwritten submission carries no PDF.** Andre, 2026-09-01, in
   // `workorders/DECISION_PACKAGE_CONTENTS_2026-09-01.md`.
@@ -492,6 +531,13 @@ export const buildSubmissionPackage = async (
       }
     }
   }
+
+  // The payload is written after every other entry is known, because it carries
+  // their fingerprints. The archive is unchanged in order: `add` still records
+  // the JSON first, this is simply the first point at which its bytes exist.
+  submissionJson.files = await fileFingerprints(rest);
+
+  add(`${baseName}.json`, serialiseSubmissionJson(submissionJson));
 
   // The blob straight through, and the electronic answers handed to JSZip as
   // base64 for it to decode — exactly what an unkeyed course always produced.

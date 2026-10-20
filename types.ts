@@ -61,14 +61,15 @@ export interface Assignment {
    * owns the election, the tally, and the pointer. No UI here.
    */
   aiFeedback?: boolean;
-  /**
-   * `true` means a handwriting expectation applies to this assignment, and the
-   * student is shown it before adding pages. Absent, `false` or anything else
-   * means none was set, and the app says nothing on the subject. Set by the
-   * Assignment Maker; this app only reads it. It never blocks an upload.
-   * `services/handwritingExpectation.ts`.
-   */
-  handwritingExpected?: boolean;
+  // No `handwritingExpected`, deliberately (removed 2026-10-20). The app showed
+  // a stated handwriting expectation before a student added pages, reading a
+  // field the Assignment Maker never wrote, so no course could ever turn it on.
+  // Andre Knoesen's ruling of 20 October: nothing can check whether work was
+  // handwritten, so it is an expectation rather than a rule, and an instructor
+  // states it in the assignment when they write it, in their own words and
+  // under their own name. A field with no author is a contract that cannot be
+  // kept; the cross-app whitelist check in the Assignment Maker was failing on
+  // exactly that.
   /**
    * The layout map, carried inside the spec instead of beside it.
    *

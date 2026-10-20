@@ -297,8 +297,11 @@ await checkAsync('every generic crop carries exactly the generic crop keys', asy
   for (const [k, v] of Object.entries(two.payload.crops)) assertEqual(Object.keys(v), GENERIC_CROP_KEYS, `crop ${k}`);
 });
 await checkAsync('the payload is otherwise the handwritten payload: same top-level keys, the generic layout id', async () => {
+  // `files` added 2026-10-19, work item W3: the SHA-256 of every archive entry
+  // except the payload, written last because it cannot exist until they do.
   assertEqual(Object.keys(two.payload), ['course_code', 'assignment_id', 'ai_feedback', 'submission_data',
-    'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops'],
+    'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops',
+    'files'],
     'top-level keys');
   assert(two.payload.layout_id === P.GENERIC_LAYOUT_ID, two.payload.layout_id);
 });
@@ -602,24 +605,48 @@ results.push('  5. the other two paths, against c72450e');
 
 const golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf8'));
 const now = await buildBoth(P, P);
+// **`files` is the one intended difference from `c72450e`**, added 2026-10-19 for work item
+// W3: the SHA-256 of every archive entry except the payload. The payload entry therefore
+// cannot be byte-identical to the golden's, and its own size and checksum move with it, so
+// both are compared with that entry held out and the new key checked on its own. Every other
+// entry must still be byte for byte what the deployed builder wrote.
+const withoutPayload = (map, baseName) => Object.fromEntries(
+  Object.entries(map).filter(([name]) => name !== `${baseName}.json`));
+const withoutFiles = (json) => { const { files, ...rest } = json; return rest; };
+
 check('electronic: every entry, every byte, and the serialised payload are what c72450e wrote', () => {
   assertEqual(now.electronic.entries, golden.electronic.entries, 'entries');
-  assertEqual(now.electronic.files, golden.electronic.files, 'file bytes');
-  assert(now.electronic.serialised === golden.electronic.serialised, 'payload text differs');
+  assertEqual(withoutPayload(now.electronic.files, now.electronic.baseName),
+    withoutPayload(golden.electronic.files, golden.electronic.baseName), 'file bytes');
+
+  const nowJson = JSON.parse(now.electronic.serialised);
+  assert('files' in nowJson, 'the payload carries no files fingerprints');
+  assertEqual(withoutFiles(nowJson), JSON.parse(golden.electronic.serialised),
+    'the payload changed outside files');
+  assert(now.electronic.serialised === JSON.stringify(nowJson, null, 2),
+    'the payload is no longer the two-space serialisation of its own object');
+  assertEqual(Object.keys(nowJson.files).sort(),
+    now.electronic.entries.filter(e => e !== `${now.electronic.baseName}.json`).sort(),
+    'the fingerprinted set is not the archive minus the payload');
 });
-const stripPartSource = (json) => ({ ...json, crops: Object.fromEntries(Object.entries(json.crops)
+const stripPartSource = (json) => ({ ...withoutFiles(json), crops: Object.fromEntries(Object.entries(json.crops)
   .map(([k, v]) => { const { part_source, ...rest } = v; return [k, rest]; })) });
 check('printed sheet: the same entries, and every image byte-identical', () => {
   assertEqual(now.printed.entries, golden.printed.entries, 'entries');
+  // The payload entry is excluded by the `.json` filter below, as it always was.
   for (const e of now.printed.entries.filter(e => !e.endsWith('.json'))) {
     assertEqual(now.printed.files[e], golden.printed.files[e], e);
   }
 });
-check('printed sheet: every crop now says part_source "layout", and that is the only change', () => {
+check('printed sheet: every crop says part_source "layout", and files is the only other change', () => {
   const crops = Object.values(now.printed.submissionJson.crops);
   assert(crops.length === 16 && crops.every(c => c.part_source === 'layout'), 'part_source missing or wrong');
+  assert('files' in now.printed.submissionJson, 'the payload carries no files fingerprints');
   assert(JSON.stringify(stripPartSource(now.printed.submissionJson), null, 2) === golden.printed.serialised,
-    'the payload differs by more than part_source');
+    'the payload differs by more than part_source and files');
+  assertEqual(Object.keys(now.printed.submissionJson.files).sort(),
+    now.printed.entries.filter(e => e !== `${now.printed.baseName}.json`).sort(),
+    'the fingerprinted set is not the archive minus the payload');
 });
 
 // =====================================================

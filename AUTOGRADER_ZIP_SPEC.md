@@ -1,8 +1,28 @@
 # GradeBridge — submission ZIP interface
 
-**Version:** v7.2
-**Date:** 2026-10-07
+**Version:** v7.3
+**Date:** 2026-10-20
 **App version:** v4.1.0 (not deployed until the new student-facing wording is approved)
+
+> ## v7.3 - additive. The payload carries a SHA-256 of every other entry.
+>
+> One new top-level key, `files` (section 3.4). It maps every archive entry
+> except the payload to the SHA-256 of its bytes, so a consumer can establish
+> that each file it extracted is byte for byte what the student's browser wrote.
+> Nothing else is added, removed or renamed, and no image or page field moves.
+>
+> **It replaces nothing a consumer had.** The seal and the course public key came
+> out of the app on 21 September 2026 (v7.0), and from then until now the archive
+> said nothing about whether its own contents were intact. These hashes put that
+> back, and they need no key, because recomputing a hash needs no secret.
+>
+> **Read it as integrity, not as authorship.** It catches a corrupted upload, a
+> truncated archive and a swapped file. It does not establish who produced the
+> work, because a student who rebuilt a file could recompute its hash. Do not
+> treat a matching payload as proof of authorship.
+>
+> **A payload without `files` is not an error.** Every archive built before this
+> version lacks the key, so read it when it is there and carry on when it is not.
 
 > ## v7.2 — no field changes. On the generic answer page, one page may carry several parts.
 >
@@ -233,7 +253,7 @@ identity-shaped key at any depth — `student_name`, `email`, `sid`, `student_id
 them on one encoding path. Identity is the authenticated upload, not anything in
 the archive.
 
-### Structure — all eleven top-level keys, as observed
+### Structure — all twelve top-level keys, as observed
 
 ```json
 {
@@ -247,7 +267,8 @@ the archive.
   "input_mode": "handwritten",
   "layout_id": "95438EDF",
   "pages": [ … ],
-  "crops": { … }
+  "crops": { … },
+  "files": { "page_1.jpg": "b28177…", "crops/p1a.jpg": "0c5d88…" }
 }
 ```
 
@@ -260,6 +281,7 @@ the archive.
 | `ai_feedback` | boolean | Always a real boolean, never absent, so "off" is never confusable with an older app version. |
 | `submission_data` | object | §3.1 |
 | `last_saved` | string | ISO 8601, UTC. |
+| `files` | object | §3.4. Added v7.3. Entry name to SHA-256, for every entry except the payload. Absent from any archive built before v7.3. |
 | `personal_info_confirmed` | boolean | **Added v7.0.** The student ticked, over exactly the answers in this archive, that none of them shows their name, student ID, email address or anyone else's. **Always `true`**: the app refuses to build a package otherwise, and the tick stops counting if any answer changes after it is given. Per-submission evidence that the step existed. |
 | `personal_info_wording` | string | **Added v7.0.** Which sentence the student ticked. `"pi-1"` observed. A new wording gets a new value; it does not change what `personal_info_confirmed` means. |
 | `input_mode` | string | `"handwritten"` observed. **Absent entirely on an electronic assignment** — its absence is the signal, so test for presence rather than for a value. |
@@ -366,6 +388,39 @@ map; `tests/milestone-zero.mjs` checks both on this archive.
 | `quality_flags` | `[]` | Advisory, never blocks. `looks-empty` is the only flag the app now emits and is **not observed here**. |
 | `file` | `crops/p1a.jpg` | Path **including the `crops/` prefix**. Use it as given. |
 | `width`, `height` | see above | Pixels. |
+
+### 3.4 `files` — the fingerprints
+
+```json
+"files": {
+  "page_1.jpg": "b28177156b96be7ce668dbf042…",
+  "page_2.jpg": "7a4c0e91d3f85b2a6c17e0b94d…",
+  "crops/p1a.jpg": "0c5d8842fe1b73a95c2e6f08b1…"
+}
+```
+
+Entry name, exactly as it appears in the archive and in `pages[].file` and
+`crops[].file`, mapped to the lowercase hex SHA-256 of the entry's bytes. Sixty
+four hex characters, always.
+
+**The keys are the archive minus the payload.** The payload cannot fingerprint
+itself: writing a hash into a file changes the file. So the check runs the other
+way. Extract an entry, hash the bytes you got, compare with the value here. The
+one entry you cannot check this way is the payload, and nothing else is omitted.
+
+**Hash the decoded bytes.** On the electronic path the app hands JSZip base64 and
+JSZip decodes it; the hash is taken over the decoded bytes, which is what you
+extract. Hash what comes out of the archive, not any encoded form of it.
+
+**What a mismatch means.** The file you have is not the file the app recorded:
+a corrupted or truncated upload, a re-saved image, a swapped crop. It is not by
+itself evidence of intent. What it does mean is that the bytes in front of you
+are not the student's original, so do not grade them as if they were, and say so
+rather than silently working from the file you have.
+
+**A missing key for an entry that exists** means that entry was added after the
+payload was written, which this app does not do. Treat it as a defect in whatever
+produced the archive, not as a file to accept unchecked.
 
 ---
 

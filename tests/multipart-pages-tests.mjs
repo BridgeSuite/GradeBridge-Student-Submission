@@ -92,11 +92,36 @@ for (const [how, label] of [
     const { pages, crops, blobs } = genericPagesAndCrops(P);
     const now = await buildGeneric(P, genericAssignment(), pages, label(crops), blobs);
     eq(now.entries, golden.entries, 'entry names');
-    if (now.serialised !== golden.serialised) {
-      let i = 0; while (now.serialised[i] === golden.serialised[i]) i++;
-      throw new Error(`payload differs at ${i}: ${JSON.stringify(now.serialised.slice(Math.max(0, i - 60), i + 60))}`);
-    }
-    eq(now.files, golden.files, 'file bytes (SHA-256)');
+
+    // **`files` is the one intended difference from `0b82d9b`**, added 2026-10-19
+    // for work item W3 of the assignment route: the SHA-256 of every archive
+    // entry except the payload. The payload therefore cannot be byte-identical
+    // to the golden's any more, so the comparison is made over everything else,
+    // and the new key is checked below against this harness's own hashes of the
+    // golden bytes. Nothing else in the payload may move.
+    const nowPayload = JSON.parse(now.serialised);
+    const goldenPayload = JSON.parse(golden.serialised);
+    assert('files' in nowPayload, 'the payload carries no files fingerprints');
+    const { files: nowFiles, ...nowRest } = nowPayload;
+    eq(Object.keys(nowPayload), [...Object.keys(goldenPayload), 'files'],
+      'the payload keys are not the golden\'s plus files');
+    eq(nowRest, goldenPayload, 'the payload changed outside files');
+
+    // The formatting the byte comparison used to hold: two-space indented, in
+    // the order the build wrote the keys.
+    eq(now.serialised, JSON.stringify(nowPayload, null, 2),
+      'the payload is no longer the two-space serialisation of its own object');
+
+    // The bytes of the pages and the crops are the golden's. The payload entry
+    // is excluded on both sides, because its own hash moved with `files`.
+    const payloadName = now.entries.find(e => e.endsWith('.json'));
+    const withoutPayload = (map) => Object.fromEntries(
+      Object.entries(map).filter(([name]) => name !== payloadName));
+    eq(withoutPayload(now.files), withoutPayload(golden.files), 'file bytes (SHA-256)');
+
+    // And the fingerprints the app recorded are the hashes this harness
+    // computed independently over the same archive.
+    eq(nowFiles, withoutPayload(now.files), 'the recorded fingerprints are not the archive\'s hashes');
   });
 }
 
