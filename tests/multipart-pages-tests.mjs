@@ -91,9 +91,11 @@ for (const [how, label] of [
   await checkAsync(`${how}: entry names, payload text and file bytes are the golden's`, async () => {
     const { pages, crops, blobs } = genericPagesAndCrops(P);
     const now = await buildGeneric(P, genericAssignment(), pages, label(crops), blobs);
-    eq(now.entries, golden.entries, 'entry names');
+    // The archive gains one entry, the fixed-layout PDF, ahead of the pages.
+    eq(now.entries.filter(e => !e.endsWith('_answers.pdf')), golden.entries, 'entry names');
+    assert(now.entries.some(e => e.endsWith('_answers.pdf')), 'the fixed-layout PDF is not in the archive');
 
-    // **`files` is the one intended difference from `0b82d9b`**, added 2026-10-19
+    // **`fixed_layout` and `files` are the intended differences from `0b82d9b`**, added 2026-10-19
     // for work item W3 of the assignment route: the SHA-256 of every archive
     // entry except the payload. The payload therefore cannot be byte-identical
     // to the golden's any more, so the comparison is made over everything else,
@@ -102,25 +104,32 @@ for (const [how, label] of [
     const nowPayload = JSON.parse(now.serialised);
     const goldenPayload = JSON.parse(golden.serialised);
     assert('files' in nowPayload, 'the payload carries no files fingerprints');
-    const { files: nowFiles, ...nowRest } = nowPayload;
-    eq(Object.keys(nowPayload), [...Object.keys(goldenPayload), 'files'],
-      'the payload keys are not the golden\'s plus files');
-    eq(nowRest, goldenPayload, 'the payload changed outside files');
+    assert('fixed_layout' in nowPayload, 'the payload does not describe the fixed-layout PDF');
+    const { files: nowFiles, fixed_layout: nowLayout, ...nowRest } = nowPayload;
+    eq(Object.keys(nowPayload), [...Object.keys(goldenPayload), 'fixed_layout', 'files'],
+      'the payload keys are not the golden\'s plus fixed_layout and files');
+    eq(nowRest, goldenPayload, 'the payload changed outside fixed_layout and files');
 
     // The formatting the byte comparison used to hold: two-space indented, in
     // the order the build wrote the keys.
     eq(now.serialised, JSON.stringify(nowPayload, null, 2),
       'the payload is no longer the two-space serialisation of its own object');
 
-    // The bytes of the pages and the crops are the golden's. The payload entry
-    // is excluded on both sides, because its own hash moved with `files`.
+    // The bytes of the pages and the crops are the golden's. Two entries are
+    // excluded: the payload, whose own hash moved with `files`, and the
+    // fixed-layout PDF, which `0b82d9b` did not write at all and which
+    // `tests/fixed-layout-tests.mjs` holds to the contract page by page.
     const payloadName = now.entries.find(e => e.endsWith('.json'));
     const withoutPayload = (map) => Object.fromEntries(
       Object.entries(map).filter(([name]) => name !== payloadName));
-    eq(withoutPayload(now.files), withoutPayload(golden.files), 'file bytes (SHA-256)');
+    const alsoWithoutAnswers = (map) => Object.fromEntries(
+      Object.entries(map).filter(([name]) => !name.endsWith('_answers.pdf')));
+    eq(alsoWithoutAnswers(withoutPayload(now.files)), alsoWithoutAnswers(withoutPayload(golden.files)),
+      'file bytes (SHA-256)');
 
     // And the fingerprints the app recorded are the hashes this harness
-    // computed independently over the same archive.
+    // computed independently over the same archive. The fixed-layout PDF is
+    // included here: it is an entry like any other and must be fingerprinted.
     eq(nowFiles, withoutPayload(now.files), 'the recorded fingerprints are not the archive\'s hashes');
   });
 }
@@ -234,7 +243,10 @@ const commonChecks = async (name, r, pagesOf) => {
       '2c_1': ['2(c)', 'page_1.jpg', 1, 1], '2d_1': ['2(d)', 'page_1.jpg', 1, 1],
     }, 'crops'));
   await checkAsync('(i) the archive: the page once, the crop four times', async () =>
-    eq(r.entries.slice(1), ['page_1.jpg', 'crops/2a_1.jpg', 'crops/2b_1.jpg', 'crops/2c_1.jpg', 'crops/2d_1.jpg'], 'entries'));
+    // The payload and the fixed-layout PDF are held out: this check is about
+    // how a shared page is written, not about what else the archive carries.
+    eq(r.entries.filter(e => !e.endsWith('.json') && !e.endsWith('_answers.pdf')),
+      ['page_1.jpg', 'crops/2a_1.jpg', 'crops/2b_1.jpg', 'crops/2c_1.jpg', 'crops/2d_1.jpg'], 'entries'));
   await commonChecks('(i)', r, { 'page_1.jpg': 'pgA' });
 }
 {

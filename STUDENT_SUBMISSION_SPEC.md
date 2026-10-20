@@ -7,9 +7,12 @@ app no longer has.
 **Read from the repository, never from a copy.** A stale copy of a specification has
 already cost this project a session's work.
 
-**Status of the tree this describes:** branch `main`, commit `8f16f96`. Fourteen files
-carry uncommitted changes, described in section 13. The build students are currently using was
-deployed on 15 October 2026 from `5bf0ba4`, tagged `hw4-baseline-2026-10-19`.
+**Status of the tree this describes:** branch `main`, commit `175c7b9` of 20 October 2026,
+**plus the uncommitted work of work item W3 tasks 1 to 4**: the fixed-layout answer pages
+(section 9b), the entry and payload key that carry them, and the fitting gate (section 8).
+Section 13 says what `175c7b9` carried. **The build students are currently using is older
+still**: deployed 15 October 2026 from `5bf0ba4`, tagged `hw4-baseline-2026-10-19`, so
+neither the `files` fingerprints nor the answer pages are in students' hands yet.
 
 ---
 
@@ -17,7 +20,7 @@ deployed on 15 October 2026 from `5bf0ba4`, tagged `hw4-baseline-2026-10-19`.
 
 | Document | What it is for | Standing now |
 |---|---|---|
-| `AUTOGRADER_ZIP_SPEC.md` | The submission ZIP interface, v7.2 of 7 October 2026 | **Current and authoritative for the output.** This document does not restate the field tables; it points at them. One field added on 19 October is not yet in it, see section 14 |
+| `AUTOGRADER_ZIP_SPEC.md` | The submission ZIP interface, v7.3 of 20 October 2026 | **Current and authoritative for the output.** This document does not restate the field tables; it points at them. v7.3 adds `files` (§3.4) and `fixed_layout` (§3.5) |
 | `README.md` | Orientation and the live demo link | Current in substance. Its version badge says 3.9.0 while `constants.ts` says `v4.1.0`, so the badge is stale |
 | `COMPLETION_*.md` and `WORKORDER_*.md`, about twenty files | One record per change, with the reasoning | Historical record. Cited here where a behaviour rests on one |
 | `HANDWRITTEN_REGIONS_SPEC_v4_2026-10-17.md`, in the Assignment Maker repository | Regions, student marking, grading pipeline | **Partly superseded.** Its §5 describes a `RegionMarker` in which students drag rectangles. The ruling of 7 October 2026 replaced that with the student labelling whole pages, and no such component exists in this app |
@@ -184,6 +187,42 @@ all, permanently, with the only on-screen text telling them to try again.
 The gate reports missing parts. Unlabelled pages, repeated parts and blank-looking pages
 are reported earlier, on the page review screen, in `components/GenericPageReview.tsx`.
 
+### 8b. The fitting gate
+
+A second gate, added 20 October 2026 for work item W3 task 2, on the generic answer sheet
+only. It says that a part has more pages than the assignment has room for, and that the
+pages will be made smaller to fit. `services/fitNotice.ts` writes the sentences and
+`components/FitGate.tsx` shows them. The approved wording, for a part with three pages and
+an allotment of two, is:
+
+> Part 1(a) has three pages and room for two. Your pages will be fitted into the two pages
+> the assignment allows, so they will appear smaller. You can rewrite more compactly, or
+> download anyway.
+
+It is a sibling of the completeness gate rather than a second mode of it, because the two
+offer different ways out: that one sends the student back to add a missing answer, this one
+back to rewrite one more compactly. Everything that gate argues for is kept unchanged, in
+the page rather than a dialog, nothing default-activated, Escape to the work, "Download
+anyway" inside the panel.
+
+**It informs and never blocks**, for a reason specific to this case: every page the student
+photographed is in the document either way. The allotment cannot flex, because one blank
+template has to align every submission in the class, so the only alternative to fitting is
+refusing the download, which under the fail-open rule is not an alternative at all. What
+the student is being told is a legibility cost they may prefer to avoid.
+
+**The warning is read off the built payload's `fixed_layout.parts`, not recomputed.** The
+sentence has to describe the document that is about to be downloaded, and the payload is
+that document's own account of itself; a second computation could warn about a part that
+fitted, or stay silent about one that did not.
+
+Both gates can have something to say about the same download, so what the student has
+already answered travels with the attempt as a `DownloadAcks` object. It is an object and
+not a pair of positional booleans because three call sites pass the download handler
+straight to an `onClick`: a positional boolean there receives the click event, which is
+truthy, and would skip the gate for everyone, while a field read off an event object is
+`undefined` and still gates. The acknowledgements expire with the attempt.
+
 ## 9. Output: the suitcase
 
 One ZIP, named `{assignmentId}_submission_{YYYYMMDD-HHMM}`. **No student name is in it,
@@ -191,7 +230,8 @@ because the app does not have one** (3 September 2026); the timestamp is what ke
 students' downloads from colliding in a Downloads folder.
 
 Contents, in this order: the payload, then the pages, then the crops, then any electronic
-image answers. The electronic path also carries a PDF.
+image answers. The electronic path also carries a PDF. **The generic answer sheet also
+carries `{stem}_answers.pdf`**, the fixed-layout answer pages of section 9b.
 
 **A handwritten submission carries no PDF at all**, by the decision of 1 September 2026. The
 PDF it used to carry was the blank question paper: nothing consumed it, it was roughly half
@@ -209,7 +249,8 @@ Top-level payload keys, asserted exactly by `tests/package-plain-tests.mjs`:
 
 - Handwritten: `course_code`, `assignment_id`, `ai_feedback`, `submission_data`,
   `last_saved`, `personal_info_confirmed`, `personal_info_wording`, `input_mode`,
-  `layout_id`, `pages`, `crops`, `files`.
+  `layout_id`, `pages`, `crops`, `files`, and, on the generic answer sheet only,
+  `fixed_layout`.
 - Electronic: `course_code`, `assignment_id`, `pdf_filename`, `ai_feedback`,
   `submission_data`, `last_saved`, `personal_info_confirmed`, `personal_info_wording`,
   `files`.
@@ -227,6 +268,61 @@ test harness produce the same archive rather than differing by a default.
 
 The field tables for `pages`, `crops` and `submission_data` are in
 `AUTOGRADER_ZIP_SPEC.md` and are not restated here.
+
+## 9b. The fixed-layout answer pages
+
+Work item W3 tasks 1 to 4 of the assignment route, built 20 October 2026, on the generic
+answer sheet only. The archive carries `{stem}_answers.pdf`: one page per allotted page, in
+the assignment's order, so Gradescope aligns every student's document against a single
+blank template and a grader grades by question.
+
+The geometry is `GBHW-1`, section 3 of
+`workorders\CONTRACT_HOMEWORK_TO_GRADESCOPE_v1_2026-10-19.md`. **Neither program invents
+its own**: `services/fixedLayout.ts` holds the geometry and the page order as data, once,
+and both the student's document and the blank template are drawn from that one plan by
+`services/fixedLayoutPdf.ts`. A millimetre of drift between the two would put a student's
+answer under the wrong question for a whole class, which is why every number is a constant
+and none is computed from a font metric.
+
+The page order is the name page, then each part's allotted pages. The total is 1 plus the
+sum of the allotments, **whatever the student submitted**, which is the property that lets
+one template align every submission. A part with no page says "No page submitted for this
+part". The allotment comes from the assignment file's `allotment` field, and **an absent
+value means two**: the Assignment Maker does not emit the field yet, so today every part
+takes the default, which lives in one constant rather than as a `?? 2` at each use.
+
+A part with more pages than its allotment is dealt one per page while they fit and the rest
+stacked on the last allotted page, in the student's own page order, because the common case
+is a student who ran a few lines over and the page that overran should be the one that pays
+for it. The payload records it as `fitted: true`, and the student is told before the
+download (section 8b).
+
+**The page images are placed directly into the PDF**, not rendered from the screen, by the
+work order's own direction: rasterising a page view is the step that fails on an older
+phone. The crops' bytes are read once and kept by their payload key, because reading the
+store twice on a phone is the difference between a slow download and a failed one.
+
+The payload's `fixed_layout` block names the file, the geometry, the page count, and for
+each part its `allotment`, `first_page`, `placed` keys and `fitted` flag. By section 5a of
+the contract, v1.1 of 20 October 2026, **the relay rebuilds these pages rather than
+trusting the file**: the PDF in the archive is for the student to look at, and a consumer is
+told not to grade it and not to treat it as evidence. The app is public JavaScript, so
+nothing it ships can be made tamper-proof; the answer is that the authoritative document is
+built from the crops by something the student does not run.
+
+**The same work gives the same bytes.** jsPDF writes a `/CreationDate` from the clock and an
+`/ID` from `Math.random()` unless it is told otherwise, so until 20 October 2026 this entry
+was different on every build: two cases of `tests/multipart-pages-tests.mjs` over one
+fixture disagreed on its SHA-256, and a student downloading the same work twice would have
+had two different fingerprints recorded for it. Both values are now functions of the pinned
+inputs, the assignment, the pinned `last_saved` and the plan, and the date is written in UTC
+so the building machine does not show in the bytes. Handing jsPDF the ISO timestamp the
+packager pins would also have thrown on every generic-sheet download, since its string path
+accepts only `D:YYYYMMDDHHmmSS+hh'mm'`; the conversion is in `services/fixedLayoutPdf.ts`.
+
+`tests/fixed-layout-tests.mjs` checks all of it by parsing the PDF's own drawing operators
+rather than by eye, 37 checks, including the approved wording of section 8b word for word
+and the reproducibility above.
 
 ## 10. What the app deliberately does not do
 
@@ -291,10 +387,10 @@ run that gates the push in any case, and a background job is no way around the l
 each shell call has its own process namespace, so a job put in the background dies with the
 call that started it.
 
-## 13. The working tree, 20 October 2026
+## 13. What commit `175c7b9` carried, 20 October 2026
 
-Fourteen files differ from `8f16f96`. Seven of them come from work item W3 of the assignment
-route:
+Fourteen files, committed together on 20 October as "W3: fingerprint every archive entry, and
+drop the handwriting expectation". Seven come from work item W3 of the assignment route:
 
 - **`App.tsx`**: the `handwritingExpectedFor` import and the prop it fed are gone, with the
   handwriting expectation (section 7).
@@ -363,9 +459,8 @@ are deleted.
 
 ## 14. Gaps against the assignment route of 19 October 2026
 
-**Work item W3, first half: done.** The per-file SHA-256 fingerprints are built and tested.
-`AUTOGRADER_ZIP_SPEC.md` is at v7.2 and does not yet describe the `files` key, so the spec
-and the code now disagree and the spec is the bug until it is updated.
+**Work item W3, first half: done.** The per-file SHA-256 fingerprints are built and tested,
+and `AUTOGRADER_ZIP_SPEC.md` v7.3 of 20 October 2026 describes the key in §3.4.
 
 **Work item W3, second half: rests on a false premise and needs a ruling.** It asks that the
 app's instructions "name Canvas, not Gradescope, as the upload". The app names no platform
@@ -374,14 +469,30 @@ position than naming Canvas and is the only one correct for a course that submit
 elsewhere. So W3's second half is either already satisfied, or it is a request to reverse
 that ruling. It is not a defect in the app, and it should not be implemented as written.
 
-**The app does not assemble the answer pages.** Andre Knoesen's direction of 20 October is
-that the app should lay its crops out into the pages allotted to each part and ship that
-PDF in the suitcase, handwriting only, with the relay prepending the name page and stamping
-the display code. Two things are needed first and neither exists: the page allotment and
-answer-page geometry must arrive in the assignment file, which is the Assignment Maker's
-W2, and the suitcase and step 8 of the route document both change. `jspdf` is already a
-dependency and is the right tool; `html2canvas` is not, and this work removes a reason to
-keep it.
+**The app now assembles the answer pages** (section 9b), which this document said on the
+morning of 20 October that it did not. Tasks 1 to 4 of the Canvas-upload work order are
+built and tested: the plan, the PDF, the blank template from the same code, the archive
+entry and the `fixed_layout` payload key, and task 2's fitting gate (section 8b).
+
+**What is still open on that work order:**
+
+- **Task 5, where to upload.** The work order asks that every student-facing sentence name
+  Canvas. The app names no platform at all and has not since 21 September 2026; see the
+  reversal recorded in section 13. This is either already satisfied or a request to reverse
+  that ruling, and it should not be implemented as written without one.
+- **Task 7, the deploy.** Not deployed. The live build is `5bf0ba4` of 15 October, which has
+  neither the fingerprints nor the answer pages. The work order makes the deploy conditional
+  on Andre Knoesen's approval of the wording of tasks 2 and 5; task 2's wording was approved
+  on 20 October 2026 and is quoted in section 8b.
+- **The `allotment` field.** Every part takes the default of two until the Assignment Maker
+  emits it, which is that repository's W2. Nothing here needs to change when it arrives:
+  `allotmentOf` already reads the field.
+- **The fixture is stale.** `tests/fixtures/GradeBridge_answer_page_GBGEN1.pdf` and its
+  300 dpi render date from 25 September and are not the current blank sheet.
+
+Two incidental notes on that work: `jspdf` was already a dependency and is what draws the
+pages, and `html2canvas` loses a reason to be kept, since the answer pages are not made by
+rasterising the screen.
 
 **The ink-outside-box warning is not required by the route as it now reads.** It is named in
 the route's revision log and in S7 of `SUGGESTIONS_ROUTES_FROM_BUILD_2026-10-19.md`, but the

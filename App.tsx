@@ -21,6 +21,7 @@ import { AlertTriangle, Download, ChevronLeft, Info, X, Monitor, Smartphone, Sav
 import { isEncoded, decryptJson } from './cryptoService';
 import { BundleError, chooseLayoutSource, loadAssignmentBundle } from './services/assignmentBundle';
 import CompletenessGate from './components/CompletenessGate';
+import FitGate from './components/FitGate';
 import PersonalInfoConfirmation, { PERSONAL_INFO_ANCHOR_ID } from './components/PersonalInfoConfirmation';
 import PersonalInfoRequired from './components/PersonalInfoRequired';
 import {
@@ -30,6 +31,7 @@ import {
 import {
   CompletenessNotice, completenessNotice, submissionCompleteness,
 } from './services/completeness';
+import { FitNotice, fitNoticeFromPayload } from './services/fitNotice';
 import { LayoutMapError, parseLayoutCsv } from './services/layoutMap';
 import { registerAndCropPage } from './services/pageCrops';
 import {
@@ -91,6 +93,25 @@ const cropKey = cropBlobKey;
 const cropFileName = (regionId: string): string =>
   `crops/${regionId.replace(/[^a-z0-9_\-]/gi, '_')}.jpg`;
 
+/**
+ * What the student has answered on the way to a download.
+ *
+ * **An object rather than positional booleans, deliberately.** Three call sites
+ * pass the download handler straight to an `onClick`, and a positional boolean
+ * there would receive the click event, which is truthy, and would skip the gate
+ * for everyone. A field read off an event object is `undefined`, which is
+ * falsy, so the gate still fires. The same trap caught the single-flag version
+ * of this in September; see `runSubmissionDownload`.
+ */
+interface DownloadAcks {
+  /** Answers the completeness gate: hand in what is there, missing parts and all. */
+  shortfall: boolean;
+  /** Answers the fit gate: accept pages made smaller to fit their allotment. */
+  fit: boolean;
+}
+
+const NO_ACKS: DownloadAcks = { shortfall: false, fit: false };
+
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
     assignment: null,
@@ -124,6 +145,24 @@ const App: React.FC = () => {
    * silence for a student declining to submit. See `CompletenessGate`.
    */
   const [shortfallGate, setShortfallGate] = useState<CompletenessNotice | null>(null);
+  /**
+   * The fitting the student has been shown but not yet answered, or null. The
+   * same in-the-page reasoning as the shortfall above; see `FitGate`.
+   */
+  const [fitGate, setFitGate] = useState<FitNotice | null>(null);
+  /**
+   * What the student has already acknowledged in THIS attempt at a download.
+   *
+   * Needed because there are two gates and they can both have something to say:
+   * a student may have left a part out and overrun another. Each gate's
+   * "Download anyway" starts the run again with its own acknowledgement added to
+   * whatever the student had already answered, so the second gate does not
+   * forget the first one's answer and ask again forever.
+   *
+   * Cleared whenever a run finishes or the student goes back, so an
+   * acknowledgement never outlives the attempt it was given for.
+   */
+  const [gateAcks, setGateAcks] = useState<DownloadAcks>(NO_ACKS);
   // Why the last assignment file was refused, shown at the top of the page
   // (`components/LoadRefusalPanel.tsx`). Cleared at the start of every load,
   // so it never sits over an accepted file or disagrees with a later failure.
@@ -1104,12 +1143,12 @@ const App: React.FC = () => {
   };
 
   /**
-   * `acknowledgedShortfall` is a parameter of the INNER function, never of the
-   * handler bound to a button. Three call sites pass `handleDownloadForGradescope`
-   * directly as an `onClick`, and a positional boolean there would receive the
-   * click event — which is truthy, and would skip the gate for everyone.
+   * `ack` is a parameter of the INNER function, never of the handler bound to a
+   * button. Three call sites pass `handleDownloadForGradescope` directly as an
+   * `onClick`, and a positional argument there would receive the click event.
+   * See `DownloadAcks` for why that argument is an object.
    */
-  const runSubmissionDownload = async (acknowledgedShortfall: boolean) => {
+  const runSubmissionDownload = async (ack: DownloadAcks) => {
     if (!state.assignment) return;
 
     // Phase 0: the personal-information confirmation (work order 2026-09-21
@@ -1204,16 +1243,43 @@ const App: React.FC = () => {
             (state.assignment.parts ?? []).length, state.assignment.problems)
         : completenessNotice(
             submissionCompleteness(state.layout, state.crops, built.entries));
-      if (notice && !acknowledgedShortfall) {
+      if (notice && !ack.shortfall) {
         setPdfProgress({ active: false, phase: 'pdf', current: 0, total: 0 });
         setStatusMessage('');
+        setGateAcks(ack);
         setShortfallGate(notice);
+        return;
+      }
+
+      // Phase 2b: say which parts will be made smaller to fit, BEFORE the file
+      // is written. Work item W3 task 2.
+      //
+      // **Read off the plan the PDF was drawn from**, not recomputed from the
+      // crop record: the sentence the student reads has to describe the document
+      // that is about to be downloaded, and the payload's `fixed_layout.parts`
+      // is that document's own account of itself. A second computation here
+      // could disagree with the PDF, and the student would be warned about a
+      // part that fitted or not warned about one that did not.
+      //
+      // Informs and never blocks, for the same reason as the gate above: every
+      // page the student photographed is in the document either way. What they
+      // are being told is that two of them share a sheet, which is a legibility
+      // cost they may prefer to avoid by rewriting. Generic sheet only, because
+      // nothing else carries a fixed layout.
+      const fit = fitNoticeFromPayload(built.submissionJson);
+      if (fit && !ack.fit) {
+        setPdfProgress({ active: false, phase: 'pdf', current: 0, total: 0 });
+        setStatusMessage('');
+        setGateAcks(ack);
+        setFitGate(fit);
         return;
       }
 
       const zipBlob = await built.zip.generateAsync({ type: 'blob', ...SUBMISSION_ZIP_OPTIONS });
 
       downloadBlob(zipBlob, `${baseName}.zip`);
+      // The attempt is over, so the acknowledgements it carried expire with it.
+      setGateAcks(NO_ACKS);
 
       setStatusMessage("Submission package created — confirm the download if your browser asks.");
       alert(
@@ -1256,7 +1322,7 @@ const App: React.FC = () => {
   };
 
   /** What the buttons call. Zero-arg, so an event can never become the flag. */
-  const handleDownloadForGradescope = (): void => { void runSubmissionDownload(false); };
+  const handleDownloadForGradescope = (): void => { void runSubmissionDownload(NO_ACKS); };
 
   /**
    * The student chose to hand in what they have.
@@ -1270,13 +1336,36 @@ const App: React.FC = () => {
    * builds still gates.
    */
   const handleDownloadAnyway = (): void => {
+    const next = { ...gateAcks, shortfall: true };
     setShortfallGate(null);
-    void runSubmissionDownload(true);
+    setGateAcks(next);
+    void runSubmissionDownload(next);
   };
 
   const handleGoBackToAnswers = (): void => {
     setShortfallGate(null);
-    setStatusMessage('Nothing was downloaded — your work is all still here.');
+    setGateAcks(NO_ACKS);
+    setStatusMessage('Nothing was downloaded. Your work is all still here.');
+    setTimeout(() => setStatusMessage(''), 8000);
+  };
+
+  /**
+   * The student accepted the fitting. Rebuilt rather than held, for the reason
+   * above: the plan the warning was computed from is the plan of a document that
+   * no longer exists once anything changes, and what is downloaded has to be
+   * what exists now.
+   */
+  const handleAcceptFit = (): void => {
+    const next = { ...gateAcks, fit: true };
+    setFitGate(null);
+    setGateAcks(next);
+    void runSubmissionDownload(next);
+  };
+
+  const handleGoBackToRewrite = (): void => {
+    setFitGate(null);
+    setGateAcks(NO_ACKS);
+    setStatusMessage('Nothing was downloaded. Your work is all still here.');
     setTimeout(() => setStatusMessage(''), 8000);
   };
 
@@ -1304,6 +1393,15 @@ const App: React.FC = () => {
           notice={shortfallGate}
           onDownloadAnyway={handleDownloadAnyway}
           onGoBack={handleGoBackToAnswers}
+        />
+      )}
+
+      {/* The fitting gate. In the page, never a dialog — see the component. */}
+      {fitGate && (
+        <FitGate
+          notice={fitGate}
+          onDownloadAnyway={handleAcceptFit}
+          onGoBack={handleGoBackToRewrite}
         />
       )}
 

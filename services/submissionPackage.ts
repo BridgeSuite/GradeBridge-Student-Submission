@@ -36,6 +36,8 @@ import JSZip from 'jszip';
 import { Assignment, CropRef, PageRef, SubmissionData } from '../types';
 import { AI_GRADED_TYPES } from '../constants';
 import { assertNoIdentityKeys } from './identityGuard';
+import { GEOMETRY_ID, PlacedCrop, planFixedLayout } from './fixedLayout';
+import { CropImage, drawFixedLayout } from './fixedLayoutPdf';
 import {
   PERSONAL_INFO_WORDING_VERSION, PersonalInfoConfirmation, isConfirmationCurrent,
   personalInfoUnconfirmedError,
@@ -505,13 +507,30 @@ export const buildSubmissionPackage = async (
   }
   // Generic crops are named from their labels as they are now, by the same
   // function the payload was written from, so the two cannot disagree.
-  const cropFiles: Array<{ crop: CropRef; file: string }> = isGenericSheetSubmission(sources)
+  const resolvedGeneric = isGenericSheetSubmission(sources)
     ? resolveGenericCrops(sources.crops, sources.pages, sources.assignment.parts ?? [])
-      .map(r => ({ crop: r.crop, file: r.file }))
+    : null;
+  const cropFiles: Array<{ crop: CropRef; file: string; key?: string }> = resolvedGeneric
+    ? resolvedGeneric.map(r => ({ crop: r.crop, file: r.file, key: r.key }))
     : cropList(sources.crops).map(crop => ({ crop, file: crop.file }));
-  for (const { crop, file } of cropFiles) {
+  // The generic path keeps each crop's bytes by its payload key as it reads
+  // them, because the fixed-layout PDF places the same images and reading the
+  // store twice on a phone is the difference between a slow download and a
+  // failed one.
+  const genericImages = new Map<string, CropImage>();
+  for (const { crop, file, key } of cropFiles) {
     const cropBlob = await assets.readBlob(cropBlobKey(crop.regionId));
-    if (cropBlob) rest.push({ name: file, data: cropBlob });
+    if (!cropBlob) continue;
+    rest.push({ name: file, data: cropBlob });
+    if (key) {
+      genericImages.set(key, {
+        // `readBlob` may hand back either shape, and the PDF wants bytes.
+        bytes: cropBlob instanceof Uint8Array ? cropBlob : new Uint8Array(await cropBlob.arrayBuffer()),
+        format: 'JPEG',
+        width: crop.width,
+        height: crop.height,
+      });
+    }
   }
   for (let pIdx = 0; pIdx < sources.assignment.problems.length; pIdx++) {
     const problem = sources.assignment.problems[pIdx];
@@ -530,6 +549,40 @@ export const buildSubmissionPackage = async (
         }
       }
     }
+  }
+
+  // **The fixed-layout PDF**, on the generic answer page only. One page per
+  // allotted page, in the assignment's order, so Gradescope aligns every
+  // student's document against one template and a grader grades by question.
+  // Built from the same plan as the blank template, and from the crops already
+  // in hand. Work item W3 of the assignment route; geometry `GBHW-1`, section 3
+  // of `workorders\\CONTRACT_HOMEWORK_TO_GRADESCOPE_v1_2026-10-19.md`.
+  if (resolvedGeneric) {
+    const placed: PlacedCrop[] = resolvedGeneric
+      .filter(r => r.part)
+      .map(r => ({
+        key: r.key,
+        partId: r.part ? r.part.part_id : null,
+        partPage: r.partPage,
+        width: r.crop.width,
+        height: r.crop.height,
+      }));
+    const plan = planFixedLayout(sources.assignment.parts ?? [], placed);
+    const answers = `${baseName}_answers.pdf`;
+    const drawn = drawFixedLayout(plan, {
+      assignmentId,
+      imageFor: (key: string) => genericImages.get(key) ?? null,
+      // The pinned moment, not the clock: the same work downloaded twice has to
+      // produce the same bytes, and jsPDF stamps a creation date otherwise.
+      createdAt: lastSaved,
+    });
+    rest.unshift({ name: answers, data: drawn.bytes });
+    submissionJson.fixed_layout = {
+      file: answers,
+      geometry: GEOMETRY_ID,
+      pages: drawn.pages,
+      parts: plan.parts,
+    };
   }
 
   // The payload is written after every other entry is known, because it carries

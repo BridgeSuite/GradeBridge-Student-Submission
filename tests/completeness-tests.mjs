@@ -371,13 +371,13 @@ console.log('\n  6. wiring, and no dialog on the download path');
   });
 
   check('an unanswered shortfall downloads nothing', () =>
-    assert(/if \(notice && !acknowledgedShortfall\) \{[\s\S]{0,400}?return;/.test(app),
+    assert(/if \(notice && !ack\.shortfall\) \{[\s\S]{0,400}?return;/.test(app),
       'the handler does not stop before the archive is generated'));
 
   check('a complete submission reaches the download with no gate', () =>
     // Since 2026-09-24 the notice is one of two, the generic sheet's or the
     // printed sheet's; either way, the gate opens only on a notice.
-    assert(/const notice = (?:isGeneric\s*\?\s*genericCompletenessNotice\([\s\S]{0,300}?\)\s*:\s*)?completenessNotice\([\s\S]{0,200}?\);\s*if \(notice && !acknowledgedShortfall\) \{/.test(app),
+    assert(/const notice = (?:isGeneric\s*\?\s*genericCompletenessNotice\([\s\S]{0,300}?\)\s*:\s*)?completenessNotice\([\s\S]{0,200}?\);\s*if \(notice && !ack\.shortfall\) \{/.test(app),
       'the gate is not conditional on there being a shortfall'));
 
   // **The anti-regression for the whole suppression finding.** Six other
@@ -403,17 +403,46 @@ console.log('\n  6. wiring, and no dialog on the download path');
       'the gate has no way back to the work');
   });
 
-  // The acknowledgement is a parameter of the inner function only. Three call
-  // sites pass the handler straight to an onClick, and a positional boolean
+  // The acknowledgements are a parameter of the inner function only. Three call
+  // sites pass the handler straight to an onClick, and a positional argument
   // there would receive the click event — truthy — and skip the gate for
-  // everyone.
+  // everyone. Since 2026-10-20 that parameter is an object (`DownloadAcks`),
+  // because there are two gates now; a field read off an event object is
+  // `undefined` rather than truthy, so the trap is closed twice over.
   check('the button handler takes no argument that an event could fill', () =>
     assert(/const handleDownloadForGradescope = \(\): void =>/.test(app),
       'the click handler takes a parameter; an event would be passed as the flag'));
 
+  check('the acknowledgements are fields, not positional flags', () =>
+    assert(/const runSubmissionDownload = async \(ack: DownloadAcks\)/.test(app),
+      'the download run takes something other than a DownloadAcks object'));
+
   check('proceeding rebuilds rather than reusing the first package', () =>
-    assert(/handleDownloadAnyway = \(\): void => \{[\s\S]{0,200}?runSubmissionDownload\(true\)/.test(app),
+    assert(/handleDownloadAnyway = \(\): void => \{[\s\S]{0,300}?runSubmissionDownload\(next\)/.test(app),
       'Download anyway does not re-run the build, so it could write a stale archive'));
+
+  // W3 task 2. The second gate, wired the same way and for the same reason: a
+  // student whose pages will be made smaller is told before the file is written,
+  // and is told by the page rather than by a dialog that can be suppressed.
+  const fitAt = app.indexOf('setFitGate(fit)', handlerAt);
+  check('the fitting is put to the student before the file is written', () => {
+    assert(fitAt > handlerAt, 'the fit gate is never opened in the submission handler');
+    assert(downloadAt > fitAt, 'the download happens before the student is told about the fitting');
+  });
+
+  check('an unanswered fitting downloads nothing', () =>
+    assert(/if \(fit && !ack\.fit\) \{[\s\S]{0,400}?return;/.test(app),
+      'the handler does not stop before the archive is generated'));
+
+  check('the fitting is read off the built payload, not recomputed', () =>
+    assert(/const fit = fitNoticeFromPayload\(built\.submissionJson\);/.test(app),
+      'the warning is not computed from the plan the PDF was drawn from'));
+
+  check('the fit gate is rendered in the page too', () => {
+    assert(/<FitGate/.test(app), 'the fit gate component is not rendered');
+    assert(/onDownloadAnyway=\{handleAcceptFit\}/.test(app), 'the fit gate has no way to proceed');
+    assert(/onGoBack=\{handleGoBackToRewrite\}/.test(app), 'the fit gate has no way back to the work');
+  });
 }
 
 // =====================================================

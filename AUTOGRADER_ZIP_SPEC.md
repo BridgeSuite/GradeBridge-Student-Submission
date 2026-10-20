@@ -4,7 +4,14 @@
 **Date:** 2026-10-20
 **App version:** v4.1.0 (not deployed until the new student-facing wording is approved)
 
-> ## v7.3 - additive. The payload carries a SHA-256 of every other entry.
+> ## v7.3 - additive. An answers PDF, and a SHA-256 of every other entry.
+>
+> **A new entry on the generic answer page, `{stem}_answers.pdf`**, and a new payload key,
+> `fixed_layout`, describing it (section 3.5). It is the fixed-layout document: one name page, then
+> each part's allotted pages in the assignment's order, so every student's submission aligns to one
+> Gradescope template. **It is the student's copy and not the graded document**: the relay rebuilds
+> the same pages from the crops and uploads its own build (contract v1.1, section 5a). Read it if
+> you want to see what the student saw; do not depend on it.
 >
 > One new top-level key, `files` (section 3.4). It maps every archive entry
 > except the payload to the SHA-256 of its bytes, so a consumer can establish
@@ -281,6 +288,7 @@ the archive.
 | `ai_feedback` | boolean | Always a real boolean, never absent, so "off" is never confusable with an older app version. |
 | `submission_data` | object | §3.1 |
 | `last_saved` | string | ISO 8601, UTC. |
+| `fixed_layout` | object | §3.5. Added v7.3, **generic answer page only**. Describes `{stem}_answers.pdf`: its geometry, its page count, and each part's allotted pages. Absent on the printed sheet and on an electronic submission. |
 | `files` | object | §3.4. Added v7.3. Entry name to SHA-256, for every entry except the payload. Absent from any archive built before v7.3. |
 | `personal_info_confirmed` | boolean | **Added v7.0.** The student ticked, over exactly the answers in this archive, that none of them shows their name, student ID, email address or anyone else's. **Always `true`**: the app refuses to build a package otherwise, and the tick stops counting if any answer changes after it is given. Per-submission evidence that the step existed. |
 | `personal_info_wording` | string | **Added v7.0.** Which sentence the student ticked. `"pi-1"` observed. A new wording gets a new value; it does not change what `personal_info_confirmed` means. |
@@ -421,6 +429,42 @@ rather than silently working from the file you have.
 **A missing key for an entry that exists** means that entry was added after the
 payload was written, which this app does not do. Treat it as a defect in whatever
 produced the archive, not as a file to accept unchecked.
+
+### 3.5 `fixed_layout` — the answers PDF, and what it is not
+
+```json
+"fixed_layout": {
+  "file": "ENG17_Homework_1_submission_20260921-0447_answers.pdf",
+  "geometry": "GBHW-1",
+  "pages": 7,
+  "parts": [
+    { "part_id": "1(a)", "allotment": 2, "first_page": 2,
+      "placed": ["1a_1", "1a_2"], "fitted": false },
+    { "part_id": "1(b)", "allotment": 2, "first_page": 4, "placed": ["1b_1"], "fitted": false },
+    { "part_id": "2", "allotment": 2, "first_page": 6, "placed": [], "fitted": false }
+  ]
+}
+```
+
+**The page order, which is the whole point.** One name page, then for each part in the student
+spec's order its allotted pages, two unless the instructor set otherwise. The page count is
+therefore 1 plus the sum of the allotments **whatever the student submitted**, which is what lets
+one blank template align every submission in the class. `first_page` is 1-based in the finished
+document. `placed` lists the crop keys drawn on that part's pages, in order; an empty slot is a page
+reading "No page submitted for this part". `fitted` is `true` when the student had more pages for a
+part than its allotment and accepted the app's fit, which stacks the overflow on the last allotted
+page.
+
+`geometry` is `GBHW-1`, section 3 of
+`workorders\CONTRACT_HOMEWORK_TO_GRADESCOPE_v1_2026-10-19.md`. A consumer that draws anything of
+its own reads the geometry from there rather than measuring this PDF.
+
+**Do not grade this file, and do not treat it as evidence.** It is the student's own copy, built in
+their browser so they can see what they are submitting. The relay rebuilds the same pages from the
+crops, with the same code, and uploads its build instead. A student can edit any file they are
+given, and nothing that runs in a browser can prevent it, so the pipeline is arranged not to care:
+contract v1.1, section 5a. Its SHA-256 is in `files` and a mismatch is worth reporting, but it fails
+nothing.
 
 ---
 

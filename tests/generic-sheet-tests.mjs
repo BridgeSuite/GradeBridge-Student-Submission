@@ -297,14 +297,33 @@ await checkAsync('every generic crop carries exactly the generic crop keys', asy
   for (const [k, v] of Object.entries(two.payload.crops)) assertEqual(Object.keys(v), GENERIC_CROP_KEYS, `crop ${k}`);
 });
 await checkAsync('the payload is otherwise the handwritten payload: same top-level keys, the generic layout id', async () => {
-  // `files` added 2026-10-19, work item W3: the SHA-256 of every archive entry
-  // except the payload, written last because it cannot exist until they do.
+  // Two keys added for work item W3. `fixed_layout` describes the document
+  // Gradescope aligns, and is written on the generic answer page only, which is
+  // why it is absent from the printed sheet's closed list in
+  // `tests/package-plain-tests.mjs`. `files` is the SHA-256 of every archive
+  // entry except the payload, written last because it cannot exist until the
+  // other entries do.
   assertEqual(Object.keys(two.payload), ['course_code', 'assignment_id', 'ai_feedback', 'submission_data',
     'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops',
-    'files'],
+    'fixed_layout', 'files'],
     'top-level keys');
   assert(two.payload.layout_id === P.GENERIC_LAYOUT_ID, two.payload.layout_id);
 });
+await checkAsync('the fixed-layout PDF is in the archive, and the payload describes it', async () => {
+  const fl = two.payload.fixed_layout;
+  assert(fl && fl.file === `${two.built.baseName}_answers.pdf`, JSON.stringify(fl));
+  assertEqual(fl.geometry, 'GBHW-1', 'geometry');
+  // One name page plus two per part, whatever the student submitted: the
+  // property that lets one Gradescope template align the whole class.
+  assertEqual(fl.pages, 1 + 2 * parts.length, 'page count');
+  assertEqual(fl.parts.map(p => p.part_id), parts.map(p => p.part_id), 'parts, in the spec order');
+  const f = two.zip.file(fl.file);
+  assert(f, `${fl.file} is not in the archive`);
+  const bytes = await f.async('uint8array');
+  assert(String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-', 'the entry is not a PDF');
+  assert(fl.file in two.payload.files, 'the PDF is not fingerprinted');
+});
+
 await checkAsync('every crop the payload names is in the archive, as a JPEG of the stated size', async () => {
   for (const v of Object.values(two.payload.crops)) {
     const f = two.zip.file(v.file);
