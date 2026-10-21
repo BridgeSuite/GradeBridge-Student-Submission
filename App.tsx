@@ -1136,7 +1136,15 @@ const App: React.FC = () => {
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfPageWidth, pdfPageHeight);
       }
 
-      return pdf.output('arraybuffer') as Uint8Array;
+      // **`output('arraybuffer')` returns an ArrayBuffer, not a Uint8Array**, and
+      // this line used to say `as Uint8Array`, which is a cast that lies. It was
+      // harmless while JSZip was the only consumer, because JSZip accepts both.
+      // On 20 October 2026 `files` began hashing every entry, the hasher called
+      // `.arrayBuffer()` on this value, and every electronic submission died with
+      // "A.arrayBuffer is not a function". The wrapper is the fix; `entryBytes`
+      // was also made total over the shapes it can receive, but a type assertion
+      // that is false about the value is the defect, and it is corrected here.
+      return new Uint8Array(pdf.output('arraybuffer') as ArrayBuffer);
     } finally {
       document.body.removeChild(captureWrapper);
     }

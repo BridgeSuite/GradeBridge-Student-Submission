@@ -407,6 +407,25 @@ export const serialiseSubmissionJson = (submissionJson: Record<string, unknown>)
  * recomputes the hash from the file it extracts, so the hash has to be taken
  * over the decoded bytes rather than over the text.
  */
+const toBytes = async (data: unknown): Promise<Uint8Array> => {
+  if (data instanceof Uint8Array) return data;
+  // **An ArrayBuffer reaches here**, and used to crash. `jsPDF.output('arraybuffer')`
+  // returns one, and App.tsx handed it over typed as a Uint8Array. A blob store
+  // may hand one back too. Anything with a byte length is converted rather than
+  // trusted to carry a method.
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (ArrayBuffer.isView(data)) {
+    const view = data as ArrayBufferView;
+    return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+  }
+  if (typeof (data as Blob)?.arrayBuffer === 'function') {
+    return new Uint8Array(await (data as Blob).arrayBuffer());
+  }
+  throw new Error(
+    `An archive entry arrived as ${Object.prototype.toString.call(data)}, which is ` +
+    'neither bytes nor a blob. This is a defect in the caller, not in the submission.');
+};
+
 const entryBytes = async (entry: PackageEntry): Promise<Uint8Array> => {
   const { data } = entry;
   if (typeof data === 'string') {
@@ -415,8 +434,7 @@ const entryBytes = async (entry: PackageEntry): Promise<Uint8Array> => {
     for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
     return out;
   }
-  if (data instanceof Uint8Array) return data;
-  return new Uint8Array(await data.arrayBuffer());
+  return toBytes(data);
 };
 
 const sha256Hex = async (bytes: Uint8Array): Promise<string> => {
@@ -525,7 +543,7 @@ export const buildSubmissionPackage = async (
     if (key) {
       genericImages.set(key, {
         // `readBlob` may hand back either shape, and the PDF wants bytes.
-        bytes: cropBlob instanceof Uint8Array ? cropBlob : new Uint8Array(await cropBlob.arrayBuffer()),
+        bytes: await toBytes(cropBlob),
         format: 'JPEG',
         width: crop.width,
         height: crop.height,

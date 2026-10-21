@@ -422,6 +422,62 @@ for (const [label, built, manifest] of [
   });
 }
 
+// =====================================================
+// 6. The shapes the app actually hands over
+// =====================================================
+// **Every check above passed while the live app was crashing**, on 20 October
+// 2026, for every electronic submission in ENG 6. The fixture above hands
+// `buildSubmissionPackage` a `Uint8Array`; `App.tsx` hands it what
+// `jsPDF.output('arraybuffer')` returns, which is an **ArrayBuffer**, typed as a
+// Uint8Array by a cast that was simply false. Nothing noticed while JSZip was
+// the only consumer, because JSZip takes either. The moment `files` began
+// hashing every entry, the hasher called `.arrayBuffer()` on a value that has no
+// such method and the student saw "A.arrayBuffer is not a function".
+//
+// A fixture that is tidier than the caller is not a test of the caller. So the
+// same package is built again from each shape the app or the blob store can
+// really produce, and the three must agree byte for byte.
+console.log('\n  6. the shapes the app actually hands over');
+
+const asArrayBuffer = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+
+const electronicFrom = async (pdfBytes) => pkg.buildSubmissionPackage(
+  electronicSources(), { ...assets, pdfBytes });
+
+// The two shapes the PDF can really arrive in. A Blob is deliberately not here:
+// nothing produces the PDF as a Blob, and JSZip under Node cannot store one, so
+// asserting it would test the harness rather than the app. `toBytes` still
+// accepts a Blob, because `readBlob` returns one in a browser.
+const shapes = [
+  ['an ArrayBuffer, which is what jsPDF returns', asArrayBuffer(PDF_BYTES)],
+  ['a Uint8Array', PDF_BYTES],
+];
+
+for (const [label, pdfBytes] of shapes) {
+  await checkAsync(`the PDF as ${label}: the package builds`, async () => {
+    const built = await electronicFrom(pdfBytes);
+    const name = `${built.baseName}.pdf`;
+    assertEqual(built.entries.includes(name), true, 'the PDF entry is missing');
+    assertEqual(built.submissionJson.files[name], sha256OfBytes(PDF_BYTES),
+      'the PDF is fingerprinted over different bytes than it carries');
+    const manifest = await manifestOf(built);
+    assertEqual([...manifest.get(name)], [...PDF_BYTES], 'the archived PDF is not the bytes given');
+  });
+}
+
+await checkAsync('a crop blob arriving as an ArrayBuffer does not crash the generic path', async () => {
+  const key = Object.keys(CROP_BYTES)[0];
+  const built = await pkg.buildSubmissionPackage(handwrittenSources(), {
+    ...assets,
+    readBlob: async (k) => {
+      const found = PAGE_BYTES[k] ?? CROP_BYTES[k.replace(/^crop_/, '')] ?? null;
+      return found ? asArrayBuffer(found) : null;
+    },
+  });
+  assert(built.entries.length > 1, 'nothing was packaged');
+  assert(key, 'the fixture has no crop to read');
+});
+
 // ---------- report ----------
 console.log(results.join('\n'));
 console.log(`\n  handwritten entries: ${handwritten.entries.join(', ')}`);
