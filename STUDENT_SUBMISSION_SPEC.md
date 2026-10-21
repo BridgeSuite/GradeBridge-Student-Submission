@@ -476,14 +476,18 @@ entry and the `fixed_layout` payload key, and task 2's fitting gate (section 8b)
 
 **What is still open on that work order:**
 
-- **Task 5, where to upload.** The work order asks that every student-facing sentence name
-  Canvas. The app names no platform at all and has not since 21 September 2026; see the
-  reversal recorded in section 13. This is either already satisfied or a request to reverse
-  that ruling, and it should not be implemented as written without one.
-- **Task 7, the deploy.** Not deployed. The live build is `5bf0ba4` of 15 October, which has
-  neither the fingerprints nor the answer pages. The work order makes the deploy conditional
-  on Andre Knoesen's approval of the wording of tasks 2 and 5; task 2's wording was approved
-  on 20 October 2026 and is quoted in section 8b.
+- **Task 5, where to upload: ruled satisfied**, Andre Knoesen, 20 October 2026, in
+  `RULING_W3_TASK5_PLATFORM_WORDING_2026-10-20.md`. The work order asks that every
+  student-facing sentence name Canvas. The ruling of 21 September 2026 stands instead: no
+  student-facing text names any submission platform, because naming Canvas is correct only
+  for the courses that use Canvas and the assignment sheet already names the platform for
+  its own course. No code change; `tests/platform-neutral-tests.mjs` is the guard. The
+  reversal attempted on 19 October and undone on 20 October is recorded in section 13.
+- **Task 7, the deploy: unblocked, not done.** The live build is `5bf0ba4` of 15 October,
+  which has neither the fingerprints nor the answer pages. The work order makes the deploy
+  conditional on Andre Knoesen's approval of the wording of tasks 2 and 5. Both are now
+  given: task 2's wording was approved on 20 October 2026 and is quoted in section 8b, and
+  task 5 is ruled satisfied above.
 - **The `allotment` field.** Every part takes the default of two until the Assignment Maker
   emits it, which is that repository's W2. Nothing here needs to change when it arrives:
   `allotmentOf` already reads the field.
