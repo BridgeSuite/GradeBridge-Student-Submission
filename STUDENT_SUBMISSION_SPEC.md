@@ -7,12 +7,18 @@ app no longer has.
 **Read from the repository, never from a copy.** A stale copy of a specification has
 already cost this project a session's work.
 
-**Status of the tree this describes:** branch `main`, commit `175c7b9` of 20 October 2026,
-**plus the uncommitted work of work item W3 tasks 1 to 4**: the fixed-layout answer pages
-(section 9b), the entry and payload key that carry them, and the fitting gate (section 8).
-Section 13 says what `175c7b9` carried. **The build students are currently using is older
-still**: deployed 15 October 2026 from `5bf0ba4`, tagged `hw4-baseline-2026-10-19`, so
-neither the `files` fingerprints nor the answer pages are in students' hands yet.
+**Status of the tree this describes:** branch `main`, commit `df9e50b` of 20 October 2026,
+which carries work item W3 tasks 1 to 4: the fixed-layout answer pages (section 9b), the
+entry and payload key that carry them, and the fitting gate (section 8b). Section 13 says
+what the preceding commit `175c7b9` carried.
+
+**This is also what students now get.** Deployed 20 October 2026 from `df9e50b`, after CI
+run #53 passed, with `gh-pages` at `91c58ac`. Verified against the served bytes rather than
+the version string: the live bundle `index-rIBFmPLP.js` contains `GBHW-1`, the
+`fixed_layout` key and the approved fitting wording, where the previous live bundle
+`index-Dp-LcOFV.js` contained none of them. **The version string is not evidence of what is
+deployed**: `constants.ts` read `v4.1.0` for days while the live build was `5bf0ba4` of
+15 October, so the deploy check is a search of the served bundle for `GBHW-1`.
 
 ---
 
@@ -483,11 +489,10 @@ entry and the `fixed_layout` payload key, and task 2's fitting gate (section 8b)
   for the courses that use Canvas and the assignment sheet already names the platform for
   its own course. No code change; `tests/platform-neutral-tests.mjs` is the guard. The
   reversal attempted on 19 October and undone on 20 October is recorded in section 13.
-- **Task 7, the deploy: unblocked, not done.** The live build is `5bf0ba4` of 15 October,
-  which has neither the fingerprints nor the answer pages. The work order makes the deploy
-  conditional on Andre Knoesen's approval of the wording of tasks 2 and 5. Both are now
-  given: task 2's wording was approved on 20 October 2026 and is quoted in section 8b, and
-  task 5 is ruled satisfied above.
+- **Task 7, the deploy: done**, 20 October 2026 from `df9e50b`. Both wording approvals that
+  gated it were given that day: task 2's wording is quoted in section 8b, and task 5 is
+  ruled satisfied above. The header records how the live build was verified, and why the
+  version string was not used to do it.
 - **The `allotment` field.** Every part takes the default of two until the Assignment Maker
   emits it, which is that repository's W2. Nothing here needs to change when it arrives:
   `allotmentOf` already reads the field.
