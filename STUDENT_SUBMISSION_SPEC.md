@@ -365,6 +365,30 @@ records that it is a ported subset and names the authoritative copy.
 
 ## 12. How this app is checked
 
+### 12a. A green suite is not a deployed app
+
+**On 20 October 2026 every one of the 762 automated checks passed while the live app was
+refusing to build an electronic submission at all.** `jsPDF.output('arraybuffer')` returns
+an ArrayBuffer; `App.tsx` handed it on typed as a `Uint8Array`, a cast that was simply
+false, and the new `files` hashing called `.arrayBuffer()` on it. Every ENG 6 student saw
+"A.arrayBuffer is not a function" on Download. The suite missed it because its fixture
+passed a `Uint8Array`, the shape the test author found convenient, rather than the shape
+the app produces. **A fixture tidier than the caller is not a test of the caller**, and
+`tests/package-plain-tests.mjs` section 6 now builds the same package from each shape the
+app can really hand over.
+
+Two rules follow, and they are not optional:
+
+- **Deploy only when no course has an open submission window.** If one cannot wait, the
+  instructor of every affected course is told beforehand. Andre Knoesen, 21 October 2026.
+- **After every deploy, run the post-deploy check**, both routes, before walking away. It
+  is five minutes and it is written down, with its two test assignments, in
+  `App_Test_Pack_2026-10-20\POST_DEPLOY_CHECK.md` beside this repository. The electronic
+  route is checked first, because it is the one nothing else exercises: every test pack
+  built before 21 October 2026 covered only the generic answer sheet, which is why the
+  people testing the app could not have found this one either.
+
+
 `npm test` runs 27 suites, two fewer since the handwriting expectation was removed on 20 October 2026, written as plain Node scripts rather than in a framework, plus
 browser probes. A green CI run does not cover everything: 25 of the 41 labelled capture
 photographs are not in the repository, and the suite names each skip.
