@@ -4,6 +4,13 @@
 **Date:** 2026-10-20
 **App version:** v4.1.0 (not deployed until the new student-facing wording is approved)
 
+**This file is the only authoritative copy.** It lives in the app's repository because it is
+the interface between two teams: the app is written to it, and the autograder and relay are
+built from it. Every other copy in the tree is a pointer to this one or history, and a copy
+sent by email is a snapshot: check its version and SHA-256 against this file before working
+from it. `Manuals\Submission_Specifications_Where.md` is where the route's documents are
+listed.
+
 > ## v7.3 - additive. An answers PDF, and a SHA-256 of every other entry.
 >
 > **A new entry on the generic answer page, `{stem}_answers.pdf`**, and a new payload key,
@@ -447,8 +454,8 @@ produced the archive, not as a file to accept unchecked.
 ```
 
 **The page order, which is the whole point.** One name page, then for each part in the student
-spec's order its allotted pages, two unless the instructor set otherwise. The page count is
-therefore 1 plus the sum of the allotments **whatever the student submitted**, which is what lets
+spec's order its two pages: always two, never set by the instructor (Ruling 42, Andre Knoesen, 1 November 2026). The page count is
+therefore 1 + 2 x (number of parts) **whatever the student submitted**, which is what lets
 one blank template align every submission in the class. `first_page` is 1-based in the finished
 document. `placed` lists the crop keys drawn on that part's pages, in order; an empty slot is a page
 reading "No page submitted for this part". `fitted` is `true` when the student had more pages for a

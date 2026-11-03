@@ -43,18 +43,20 @@ export const GBHW_1 = {
 export const GEOMETRY_ID = 'GBHW-1';
 
 /**
- * **Two pages per part unless the instructor says otherwise**, and today nobody
- * can: the Assignment Maker does not emit `allotment` yet, so every part takes
- * the default. The contract's rule is that an absent value means 2 and that
- * every reader applies that default identically, so it lives here as one
- * constant rather than as a `?? 2` at each use.
+ * **Two pages per part, always.** The instructor does not set this and the
+ * assignment file carries no `allotment` key (Ruling 42, Andre Knoesen,
+ * 1 November 2026).
+ *
+ * Until 2 November this module exported an `allotmentOf` that honoured a
+ * per-part `allotment` field and fell back to two. Nothing upstream wrote the
+ * field, so the behaviour was already two everywhere, but the read stayed live:
+ * a hand-edited or legacy assignment file carrying the key would have changed a
+ * whole class's page count and blank template with nothing on screen to say so.
+ * That is the opposite of what Ruling 42 says, so the read is gone and the two
+ * is a constant. Reinstating an instructor-set allotment means amending the
+ * ruling and giving the Assignment Maker a way to write it, not restoring this.
  */
-export const DEFAULT_ALLOTMENT = 2;
-
-export const allotmentOf = (part: Pick<GenericPart, 'part_id'> & { allotment?: unknown }): number =>
-  Number.isInteger(part.allotment) && (part.allotment as number) >= 1
-    ? (part.allotment as number)
-    : DEFAULT_ALLOTMENT;
+export const PAGES_PER_PART = 2;
 
 /** One crop, as the packaging layer already resolved it for the payload. */
 export interface PlacedCrop {
@@ -133,7 +135,7 @@ export const planFixedLayout = (
   const planned: FixedLayoutPlan['parts'] = [];
 
   for (const part of parts) {
-    const allotment = allotmentOf(part);
+    const allotment = PAGES_PER_PART;
     const mine = crops
       .filter(c => c.partId === part.part_id)
       .slice()
@@ -163,6 +165,6 @@ export const planFixedLayout = (
   return { pages, parts: planned };
 };
 
-/** 1 plus the sum of the allotments, which the relay checks on arrival (R7). */
+/** 1 + 2 x (number of parts), which the relay checks on arrival (R7). */
 export const templateLength = (parts: readonly GenericPart[]): number =>
-  1 + parts.reduce((n, p) => n + allotmentOf(p), 0);
+  1 + parts.length * PAGES_PER_PART;
