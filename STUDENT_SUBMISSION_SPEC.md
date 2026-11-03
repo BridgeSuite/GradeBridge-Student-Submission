@@ -196,14 +196,28 @@ are reported earlier, on the page review screen, in `components/GenericPageRevie
 ### 8b. The fitting gate
 
 A second gate, added 20 October 2026 for work item W3 task 2, on the generic answer sheet
-only. It says that a part has more pages than the assignment has room for, and that the
-pages will be made smaller to fit. `services/fitNotice.ts` writes the sentences and
-`components/FitGate.tsx` shows them. The approved wording, for a part with three pages and
-an allotment of two, is:
+only. It says that a part has more pages than the fixed-layout PDF reserves for it, and
+that the pages will be made smaller to fit. `services/fitNotice.ts` writes the sentences
+and `components/FitGate.tsx` shows them.
 
-> Part 1(a) has three pages and room for two. Your pages will be fitted into the two pages
-> the assignment allows, so they will appear smaller. You can rewrite more compactly, or
-> download anyway.
+**The heading is part of the approved wording and is recorded here**, because it is the
+first line the student reads and was previously held only in `FitGate.tsx`, outside this
+spec and outside review. The heading is:
+
+> These pages will be made smaller
+
+The body, for a part with three pages and an allotment of two, is:
+
+> Part 1(a) has three pages, and two pages are reserved for it. All of your pages are
+> included. They will be placed onto the two pages reserved, so they will appear smaller.
+> You can rewrite more compactly, or download anyway.
+
+**Reworded 2 November 2026 by Andre Knoesen.** The wording approved on 20 October said the
+part had more pages than the assignment "allows", in both the heading and the body. That
+reads as a prohibition and as a loss, and it is neither: every page the student
+photographed is in the document, and only the scale changes. The ticket that found it is
+EEC170-100, raised by John Owens after a student in EEC 170 HW4 read the old heading as a
+page limit he had never set. Nothing about the behaviour changed; only the sentences did.
 
 It is a sibling of the completeness gate rather than a second mode of it, because the two
 offer different ways out: that one sends the student back to add a missing answer, this one
@@ -290,12 +304,12 @@ and both the student's document and the blank template are drawn from that one p
 answer under the wrong question for a whole class, which is why every number is a constant
 and none is computed from a font metric.
 
-The page order is the name page, then each part's allotted pages. The total is 1 plus the
-sum of the allotments, **whatever the student submitted**, which is the property that lets
+The page order is the name page, then each part's allotted pages. The total is 1 + 2 x
+(number of parts), **whatever the student submitted**, which is the property that lets
 one template align every submission. A part with no page says "No page submitted for this
-part". The allotment comes from the assignment file's `allotment` field, and **an absent
-value means two**: the Assignment Maker does not emit the field yet, so today every part
-takes the default, which lives in one constant rather than as a `?? 2` at each use.
+part". Every part has **two pages, always**: the instructor does not set the number of pages and the
+assignment file carries no `allotment` (Ruling 42, Andre Knoesen, 1 November 2026). The two lives in one constant rather
+than as a `?? 2` at each use.
 
 A part with more pages than its allotment is dealt one per page while they fit and the rest
 stacked on the last allotted page, in the student's own page order, because the common case
@@ -517,9 +531,15 @@ entry and the `fixed_layout` payload key, and task 2's fitting gate (section 8b)
   gated it were given that day: task 2's wording is quoted in section 8b, and task 5 is
   ruled satisfied above. The header records how the live build was verified, and why the
   version string was not used to do it.
-- **The `allotment` field.** Every part takes the default of two until the Assignment Maker
-  emits it, which is that repository's W2. Nothing here needs to change when it arrives:
-  `allotmentOf` already reads the field.
+- **The `allotment` field: withdrawn** (Ruling 42, Andre Knoesen, 1 November 2026). Every
+  part has two pages, always, and the Assignment Maker will not emit the field.
+  **Carried into the code on 2 November 2026.** Until then `allotmentOf` still honoured the
+  key if a file carried one, so the spec said withdrawn while the code said honoured. No
+  assignment ever carried it, so nothing behaved differently, but a hand-edited or legacy
+  file would have changed a class's page count and blank template with nothing on screen to
+  say so. `allotmentOf` is deleted and `PAGES_PER_PART` is the constant. Reinstating an
+  instructor-set allotment means amending this ruling and giving the Assignment Maker a way
+  to write the key, not restoring the read.
 - **The fixture is stale.** `tests/fixtures/GradeBridge_answer_page_GBGEN1.pdf` and its
   300 dpi render date from 25 September and are not the current blank sheet.
 

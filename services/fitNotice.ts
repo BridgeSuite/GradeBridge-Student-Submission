@@ -1,6 +1,6 @@
 /**
- * fitNotice.ts — what the student is told when a part has more pages than the
- * assignment allows room for.
+ * fitNotice.ts: what the student is told when a part has more pages than the
+ * fixed-layout PDF reserves for it.
  *
  * ## Why this is a notice and not a refusal
  *
@@ -19,8 +19,11 @@
  *
  * ## Why the wording lives here and not in the component
  *
- * The sentences were approved by Andre Knoesen on 2026-10-20, in the words
- * below. A component that assembled them from fragments would let a later edit
+ * The sentences were approved by Andre Knoesen on 2026-10-20 and reworded by
+ * him on 2026-11-02, in the words below. The first wording said the pages were
+ * more than the assignment "allows", which reads as a prohibition and as a loss;
+ * every page is in fact kept, and only the scale changes. EEC170-100, raised by
+ * John Owens, is the ticket that found it. A component that assembled them from fragments would let a later edit
  * to the layout quietly reword an approved student-facing sentence. Here they
  * are one function, and `tests/fixed-layout-tests.mjs` asserts the approved
  * sentence for the work order's own case (a part with three pages and an
@@ -43,8 +46,8 @@ export interface FitNotice {
 
 /**
  * Small numbers as words, because these sentences are read aloud in the head:
- * "has three pages and room for two" is a sentence, "has 3 pages and room for
- * 2" is a form field. Above twelve the digits are clearer than the words, and a
+ * "has three pages, and two pages are reserved" is a sentence, "has 3 pages,
+ * and 2 pages are reserved" is a form field. Above twelve the digits are clearer than the words, and a
  * part with thirteen pages has bigger problems than its typography.
  */
 const WORDS = [
@@ -68,20 +71,21 @@ export const fitNotice = (parts: FixedLayoutPlan['parts']): FitNotice | null => 
   if (over.length === 0) return null;
 
   const lines = over.map(p =>
-    `Part ${p.part_id} has ${numberWord(p.placed.length)} pages and room for ` +
-    `${numberWord(p.allotment)}.`);
+    `Part ${p.part_id} has ${numberWord(p.placed.length)} pages, and ` +
+    `${numberWord(p.allotment)} pages are reserved for it.`);
 
   // One part, or several that happen to share an allotment: name the number of
   // pages they will be fitted into. Several with different allotments: there is
   // no single number to name, and inventing one would be wrong.
   const allotments = new Set(over.map(p => p.allotment));
   const room = allotments.size === 1
-    ? `the ${numberWord(over[0].allotment)} pages the assignment allows`
-    : 'the pages the assignment allows';
+    ? `the ${numberWord(over[0].allotment)} pages reserved`
+    : 'the pages reserved';
 
   return {
     lines,
-    consequence: `Your pages will be fitted into ${room}, so they will appear smaller.`,
+    consequence: `All of your pages are included. They will be placed onto ${room}, `
+      + 'so they will appear smaller.',
     choice: 'You can rewrite more compactly, or download anyway.',
   };
 };

@@ -110,11 +110,15 @@ check('the payload block names each part\'s first page and what was placed', () 
     { part_id: '2', allotment: 2, first_page: 6, placed: [], fitted: false },
   ], 'the fixed_layout parts block changed'));
 
-check('an absent allotment is two, and every reader applies that default', () => {
-  assertEqual(FL.allotmentOf({ part_id: 'x' }), 2, 'absent');
-  assertEqual(FL.allotmentOf({ part_id: 'x', allotment: 3 }), 3, 'set');
-  assertEqual(FL.allotmentOf({ part_id: 'x', allotment: 0 }), 2, 'zero is not an allotment');
-  assertEqual(FL.allotmentOf({ part_id: 'x', allotment: 2.5 }), 2, 'a fraction is not an allotment');
+check('two pages per part, and no assignment file can change it (Ruling 42)', () => {
+  assertEqual(FL.PAGES_PER_PART, 2, 'the constant');
+  assertEqual(FL.allotmentOf, undefined, 'allotmentOf is gone, not kept as dead generality');
+  // A file carrying the withdrawn key must not move the page count or the template.
+  const withKey = [
+    { part_id: '1(a)', allotment: 5 },
+    { part_id: '2', allotment: 9 },
+  ];
+  assertEqual(FL.templateLength(withKey), 5, 'an allotment key in the file is ignored');
 });
 
 // =====================================================
@@ -284,13 +288,13 @@ const FN = await loadModule('services/fitNotice.ts', 'fitNotice.mjs');
 check('a part that fits says nothing at all', () =>
   assertEqual(FN.fitNotice(plan.parts), null, 'the three-part plan warned about something'));
 
-check('the approved sentences, for a part with three pages and room for two', () => {
+check('the approved sentences, for a part with three pages and two reserved', () => {
   const n = FN.fitNotice(overPlan.parts);
   assert(n !== null, 'no notice for a part that overran');
-  assertEqual(n.lines, ['Part 1(a) has three pages and room for two.'], 'the line');
+  assertEqual(n.lines, ['Part 1(a) has three pages, and two pages are reserved for it.'], 'the line');
   assertEqual(
     n.consequence,
-    'Your pages will be fitted into the two pages the assignment allows, so they will appear smaller.',
+    'All of your pages are included. They will be placed onto the two pages reserved, so they will appear smaller.',
     'the consequence');
   assertEqual(n.choice, 'You can rewrite more compactly, or download anyway.', 'the choice');
 });
@@ -308,14 +312,14 @@ check('two parts over give one line each, in the assignment\'s order', () => {
     { part_id: '2', allotment: 3, first_page: 6, placed: ['f', 'g', 'h', 'i'], fitted: true },
   ]);
   assertEqual(n.lines, [
-    'Part 1(a) has three pages and room for two.',
-    'Part 2 has four pages and room for three.',
+    'Part 1(a) has three pages, and two pages are reserved for it.',
+    'Part 2 has four pages, and three pages are reserved for it.',
   ], 'the lines');
   // Two different allotments, so there is no single number of pages to name and
   // the sentence does not invent one.
   assertEqual(
     n.consequence,
-    'Your pages will be fitted into the pages the assignment allows, so they will appear smaller.',
+    'All of your pages are included. They will be placed onto the pages reserved, so they will appear smaller.',
     'the consequence');
 });
 
@@ -323,7 +327,7 @@ check('read out of a payload, which is where the app reads it', () => {
   const payload = { fixed_layout: { file: 'x_answers.pdf', geometry: 'GBHW-1', pages: 3, parts: overPlan.parts } };
   assertEqual(
     FN.fitNoticeFromPayload(payload).lines,
-    ['Part 1(a) has three pages and room for two.'],
+    ['Part 1(a) has three pages, and two pages are reserved for it.'],
     'from the payload');
 });
 

@@ -70,7 +70,7 @@ const FitGate: React.FC<FitGateProps> = ({ notice, onDownloadAnyway, onGoBack })
             className="text-lg font-bold text-slate-900 flex items-center gap-2 outline-none"
           >
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-            More pages than the assignment allows
+            These pages will be made smaller
           </h2>
         </div>
 
