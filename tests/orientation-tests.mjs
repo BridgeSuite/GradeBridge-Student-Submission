@@ -52,11 +52,11 @@ const assertEqual = (actual, expected, msg) => {
 };
 
 // ---------- build imageIngest.ts ----------
-// heic2any is a browser UMD bundle that touches window at load; the ingest
-// path under test never calls it, so it is aliased to a stub.
+// heic-to (libheif, about 3 MB) is loaded only when a HEIC file arrives; the
+// ingest path under test never calls it, so it is aliased to a stub.
 const outDir = mkdtempSync(join(tmpdir(), 'gb-orient-test-'));
-const stub = join(outDir, 'heic2any-stub.mjs');
-writeFileSync(stub, 'export default async () => { throw new Error("heic2any stub"); };\n');
+const stub = join(outDir, 'heic-to-stub.mjs');
+writeFileSync(stub, 'export const heicTo = async () => { throw new Error("heic-to stub"); };\n');
 const outFile = join(outDir, 'imageIngest.mjs');
 await build({
   entryPoints: [join(REPO, 'imageIngest.ts')],
@@ -64,7 +64,7 @@ await build({
   format: 'esm',
   target: 'es2022',
   bundle: true,
-  alias: { heic2any: stub },
+  alias: { 'heic-to': stub },
   logLevel: 'silent',
 });
 

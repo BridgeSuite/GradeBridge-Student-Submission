@@ -21,7 +21,6 @@
 // image path in SubmissionWidget.tsx / App.tsx is deliberately untouched.
 // =====================================================
 
-import heic2any from 'heic2any';
 import {
   PAGE_MAX_EDGE,
   PAGE_JPEG_QUALITY,
@@ -55,15 +54,48 @@ export const isHeic = (f: File): boolean =>
   /\.heic$/i.test(f.name) || /\.heif$/i.test(f.name);
 
 /**
+ * HEIC the browser can read itself: Safari on iPhone, iPad and Mac. The pixels
+ * come out already turned the right way up (createImageBitmap applies the
+ * file's orientation), and are re-encoded as a JPEG with no orientation tag.
+ */
+const nativeHeicToJpeg = async (file: Blob, quality: number): Promise<Blob> => {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0);
+    return await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+      b => { canvas.width = 0; canvas.height = 0; b ? resolve(b) : reject(new Error('encode failed')); },
+      'image/jpeg', quality));
+  } finally {
+    bitmap.close();
+  }
+};
+
+/**
  * Converts a HEIC/HEIF file to a JPEG blob. Non-HEIC files pass through.
  * The default quality is the one the per-question image path has always used;
  * page ingest asks for more because the result is downsampled afterwards and
  * intermediate loss shows up in the OCR, not on screen.
+ *
+ * **Two routes, in order** (2026-11-04). The browser's own decoder first, which
+ * is Safari, the browser an iPhone photo usually arrives in. Then heic-to, a
+ * current build of libheif, for browsers that cannot read HEIC (Chrome and
+ * Firefox on Windows and Android). It replaces heic2any 0.0.4, whose libheif
+ * dates from 2020 and refused photos from current iPhones. heic-to is loaded
+ * only when a HEIC file arrives: it is about 3 MB, served from this site like
+ * the rest of the app, and nothing is fetched from anywhere else.
  */
 export const convertHeicIfNeeded = async (file: File, quality = 0.85): Promise<Blob> => {
   if (!isHeic(file)) return file;
-  const result = await heic2any({ blob: file, toType: 'image/jpeg', quality });
-  return Array.isArray(result) ? result[0] : (result as Blob);
+  try {
+    return await nativeHeicToJpeg(file, quality);
+  } catch {
+    /* this browser cannot decode HEIC itself: fall through to libheif */
+  }
+  const { heicTo } = await import('heic-to');
+  return await heicTo({ blob: file, type: 'image/jpeg', quality });
 };
 
 // ---------- JPEG header: EXIF orientation + raw SOF dimensions ----------

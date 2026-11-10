@@ -19,7 +19,7 @@
     "deploy": "gh-pages -d dist --dotfiles"
   },
   "dependencies": {
-    "heic2any": "^0.0.4",
+    "heic-to": "1.6.6",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
     "jszip": "^3.10.1",
