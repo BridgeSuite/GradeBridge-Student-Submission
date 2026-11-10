@@ -24,7 +24,7 @@ export const LaTeXCheatsheet: React.FC<LaTeXCheatsheetProps> = ({ isOpen, onClos
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 rounded-t-xl">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-aggie-900 border-b-4 border-b-gold-500 rounded-t-xl">
           <div className="flex items-center gap-3">
             <BookOpen className="w-6 h-6 text-white" />
             <div>
@@ -48,7 +48,7 @@ export const LaTeXCheatsheet: React.FC<LaTeXCheatsheetProps> = ({ isOpen, onClos
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                  ? 'text-aggie-600 border-b-2 border-aggie-600 bg-white'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
@@ -90,7 +90,7 @@ const CheatsheetTable: React.FC<{ rows: { desc: string; code: string; note?: str
         <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
           <td className="py-2 px-3 text-gray-600">{row.desc}</td>
           <td className="py-2 px-3">
-            <code className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded font-mono text-xs">{row.code}</code>
+            <code className="bg-aggie-50 text-aggie-800 px-2 py-0.5 rounded font-mono text-xs">{row.code}</code>
           </td>
           <td className="py-2 px-3 text-gray-500 text-xs">{row.note || ''}</td>
         </tr>
@@ -272,9 +272,9 @@ const CalculusTab: React.FC = () => (
     </div>
 
     {/* Example */}
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-      <h4 className="font-bold text-blue-800 mb-2">Example: Fundamental Theorem of Calculus</h4>
-      <code className="text-sm font-mono text-blue-700 block bg-white p-2 rounded border border-blue-100">
+    <div className="bg-aggie-50 border border-aggie-200 rounded-lg p-4">
+      <h4 className="font-bold text-aggie-800 mb-2">Example: Fundamental Theorem of Calculus</h4>
+      <code className="text-sm font-mono text-aggie-700 block bg-white p-2 rounded border border-aggie-100">
         \frac{'{d}'}{'{dx}'} \int_a^x f(t) dt = f(x)
       </code>
     </div>
@@ -332,8 +332,8 @@ c & d
           </pre>
         </div>
 
-        <div className="bg-purple-50 rounded-lg p-4">
-          <h4 className="font-semibold text-purple-800 mb-2">3x3 Matrix with Square Brackets</h4>
+        <div className="bg-gold-50 rounded-lg p-4">
+          <h4 className="font-semibold text-gold-800 mb-2">3x3 Matrix with Square Brackets</h4>
           <pre className="text-sm font-mono bg-white p-3 rounded border overflow-x-auto text-gray-800">
 {`\\begin{bmatrix}
 a_{11} & a_{12} & a_{13} \\\\
@@ -353,8 +353,8 @@ c & d
           </pre>
         </div>
 
-        <div className="bg-blue-50 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-800 mb-2">Augmented Matrix (for systems)</h4>
+        <div className="bg-aggie-50 rounded-lg p-4">
+          <h4 className="font-semibold text-aggie-800 mb-2">Augmented Matrix (for systems)</h4>
           <pre className="text-sm font-mono bg-white p-3 rounded border overflow-x-auto text-gray-800">
 {`\\left[
 \\begin{array}{cc|c}

@@ -119,7 +119,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
         <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <span>Your Answer (math equations supported):</span>
           <span className="group relative">
-            <HelpCircle className="w-4 h-4 text-blue-500 cursor-help" />
+            <HelpCircle className="w-4 h-4 text-aggie-500 cursor-help" />
             <span className="invisible group-hover:visible absolute left-0 bottom-full mb-1 w-48 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-10">
               Use $...$ for inline math. See "Math Equation Format Help" in sidebar for examples.
             </span>
@@ -128,7 +128,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
         <textarea
           value={textVal}
           onChange={(e) => handleTextChange(e, 'textAnswer')}
-          className="w-full p-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 min-h-[150px] font-mono text-sm placeholder-gray-500"
+          className="w-full p-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:ring-aggie-500 focus:border-aggie-500 min-h-[150px] font-mono text-sm placeholder-gray-500"
           placeholder="Type your answer here... Use $...$ for inline math and $$...$$ for display math."
         />
         {textVal && (textVal.includes('$') || textVal.includes('\\')) && (
@@ -159,7 +159,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
 
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-            dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+            dragActive ? 'border-aggie-500 bg-aggie-50' : 'border-gray-300 hover:border-gray-400'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -179,7 +179,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
             <div className="text-sm text-gray-600">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="font-medium text-aggie-600 hover:text-aggie-500"
               >
                 Upload images
               </button>
@@ -238,7 +238,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <span>Text Answer (math equations supported):</span>
             <span className="group relative">
-              <HelpCircle className="w-4 h-4 text-blue-500 cursor-help" />
+              <HelpCircle className="w-4 h-4 text-aggie-500 cursor-help" />
               <span className="invisible group-hover:visible absolute left-0 bottom-full mb-1 w-48 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-10">
                 Use $...$ for inline math. See "Math Equation Format Help" in sidebar for examples.
               </span>
@@ -247,7 +247,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
           <textarea
             value={textVal}
             onChange={(e) => handleTextChange(e, 'textAnswer')}
-            className="w-full p-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 min-h-[120px] font-mono text-sm placeholder-gray-500"
+            className="w-full p-3 border border-gray-300 bg-white text-gray-900 rounded-md shadow-sm focus:ring-aggie-500 focus:border-aggie-500 min-h-[120px] font-mono text-sm placeholder-gray-500"
             placeholder="Type your answer here... Use $...$ for inline math and $$...$$ for display math."
           />
           {textVal && (textVal.includes('$') || textVal.includes('\\')) && (
@@ -267,7 +267,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
           </label>
           <div
             className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-              dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+              dragActive ? 'border-aggie-500 bg-aggie-50' : 'border-gray-300 hover:border-gray-400'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -287,7 +287,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
               <div className="text-sm text-gray-600">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-aggie-600 hover:text-aggie-500"
                 >
                   Upload images
                 </button>
@@ -349,8 +349,8 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
 
     return (
       <div className="space-y-2 w-full">
-        <label className="block text-sm font-medium text-purple-700 flex items-center gap-2">
-          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full border border-purple-200">
+        <label className="block text-sm font-medium text-gold-800 flex items-center gap-2">
+          <span className="bg-gold-100 text-gold-800 text-xs px-2 py-0.5 rounded-full border border-gold-200">
             {`AI Graded · ${range.label}`}
           </span>
           <span className="text-gray-500 font-normal">Aim for {range.min}–{range.max} words</span>
@@ -358,7 +358,7 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
         <textarea
           value={aiText}
           onChange={(e) => handleTextChange(e, 'aiAnswer')}
-          className="w-full p-3 border border-purple-200 bg-purple-50 text-gray-900 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 font-mono text-sm placeholder-purple-300"
+          className="w-full p-3 border border-gold-200 bg-gold-50 text-gray-900 rounded-md shadow-sm focus:ring-gold-800 focus:border-gold-800 font-mono text-sm placeholder-gold-700"
           style={{ minHeight: isBinary ? '80px' : '120px' }}
           placeholder={placeholder}
         />
@@ -366,14 +366,14 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
           {wordCountLabel}
         </div>
         {aiText.length > 0 && (aiText.includes('$') || aiText.includes('\\')) && (
-          <div className="mt-2 p-3 bg-white border border-purple-200 rounded-md">
-            <p className="text-xs text-purple-400 mb-1 font-bold uppercase">Preview:</p>
+          <div className="mt-2 p-3 bg-white border border-gold-200 rounded-md">
+            <p className="text-xs text-gold-700 mb-1 font-bold uppercase">Preview:</p>
             <div className="prose prose-sm max-w-none">
               <LatexContent content={aiText} />
             </div>
           </div>
         )}
-        <div className="flex items-center gap-1.5 text-xs text-purple-400 mt-1">
+        <div className="flex items-center gap-1.5 text-xs text-gold-700 mt-1">
           <Lightbulb className="w-3 h-3" />
           <span>
             {`Writing more than ${range.max} words is fine — focus on quality over length.`}

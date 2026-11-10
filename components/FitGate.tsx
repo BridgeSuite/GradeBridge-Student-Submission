@@ -67,7 +67,7 @@ const FitGate: React.FC<FitGateProps> = ({ notice, onDownloadAnyway, onGoBack })
             ref={headingRef}
             tabIndex={-1}
             id="fit-gate-heading"
-            className="text-lg font-bold text-slate-900 flex items-center gap-2 outline-none"
+            className="text-lg font-bold text-aggie-900 flex items-center gap-2 outline-none"
           >
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
             These pages will be made smaller
@@ -89,7 +89,7 @@ const FitGate: React.FC<FitGateProps> = ({ notice, onDownloadAnyway, onGoBack })
             <button
               type="button"
               onClick={onGoBack}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium text-sm transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-aggie-900 hover:bg-aggie-800 text-white rounded-lg font-medium text-sm transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Go back
@@ -97,7 +97,7 @@ const FitGate: React.FC<FitGateProps> = ({ notice, onDownloadAnyway, onGoBack })
             <button
               type="button"
               onClick={onDownloadAnyway}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg font-medium text-sm transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-aggie-900 border border-slate-300 rounded-lg font-medium text-sm transition-colors"
             >
               <Download className="w-4 h-4" />
               Download anyway
