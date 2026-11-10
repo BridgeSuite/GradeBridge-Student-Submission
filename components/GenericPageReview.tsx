@@ -10,6 +10,7 @@ import {
 } from '../services/genericSheet';
 import { GENERIC_WORDING as W } from '../services/genericWording';
 import SwipeDeck from './SwipeDeck';
+import { ExpandButton, LightboxImage, useLightbox } from './Lightbox';
 
 /**
  * The review step on the generic answer page, where it is also the labelling
@@ -50,6 +51,8 @@ interface GenericPageReviewProps {
   cropUrls: Record<string, string>;
   /** page id → object URL for the page's header strip, when it could be cut. */
   headerUrls?: Record<string, string>;
+  /** page id → object URL for the whole photograph, for the picture viewer. */
+  pageUrls?: Record<string, string>;
   pages: PageRef[];
   /** Put `partId` on these pages (`on`), or take it off them. */
   onAssignPart: (cropKeys: string[], partId: string, on: boolean) => void;
@@ -70,7 +73,7 @@ const GRID_FOR: Record<Size, string> = {
 const SIZES: Size[] = ['sm', 'lg', 'xl'];
 
 const GenericPageReview: React.FC<GenericPageReviewProps> = ({
-  parts, problems, crops, cropUrls, headerUrls = {}, pages,
+  parts, problems, crops, cropUrls, headerUrls = {}, pageUrls = {}, pages,
   onAssignPart, onReview, onRetakePage, busy,
 }) => {
   const shown = (p: GenericPart): string => partDisplayLabel(p, problems);
@@ -89,6 +92,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
     window.matchMedia('(pointer: coarse)').matches);
 
   const ordered = genericCropsInPageOrder(crops, pages);
+  const lightbox = useLightbox();
   const coverage = genericCoverage(parts, crops, pages);
   const flagged = ordered.filter(c => c.review === 'flagged').length;
   const reviewed = ordered.filter(c => c.review === 'signed_off').length;
@@ -126,6 +130,21 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
 
   /** The pages the grid shows: all of them, or only those with no part yet. */
   const visible = hideMatched ? ordered.filter(c => (partsOf.get(c.regionId) ?? []).length === 0) : ordered;
+
+  /** Opens the picture viewer on one page, able to step through `list`. */
+  const viewPages = (list: CropRef[], key: string) => {
+    const shownList = list.filter(c => cropUrls[c.regionId]);
+    const images: LightboxImage[] = shownList.map(c => {
+      const ids = partsOf.get(c.regionId) ?? [];
+      const names = parts.filter(p => ids.includes(p.part_id)).map(shown).join(' · ');
+      return {
+        src: cropUrls[c.regionId],
+        caption: `${W.photoHeading(photoNumber(c))}${names ? ` · ${names}` : ''}`,
+        wholeSrc: c.fromPage ? pageUrls[c.fromPage] : undefined,
+      };
+    });
+    lightbox(images, Math.max(0, shownList.findIndex(c => c.regionId === key)));
+  };
 
   /** The pages that carry the chosen part, for Unselect all. */
   const activeKeys = active
@@ -191,6 +210,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
     if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return;
     if (e.button !== 0 || e.shiftKey || !active || !gridRef.current) return;
     const target = e.target as HTMLElement;
+    if (target.closest('[aria-label="' + 'View larger' + '"]')) return; // the expand button opens the viewer
     e.preventDefault(); // no text selection, no native image drag; a click still arrives
     const g = gridRef.current.getBoundingClientRect();
     const startKey = target.closest('[data-page-card]')?.getAttribute('data-page-card') ?? null;
@@ -472,6 +492,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                   {partChips(crop)}
                   {crop.review === 'signed_off' && <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />}
                   {crop.review === 'flagged' && <Flag className="w-3.5 h-3.5 text-amber-600" />}
+                  {url && <ExpandButton onClick={() => viewPages(visible, key)} className="ml-auto" />}
                 </div>
               </li>
             );
@@ -516,6 +537,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
               <div className="px-4 py-3 flex flex-wrap items-center gap-2 border-b border-gray-100">
                 <span className="font-semibold text-gray-900">{W.photoHeading(n)}</span>
                 {partChips(c)}
+                {url && <ExpandButton onClick={() => viewPages(ordered, c.regionId)} className="ml-auto" />}
               </div>
               {ids.length > 0 && (
                 <p className="px-4 pt-2 text-sm text-gray-800 break-words">

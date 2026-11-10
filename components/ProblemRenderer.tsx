@@ -1,6 +1,7 @@
 import React from 'react';
 import { GenericPart, Problem, Subsection, SubmissionData, SubmissionType } from '../types';
 import { GENERIC_WORDING as W } from '../services/genericWording';
+import { useLightbox } from './Lightbox';
 import SubmissionWidget from './SubmissionWidget';
 import { LatexContent } from './KatexRenderer';
 
@@ -17,13 +18,10 @@ interface ProblemRendererProps {
    * Generic page: part id → the pages matched to it, in page order, so each
    * part shows what it got. A part with none keeps the answer-on-paper note.
    */
-  matchedPages?: Record<string, ReadonlyArray<{ key: string; url?: string; headerUrl?: string; photo: number }>>;
+  matchedPages?: Record<string, ReadonlyArray<{ key: string; url?: string; headerUrl?: string; pageUrl?: string; photo: number }>>;
 }
 
-/** Brings a page's card in the matching grid into view, when it is on screen. */
-const showPageCard = (key: string) => {
-  document.getElementById(`page-card-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
+
 
 const AI_GRADED_STRINGS = new Set([
   'AI Graded: Binary',
@@ -75,6 +73,7 @@ const calculateProblemPoints = (subsections: Subsection[]): number => {
 const ProblemRenderer: React.FC<ProblemRendererProps> = ({
   problem, problemIndex, submissionData, onSubmissionChange, genericSheet = false, parts, matchedPages,
 }) => {
+  const lightbox = useLightbox();
   const problemId = `p${problemIndex}`;
   const problemPoints = calculateProblemPoints(problem.subsections);
   const problemStatement = getStatement(problem.name, problem.description);
@@ -142,7 +141,10 @@ const ProblemRenderer: React.FC<ProblemRendererProps> = ({
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">{W.matchedPagesLabel(matched.length)}</p>
                             <div className="flex flex-wrap gap-2">
                               {matched.map(m => (
-                                <button key={m.key} type="button" onClick={() => showPageCard(m.key)}
+                                <button key={m.key} type="button"
+                                  onClick={() => lightbox(matched.filter(x => x.url).map(x => ({
+                                    src: x.url!, caption: `${W.photoHeading(x.photo)} · ${part!.label}`, wholeSrc: x.pageUrl,
+                                  })), matched.filter(x => x.url).findIndex(x => x.key === m.key))}
                                   className="w-44 rounded-lg border border-gray-200 bg-white overflow-hidden hover:border-aggie-400 hover:shadow text-left">
                                   {m.headerUrl && <img src={m.headerUrl} alt="" className="w-full h-auto border-b border-gray-100" />}
                                   {m.url

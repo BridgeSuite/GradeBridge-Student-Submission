@@ -6,6 +6,7 @@ import { PageRef } from '../types';
 import { PAGE_TOTAL_SIZE_TARGET } from '../constants';
 import { IngestedPage, formatBytes, ingestPage } from '../imageIngest';
 import InAppBrowserNotice from './InAppBrowserNotice';
+import { useLightbox } from './Lightbox';
 import { GENERIC_WORDING } from '../services/genericWording';
 import { PDF_WORDING, isPdfFile, partitionByRegistration, renderedPageName } from '../services/pdfIntake';
 import { splitPdfFile } from '../services/pdfLoader';
@@ -38,6 +39,13 @@ const PageUploader: React.FC<PageUploaderProps> = ({
   pages, pageUrls, onAddPage, onReplacePage, onRemovePage, onMovePage, onRotatePage,
   genericSheet = false,
 }) => {
+  const lightbox = useLightbox();
+  /** Every stored page photograph, in order, for the picture viewer. */
+  const viewPage = (pageId: string) => {
+    const withUrl = pages.filter(p => pageUrls[p.id]);
+    lightbox(withUrl.map(p => ({ src: pageUrls[p.id], caption: `Page ${pages.indexOf(p) + 1}` })),
+      Math.max(0, withUrl.findIndex(p => p.id === pageId)));
+  };
   const chooseRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef<HTMLInputElement>(null);
@@ -493,11 +501,13 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                 >
                   <div className="relative bg-white aspect-[3/4] flex items-center justify-center overflow-hidden">
                     {url ? (
-                      <img
-                        src={url}
-                        alt={`Page ${idx + 1}`}
-                        className="object-contain w-full h-full"
-                      />
+                      <button type="button" onClick={() => viewPage(page.id)} className="block w-full h-full cursor-zoom-in">
+                        <img
+                          src={url}
+                          alt={`Page ${idx + 1}`}
+                          className="object-contain w-full h-full"
+                        />
+                      </button>
                     ) : (
                       <div className="flex flex-col items-center gap-2 p-3 text-center">
                         <AlertTriangle className="w-6 h-6 text-amber-500" />

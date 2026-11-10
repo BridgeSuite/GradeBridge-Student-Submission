@@ -6,6 +6,7 @@ import ProblemRenderer from './components/ProblemRenderer';
 import PageUploader from './components/PageUploader';
 import CropReview from './components/CropReview';
 import GenericPageReview from './components/GenericPageReview';
+import { LightboxProvider } from './components/Lightbox';
 import PrintView from './components/PrintView';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import {
@@ -208,14 +209,15 @@ const App: React.FC = () => {
   const matchedPages = useMemo(() => {
     if (!isGeneric) return undefined;
     const parts = state.assignment?.parts ?? [];
-    const out: Record<string, { key: string; url?: string; headerUrl?: string; photo: number }[]> = {};
+    const out: Record<string, { key: string; url?: string; headerUrl?: string; pageUrl?: string; photo: number }[]> = {};
     for (const c of genericCropsInPageOrder(state.crops, state.pages)) {
       const photo = state.pages.findIndex(p => p.id === c.fromPage) + 1;
       const headerUrl = c.fromPage ? headerUrls[c.fromPage] : undefined;
-      for (const id of chosenPartIds(c, parts)) (out[id] ??= []).push({ key: c.regionId, url: cropUrls[c.regionId], headerUrl, photo });
+      const pageUrl = c.fromPage ? pageUrls[c.fromPage] : undefined;
+      for (const id of chosenPartIds(c, parts)) (out[id] ??= []).push({ key: c.regionId, url: cropUrls[c.regionId], headerUrl, pageUrl, photo });
     }
     return out;
-  }, [isGeneric, state.assignment, state.crops, state.pages, cropUrls, headerUrls]);
+  }, [isGeneric, state.assignment, state.crops, state.pages, cropUrls, headerUrls, pageUrls]);
 
   const personalInfoCurrent = useMemo(() => !!state.assignment && isConfirmationCurrent(personalInfo, {
     assignment: state.assignment,
@@ -1437,6 +1439,8 @@ const App: React.FC = () => {
     // ABOVE both columns on a wide screen, not inside one of them. The inner
     // shell below is what the outer one used to be: the sidebar stacked on the
     // content on a phone, side by side and pinned to the viewport from lg up.
+    // The picture viewer wraps it all, so any picture can be opened full screen.
+    <LightboxProvider>
     <div className="flex min-h-screen flex-col bg-gray-50 font-sans lg:h-screen lg:overflow-hidden">
 
       {/* The completeness gate. In the page, never a dialog — see the component. */}
@@ -1651,6 +1655,7 @@ const App: React.FC = () => {
                      crops={state.crops}
                      cropUrls={cropUrls}
                      headerUrls={headerUrls}
+                     pageUrls={pageUrls}
                      pages={state.pages}
                      onAssignPart={handleAssignPart}
                      onReview={handleReviewCrop}
@@ -1791,6 +1796,7 @@ const App: React.FC = () => {
       {/* Privacy Modal */}
       {showPrivacyModal && <PrivacyNotice onAccept={acceptPrivacy} />}
     </div>
+    </LightboxProvider>
   );
 };
 

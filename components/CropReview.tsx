@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { CropRef, PageRef, StoredLayoutMap, StudentReview } from '../types';
 import { inAssignmentOrder } from '../services/layoutMap';
+import { useLightbox } from './Lightbox';
 
 /**
  * The review step, and it is the safety net.
@@ -41,6 +42,7 @@ const REVIEW_LABEL: Record<StudentReview, string> = {
 const CropReview: React.FC<CropReviewProps> = ({
   layout, crops, cropUrls, pages, onReview, onDirectCapture, onRephotographPage, busy,
 }) => {
+  const lightbox = useLightbox();
   const directRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLInputElement>(null);
   const directTarget = useRef<string | null>(null);
@@ -150,11 +152,18 @@ const CropReview: React.FC<CropReviewProps> = ({
 
               <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
                 {url ? (
-                  <img
-                    src={url}
-                    alt={`Your answer to ${row.partId}, as it will be collected`}
-                    className="w-full h-auto max-h-[60vh] object-contain bg-white"
-                  />
+                  <button type="button" className="block w-full cursor-zoom-in"
+                    onClick={() => {
+                      const shown = ordered.filter(r => cropUrls[r.regionId]);
+                      lightbox(shown.map(r => ({ src: cropUrls[r.regionId], caption: r.partId })),
+                        Math.max(0, shown.findIndex(r => r.regionId === row.regionId)));
+                    }}>
+                    <img
+                      src={url}
+                      alt={`Your answer to ${row.partId}, as it will be collected`}
+                      className="w-full h-auto max-h-[60vh] object-contain bg-white"
+                    />
+                  </button>
                 ) : (
                   <div className="p-6 text-center text-sm text-gray-500">
                     {isBusy ? (

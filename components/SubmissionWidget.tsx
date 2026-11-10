@@ -5,6 +5,7 @@ import { SubmissionData } from '../types';
 import { Image as ImageIcon, Trash2, X, Lightbulb, HelpCircle } from 'lucide-react';
 import { LatexContent } from './KatexRenderer';
 import { PDF_WORDING } from '../services/pdfIntake';
+import { useLightbox } from './Lightbox';
 
 /** An image this path can use: what the browser calls an image, or HEIC by name. */
 const isImageFile = (f: File): boolean => f.type.startsWith('image/') || isHeic(f);
@@ -20,6 +21,10 @@ interface SubmissionWidgetProps {
 
 const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages = 1, data, onChange }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lightbox = useLightbox();
+  /** An uploaded picture full screen, able to step through this answer's pictures. */
+  const viewImage = (images: string[], idx: number) =>
+    lightbox(images.map((src, i) => ({ src, caption: `Image ${i + 1}` })), idx);
   const [dragActive, setDragActive] = useState(false);
   const [converting, setConverting] = useState(false);
   /** Shown in the page, not in an alert: a suppressed alert would refuse in silence. */
@@ -200,7 +205,9 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
             {images.map((img, idx) => (
               <div key={idx} className="relative group aspect-w-4 aspect-h-3 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                <img src={img} alt={`Uploaded ${idx + 1}`} className="object-cover w-full h-full" />
+                <button type="button" onClick={() => viewImage(images, idx)} className="block w-full h-full cursor-zoom-in">
+                  <img src={img} alt={`Uploaded ${idx + 1}`} className="object-cover w-full h-full" />
+                </button>
                 <button
                   onClick={() => removeImage(idx)}
                   className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -307,7 +314,9 @@ const SubmissionWidget: React.FC<SubmissionWidgetProps> = ({ type, id, maxImages
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
               {images.map((img, idx) => (
                 <div key={idx} className="relative group aspect-w-4 aspect-h-3 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                  <img src={img} alt={`Uploaded ${idx + 1}`} className="object-cover w-full h-full" />
+                  <button type="button" onClick={() => viewImage(images, idx)} className="block w-full h-full cursor-zoom-in">
+                    <img src={img} alt={`Uploaded ${idx + 1}`} className="object-cover w-full h-full" />
+                  </button>
                   <button
                     onClick={() => removeImage(idx)}
                     className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
