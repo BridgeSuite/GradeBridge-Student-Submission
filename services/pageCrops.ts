@@ -10,8 +10,11 @@
 
 import { LayoutMap, LayoutRow, rowsForPage } from './layoutMap';
 import { RegistrationResult, registerPage } from './registration';
-import { CroppedRegion, cropGenericBox, cropRegions } from './cropRegions';
-import { GENERIC_CROP_LONG_EDGE_PX } from './genericSheet';
+import { CroppedRegion, cropGenericBox, cropRegion, cropRegions } from './cropRegions';
+import {
+  GENERIC_CROP_LONG_EDGE_PX, GENERIC_HEADER_STRIP_LONG_EDGE_PX, GENERIC_HEADER_STRIP_MM,
+} from './genericSheet';
+import { PAGE_H_MM, PAGE_W_MM } from './pageFormat';
 import { registeredQrSharpness } from './captureGate';
 import { InkBox } from '../types';
 import { initQrReader } from './qrDecode';
@@ -88,7 +91,29 @@ export interface PageCropResult {
   }>;
   /** Set when the page registered but its QR disagrees with the loaded map. */
   layoutMismatch: { onPage: string; inFile: string } | null;
+  /**
+   * Generic sheet only: the printed `Problem / Part / Page` line with what the
+   * student wrote on it, so they can see it while matching pages to parts.
+   * **Shown in this browser only.** It never goes in the submission.
+   */
+  headerStrip?: Blob | null;
 }
+
+/** Cuts the generic page's header strip. Null when it cannot be cut; it is a convenience, never required. */
+const cutHeaderStrip = async (image: Rgba, transform: NonNullable<RegistrationResult['transform']>): Promise<Blob | null> => {
+  try {
+    const m = GENERIC_HEADER_STRIP_MM;
+    const row: LayoutRow = {
+      assignmentId: '', layoutId: '', regionId: 'header', partId: '', pageK: 1,
+      x0: m.x0 / PAGE_W_MM, y0: m.y0 / PAGE_H_MM, x1: m.x1 / PAGE_W_MM, y1: m.y1 / PAGE_H_MM,
+      isDrawing: false, maxPoints: 0,
+    };
+    const cut = cropRegion(image, transform, row, GENERIC_HEADER_STRIP_LONG_EDGE_PX);
+    return await rgbaToJpegBlob(cut.image, 0.85);
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Registers one photographed page and cuts every region the map declares for it.
@@ -136,7 +161,8 @@ export const registerAndCropPage = async (
         width: c.image.width, height: c.image.height, inkBox: c.inkBox, inkVerdict: c.inkVerdict,
       });
     }
-    return { registration, crops, layoutMismatch: null };
+    const headerStrip = await cutHeaderStrip(image, registration.transform);
+    return { registration, crops, layoutMismatch: null, headerStrip };
   }
 
   const cropped: CroppedRegion[] = cropRegions(image, registration.transform, rows);

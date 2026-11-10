@@ -35,8 +35,9 @@ import { FitNotice, fitNoticeFromPayload } from './services/fitNotice';
 import { LayoutMapError, parseLayoutCsv } from './services/layoutMap';
 import { registerAndCropPage } from './services/pageCrops';
 import {
-  chooseGenericProblem, genericCompletenessNotice, genericCoverage, genericCropRecord, isGenericSheet,
-  mergeRecutCrops, toggleGenericPart,
+  assignGenericPart, chosenPartIds, genericCompletenessNotice, genericCoverage, genericCropRecord,
+  genericCropsInPageOrder,
+  headerStripKey, isGenericSheet, mergeRecutCrops,
 } from './services/genericSheet';
 import { GENERIC_WORDING } from './services/genericWording';
 import { assignmentLoadRefusal, type LoadRefusal } from './services/loadRefusal';
@@ -136,6 +137,10 @@ const App: React.FC = () => {
   // The same, for crop bitmaps, keyed by region_id.
   const [cropUrls, setCropUrls] = useState<Record<string, string>>({});
   const cropUrlsRef = useRef<Record<string, string>>({});
+  // Generic sheet: page id -> the printed Problem/Part/Page line as the student
+  // filled it in. For matching pages to parts on screen; never submitted.
+  const [headerUrls, setHeaderUrls] = useState<Record<string, string>>({});
+  const headerUrlsRef = useRef<Record<string, string>>({});
 
   /**
    * The shortfall the student has been shown but not yet answered, or null.
@@ -199,6 +204,19 @@ const App: React.FC = () => {
   // Whether the tick still covers what is on screen. Recomputed only when an
   // answer, a page or a crop actually changes (reference identity), which is
   // exactly when it could stop being true.
+  // Generic page: the pages matched to each part, for the question list.
+  const matchedPages = useMemo(() => {
+    if (!isGeneric) return undefined;
+    const parts = state.assignment?.parts ?? [];
+    const out: Record<string, { key: string; url?: string; headerUrl?: string; photo: number }[]> = {};
+    for (const c of genericCropsInPageOrder(state.crops, state.pages)) {
+      const photo = state.pages.findIndex(p => p.id === c.fromPage) + 1;
+      const headerUrl = c.fromPage ? headerUrls[c.fromPage] : undefined;
+      for (const id of chosenPartIds(c, parts)) (out[id] ??= []).push({ key: c.regionId, url: cropUrls[c.regionId], headerUrl, photo });
+    }
+    return out;
+  }, [isGeneric, state.assignment, state.crops, state.pages, cropUrls, headerUrls]);
+
   const personalInfoCurrent = useMemo(() => !!state.assignment && isConfirmationCurrent(personalInfo, {
     assignment: state.assignment,
     submissionData: state.submissionData,
@@ -262,12 +280,25 @@ const App: React.FC = () => {
     Object.values(cropUrlsRef.current).forEach(URL.revokeObjectURL);
     cropUrlsRef.current = {};
     setCropUrls({});
+    // Header strips go with the crops: every caller is starting the pages over.
+    Object.values(headerUrlsRef.current).forEach(URL.revokeObjectURL);
+    headerUrlsRef.current = {};
+    setHeaderUrls({});
+  }, []);
+
+  const setHeaderUrl = useCallback((pageId: string, blob: Blob | null) => {
+    const previous = headerUrlsRef.current[pageId];
+    if (previous) URL.revokeObjectURL(previous);
+    const { [pageId]: _old, ...rest } = headerUrlsRef.current;
+    headerUrlsRef.current = blob ? { ...rest, [pageId]: URL.createObjectURL(blob) } : rest;
+    setHeaderUrls(headerUrlsRef.current);
   }, []);
 
   // Revoke on unmount so a long session does not leak page or crop bitmaps.
   useEffect(() => () => {
     Object.values(pageUrlsRef.current).forEach(URL.revokeObjectURL);
     Object.values(cropUrlsRef.current).forEach(URL.revokeObjectURL);
+    Object.values(headerUrlsRef.current).forEach(URL.revokeObjectURL);
   }, []);
 
   /**
@@ -286,11 +317,16 @@ const App: React.FC = () => {
       const blob = await getPageBlob(cropKey(regionId));
       if (blob) setCropUrl(regionId, blob);
     }
+    for (const page of pages) {
+      const blob = await getPageBlob(headerStripKey(page.id));
+      if (blob) setHeaderUrl(page.id, blob);
+    }
     await pruneExcept([
       ...pages.map((p) => p.id),
       ...Object.keys(crops).map(cropKey),
+      ...pages.map((p) => headerStripKey(p.id)),
     ]);
-  }, [setPageUrl, setCropUrl]);
+  }, [setPageUrl, setCropUrl, setHeaderUrl]);
 
   // Build the QR decoder as soon as the app mounts.
   //
@@ -447,6 +483,17 @@ const App: React.FC = () => {
             message: reg.message,
           };
 
+    // The header strip is for the student to read while matching. It is stored
+    // apart from the crops, under its own key, and nothing packages it.
+    if (generic) {
+      if (result.headerStrip) {
+        await putPageBlob(headerStripKey(pageId), result.headerStrip);
+      } else {
+        await deletePageBlob(headerStripKey(pageId));
+      }
+      setHeaderUrl(pageId, result.headerStrip ?? null);
+    }
+
     const cut: Record<string, CropRef> = {};
     for (const c of result.crops) {
       // The generic sheet: one crop per PAGE, all from the map's one region,
@@ -490,7 +537,7 @@ const App: React.FC = () => {
       // A retaken generic page keeps the part the student chose for it.
       crops: mergeRecutCrops(prev.crops, cut),
     }));
-  }, [setCropUrl]);
+  }, [setCropUrl, setHeaderUrl]);
 
   const handleAddPage = async (ingested: IngestedPage) => {
     const id = newPageId();
@@ -581,7 +628,9 @@ const App: React.FC = () => {
       return;
     }
     void deletePageBlob(id);
+    void deletePageBlob(headerStripKey(id));
     dropPageUrl(id);
+    setHeaderUrl(id, null);
     setState(prev => {
       // Crops the student photographed directly are theirs, not this page's,
       // and survive the page going away.
@@ -619,18 +668,13 @@ const App: React.FC = () => {
     });
   };
 
-  /** Generic sheet: the student chose, or changed, the problem a page is. Its parts start ticked. */
-  const handleChooseProblem = (key: string, problemNumber: number) => {
+  /**
+   * Generic sheet, the matching grid: put the chosen part on these pages, or
+   * take it off. Only that part moves; nothing else is ticked for the student.
+   */
+  const handleAssignPart = (keys: string[], partId: string, on: boolean) => {
     setState(prev => {
-      const crops = chooseGenericProblem(prev.crops, key, problemNumber, prev.assignment?.parts ?? []);
-      return crops === prev.crops ? prev : { ...prev, crops };
-    });
-  };
-
-  /** Generic sheet: the student ticked or unticked one part of a page's problem. */
-  const handleTogglePart = (key: string, partId: string) => {
-    setState(prev => {
-      const crops = toggleGenericPart(prev.crops, key, partId, prev.assignment?.parts ?? []);
+      const crops = assignGenericPart(prev.crops, keys, partId, prev.assignment?.parts ?? [], on);
       return crops === prev.crops ? prev : { ...prev, crops };
     });
   };
@@ -1519,7 +1563,7 @@ const App: React.FC = () => {
         
         {/* Edit Mode View */}
         {state.viewMode === 'edit' && (
-          <div className="max-w-4xl mx-auto p-6 lg:p-12 pb-action-bar">
+          <div className={`${isGeneric ? 'max-w-[1600px]' : 'max-w-4xl'} mx-auto p-6 lg:p-10 pb-action-bar`}>
             {!state.assignment ? (
               <div className="flex flex-col items-center justify-center min-h-[60vh] text-center text-gray-400 py-8">
                 <h2 className="text-xl font-semibold text-gray-600 mb-6">
@@ -1606,9 +1650,9 @@ const App: React.FC = () => {
                      problems={state.assignment.problems}
                      crops={state.crops}
                      cropUrls={cropUrls}
+                     headerUrls={headerUrls}
                      pages={state.pages}
-                     onChooseProblem={handleChooseProblem}
-                     onTogglePart={handleTogglePart}
+                     onAssignPart={handleAssignPart}
                      onReview={handleReviewCrop}
                      onRetakePage={handleRetakeGenericPage}
                      busy={cropBusy}
@@ -1648,6 +1692,8 @@ const App: React.FC = () => {
                        submissionData={state.submissionData}
                        onSubmissionChange={handleSubmissionChange}
                        genericSheet={isGeneric}
+                       parts={state.assignment.parts}
+                       matchedPages={matchedPages}
                      />
                    ))}
                  </div>
