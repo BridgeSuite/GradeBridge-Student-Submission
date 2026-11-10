@@ -21,3 +21,16 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* THE SUBMISSION PDF KEEPS ITS OWN TYPE (2026-11-04). The electronic PDF is a
+   capture of #pdf-content (components/PrintView.tsx), which uses the shared
+   font-sans and font-serif classes. The UC Davis theme points those at
+   Figtree; inside #pdf-content they are pinned to exactly what they were
+   before the theme, so the PDF graders receive does not change. */
+#pdf-content,
+#pdf-content .font-sans {
+  font-family: Inter, system-ui, sans-serif;
+}
+#pdf-content .font-serif {
+  font-family: Georgia, 'Times New Roman', serif;
+}

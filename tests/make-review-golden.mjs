@@ -1,5 +1,6 @@
 // =====================================================
-// Writes tests/fixtures/review_golden_f8ab9d8.json — run ONCE, at f8ab9d8
+// Writes the review golden named in tests/partTitleFixtures.mjs — run ONCE, at
+// the commit it is named for. f8ab9d8 wrote the first; 670f98e the recoloured one.
 // =====================================================
 // The generic review's markup at the commit that carries the approved wording
 // for labelling by problem, then parts (`FINDINGS_SS_MULTIPART_PAGES_2026-10-07`

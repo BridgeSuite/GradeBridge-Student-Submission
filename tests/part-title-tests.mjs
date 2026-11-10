@@ -15,8 +15,8 @@
 //
 // The download check is held to tests/fixtures/part_title_golden_cbb0569.json,
 // as deployed before the title work. The review is held to
-// tests/fixtures/review_golden_f8ab9d8.json, at the approved multi-part
-// wording; see section 3 for why the review moved.
+// tests/fixtures/review_golden_670f98e.json, the approved multi-part wording
+// in the UC Davis colours; see section 3 for why the review moved.
 // =====================================================
 
 import { readFileSync } from 'node:fs';
@@ -97,7 +97,8 @@ check('whitespace inside a title is tidied, not left to break the line oddly', (
 //
 // - the DOWNLOAD CHECK is held byte for byte to `part_title_golden_cbb0569.json`,
 //   as deployed before any title work. It has never moved and must not.
-// - the REVIEW is held byte for byte to `review_golden_f8ab9d8.json`, written at
+// - the REVIEW is held byte for byte to `review_golden_670f98e.json`: the f8ab9d8
+//   review, recoloured by the UC Davis theme at 670f98e. f8ab9d8 was written at
 //   the commit carrying the approved multi-part wording
 //   (`FINDINGS_SS_MULTIPART_PAGES_2026-10-07` §4, rulings A and B). The
 //   cbb0569 review could not survive the change to labelling by problem, which
@@ -109,8 +110,8 @@ results.push('  3. an assignment without titles: the review as approved, the dow
 const golden = JSON.parse(readFileSync(PART_TITLE_GOLDEN_PATH, 'utf8'));
 const reviewGolden = JSON.parse(readFileSync(REVIEW_GOLDEN_PATH, 'utf8'));
 check('the download-check golden is the one frozen at cbb0569', () => eq(golden.builtAt, 'cbb0569', 'builtAt'));
-check('the review golden is the one written at f8ab9d8, with the approved wording', () => {
-  eq(reviewGolden.builtAt, 'f8ab9d8', 'builtAt');
+check('the review golden is the one written at 670f98e, with the approved wording', () => {
+  eq(reviewGolden.builtAt, '670f98e', 'builtAt');
   for (const k of ['noTitles', 'withTitles']) {
     assert(reviewGolden[k].includes('>Which problem is this page for?<'), `${k} lacks the approved prompt`);
   }
@@ -129,7 +130,7 @@ for (const [what, props, noticeArgs] of [
     const now = await todaysOutputs(renderReview, props, noticeArgs);
     eq(now.notice, golden.notice, 'download check');
   });
-  await checkAsync(`${what}: the review is byte-identical to the f8ab9d8 golden`, async () => {
+  await checkAsync(`${what}: the review is byte-identical to the 670f98e golden`, async () => {
     const now = await todaysOutputs(renderReview, props, noticeArgs);
     sameAs(now.review, reviewGolden.noTitles, 'review');
   });
@@ -153,7 +154,7 @@ for (const [what, props, noticeArgs] of [
 // in the dropdown itself and the line under it, exactly as before.
 results.push('  4. with titles: dropdown, tick boxes, line under it, image description, coverage list, download check');
 const html = renderReview({ parts, problems, crops, cropUrls, pages });
-check('with titles, the review is byte-identical to the f8ab9d8 golden', () => sameAs(html, reviewGolden.withTitles, 'review'));
+check('with titles, the review is byte-identical to the 670f98e golden', () => sameAs(html, reviewGolden.withTitles, 'review'));
 const tickLabels = (h) => [...h.matchAll(/<input[^>]*type="checkbox"[^>]*>\s*<span[^>]*>([^<]*)<\/span>/g)].map(m => textOf(m[1]));
 check('the dropdown offers every problem: a one-part problem with its part\'s title, a multi-part one with its own name', () => {
   const selects = html.match(/<select[\s\S]*?<\/select>/g) ?? [];
