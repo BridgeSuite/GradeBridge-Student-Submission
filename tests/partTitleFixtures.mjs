@@ -29,7 +29,7 @@ export const PART_TITLE_GOLDEN_PATH = join(HERE, 'fixtures', 'part_title_golden_
  * strings are PROPOSED in services/genericWording.ts and not yet approved; the
  * golden says the review is what that commit wrote, not that it was approved.
  */
-export const REVIEW_GOLDEN_PATH = join(HERE, 'fixtures', 'review_golden_cdd11ee.json');
+export const REVIEW_GOLDEN_PATH = join(HERE, 'fixtures', 'review_golden_e6cf94c.json');
 
 const cryptoSvc = await loadModule('cryptoService.ts', 'pt_crypto.mjs');
 export const sample = await cryptoSvc.decryptJson(readFileSync(join(HERE, 'fixtures', 'generic_sheet_sample.json'), 'utf8').trim());
