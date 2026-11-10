@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { CropRef, PageRef, StoredLayoutMap, StudentReview } from '../types';
 import { inAssignmentOrder } from '../services/layoutMap';
+import { useLightbox } from './Lightbox';
 
 /**
  * The review step, and it is the safety net.
@@ -41,6 +42,7 @@ const REVIEW_LABEL: Record<StudentReview, string> = {
 const CropReview: React.FC<CropReviewProps> = ({
   layout, crops, cropUrls, pages, onReview, onDirectCapture, onRephotographPage, busy,
 }) => {
+  const lightbox = useLightbox();
   const directRef = useRef<HTMLInputElement>(null);
   const pageRef = useRef<HTMLInputElement>(null);
   const directTarget = useRef<string | null>(null);
@@ -93,7 +95,7 @@ const CropReview: React.FC<CropReviewProps> = ({
       />
 
       <div className="bg-slate-50 px-6 py-4 border-b border-gray-200">
-        <h2 id="review-heading" className="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <h2 id="review-heading" className="text-lg font-bold text-aggie-900 flex items-center gap-2">
           <ImageIcon className="w-5 h-5 text-slate-500" />
           Check every answer before you submit
         </h2>
@@ -150,11 +152,18 @@ const CropReview: React.FC<CropReviewProps> = ({
 
               <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
                 {url ? (
-                  <img
-                    src={url}
-                    alt={`Your answer to ${row.partId}, as it will be collected`}
-                    className="w-full h-auto max-h-[60vh] object-contain bg-white"
-                  />
+                  <button type="button" className="block w-full cursor-zoom-in"
+                    onClick={() => {
+                      const shown = ordered.filter(r => cropUrls[r.regionId]);
+                      lightbox(shown.map(r => ({ src: cropUrls[r.regionId], caption: r.partId })),
+                        Math.max(0, shown.findIndex(r => r.regionId === row.regionId)));
+                    }}>
+                    <img
+                      src={url}
+                      alt={`Your answer to ${row.partId}, as it will be collected`}
+                      className="w-full h-auto max-h-[60vh] object-contain bg-white"
+                    />
+                  </button>
                 ) : (
                   <div className="p-6 text-center text-sm text-gray-500">
                     {isBusy ? (
@@ -175,7 +184,7 @@ const CropReview: React.FC<CropReviewProps> = ({
               </div>
 
               {crop && crop.cropSource === 'direct_capture' && (
-                <p className="mt-2 text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                <p className="mt-2 text-xs text-aggie-800 bg-aggie-50 border border-aggie-200 rounded px-3 py-2">
                   You photographed this answer yourself, so it was not cut from the printed sheet.
                   That is fine, it is submitted exactly as it is here.
                 </p>
@@ -227,7 +236,7 @@ const CropReview: React.FC<CropReviewProps> = ({
                   type="button"
                   disabled={isBusy}
                   onClick={() => { directTarget.current = row.regionId; directRef.current?.click(); }}
-                  className="min-h-[44px] px-4 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 disabled:opacity-40"
+                  className="min-h-[44px] px-4 rounded-lg text-sm font-medium flex items-center gap-2 border border-aggie-300 bg-aggie-50 text-aggie-800 hover:bg-aggie-100 disabled:opacity-40"
                 >
                   {hasCamera ? <Camera className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
                   Photograph just this answer

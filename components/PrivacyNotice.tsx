@@ -14,7 +14,7 @@ export const PrivacyNotice: React.FC<PrivacyNoticeProps> = ({ onAccept }) => {
             <ShieldCheck className="w-8 h-8" />
             <div>
               <h2 className="text-2xl font-bold">Welcome to GradeBridge Student Submission</h2>
-              <p className="text-blue-200 text-sm mt-1">Privacy & Data Notice</p>
+              <p className="text-aggie-200 text-sm mt-1">Privacy & Data Notice</p>
             </div>
           </div>
         </div>
@@ -31,15 +31,15 @@ export const PrivacyNotice: React.FC<PrivacyNoticeProps> = ({ onAccept }) => {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <Info className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 bg-aggie-50 border border-aggie-200 rounded-lg">
+            <Info className="w-6 h-6 text-aggie-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-bold text-blue-900 mb-2">FERPA Compliance & Data Persistence</h3>
-              <p className="text-blue-800 text-sm mb-2">
+              <h3 className="font-bold text-aggie-900 mb-2">FERPA Compliance & Data Persistence</h3>
+              <p className="text-aggie-800 text-sm mb-2">
                 Because data never leaves your device until you download your submission package and submit it as your instructor has told you to,
                 your educational records remain in your control and FERPA-compliant.
               </p>
-              <p className="text-blue-800 text-sm">
+              <p className="text-aggie-800 text-sm">
                 Your work is automatically saved to your browser's "Local Storage". Please do not clear your
                 browser cache while working on an assignment. We strongly recommend using the "Backup" feature
                 frequently to export your work.

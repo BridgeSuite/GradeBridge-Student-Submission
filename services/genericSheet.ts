@@ -239,6 +239,68 @@ export const toggleGenericPart = (
 };
 
 /**
+ * The matching grid: put one part on these pages, or take it off them.
+ *
+ * This is the part-first way of labelling. The student picks a part in the
+ * side list, then clicks every page that carries it, so **only the part they
+ * clicked is added**. Nothing is ticked on their behalf, unlike
+ * `chooseGenericProblem`, where choosing a problem ticks all of its parts.
+ *
+ * The rule that parts of two problems never share a page still holds. A page
+ * that carries parts of another problem is moved to this part, and its old
+ * labels go. Taking the last part off a page clears its problem as well, so
+ * the page reads as unlabelled and not as "Problem 1, no part". Only the label
+ * moves: the picture, its sign-off and its capture id stay as they are.
+ */
+export const assignGenericPart = (
+  crops: Record<string, CropRef>, keys: readonly string[], partId: string,
+  parts: readonly GenericPart[], on: boolean,
+): Record<string, CropRef> => {
+  const part = parts.find(p => p.part_id === partId);
+  if (!part) return crops;
+  let out = crops;
+  for (const key of keys) {
+    const crop = out[key];
+    if (!crop || crop.partSource !== 'student') continue;
+    const now = chosenPartIds(crop, parts);
+    const sameProblem = chosenProblemNumber(crop, parts) === part.problem_number;
+    let next: string[];
+    if (on) {
+      if (sameProblem && now.includes(partId)) continue;
+      next = sameProblem ? [...now, partId] : [partId];
+    } else {
+      if (!now.includes(partId)) continue;
+      next = now.filter(id => id !== partId);
+    }
+    const ordered = parts.filter(p => next.includes(p.part_id)).map(p => p.part_id);
+    out = { ...out, [key]: withParts(crop, ordered.length ? part.problem_number : undefined, ordered) };
+  }
+  return out;
+};
+
+/**
+ * Where the printed `Problem ___ Part ___ Page ___ of ___` line sits on the
+ * generic answer page, in page millimetres. It starts at the box's left edge,
+ * ends just past "of ______" (about 136 mm, well short of the QR keep-out at
+ * 166 mm), and covers the 12 pt fields line
+ * (top 28 mm) with room above it for handwriting. It stops before the bold
+ * line at 37 mm. The geometry is the Assignment Maker's
+ * (`GENERIC_BOX_MM`, `GENERIC_TEXT_TOP_MM` in `services/genericAnswerPage.ts`).
+ *
+ * **This strip is for the student's eyes only.** It is cut so they can see
+ * what they wrote while they match pages to parts. It is kept in this browser,
+ * and it is never put in the submission or in a backup. The page tells them
+ * anything outside the box is not collected, and that stays true.
+ */
+export const GENERIC_HEADER_STRIP_MM = { x0: 10.0, y0: 20.0, x1: 140.0, y1: 36.5 } as const;
+
+/** Long edge of the header strip, px. Big enough to read handwriting. */
+export const GENERIC_HEADER_STRIP_LONG_EDGE_PX = 1200;
+
+/** The IndexedDB key for a page's header strip. Never a crop key and never a page id. */
+export const headerStripKey = (pageId: string): string => `header_${pageId}`;
+
+/**
  * The student chose ONE part for a page, or chose again: the labelling there
  * was before a page could carry several parts, kept so that flow stays
  * expressible and its tests stay as written. `''` clears the choice. Only the

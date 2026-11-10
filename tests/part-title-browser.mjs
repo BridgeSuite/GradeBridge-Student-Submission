@@ -12,10 +12,10 @@
 // React's own server renderer and styled with the app's real compiled CSS (a
 // fresh `vite build`), then measured at 390 px with phone emulation.
 //
-// The closed dropdown is drawn by the phone and clips. Since
-// `WORKORDER_SS_MULTIPART_PAGES_2026-10-07` a part of a multi-part problem is
-// named in a tick box, so the tick box is what this measures: the long title is
-// on part (a) of Problem 1.
+// Since 2026-11-04 a part is named on its button in the parts list beside the
+// matching grid, so that button's label is what this measures: the long title
+// is on part (a) of Problem 1. On a phone the list is a row that scrolls
+// sideways on its own; the page itself must not.
 // =====================================================
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -74,7 +74,7 @@ try {
   await send('Page.setDocumentContent', { frameId: frameTree.frame.id, html: doc });
   await sleep(500);
   const m = await evaluate(`(() => {
-    const el = document.querySelector('[data-part-ticks] label');
+    const el = document.querySelector('[data-part-id="1(a)"] span');
     if (!el) return null;
     const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
     const lineH = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.25;
@@ -82,12 +82,12 @@ try {
       scrollW: el.scrollWidth, clientW: el.clientWidth, overflow: cs.overflow + '/' + cs.textOverflow + '/' + cs.whiteSpace,
       innerW: innerWidth, docScrollW: document.scrollingElement.scrollWidth };
   })()`);
-  check('the tick box is rendered for the long title', m !== null);
+  check('the part\'s button is rendered for the long title', m !== null);
   if (m) {
     check('the whole title is there, not cut', m.text.replace(/\s+/g, ' ').trim() === FULL, JSON.stringify(m.text));
     check(`it wraps onto more than one line (${m.lines} lines)`, m.lines >= 2, JSON.stringify(m));
-    check('nothing overflows the tick box: no hidden text', m.scrollW <= m.clientW + 1, `scrollWidth ${m.scrollW} > clientWidth ${m.clientW}`);
-    check('the tick box is inside the 390 px screen', m.left >= 0 && m.right <= m.innerW + 0.5, `${m.left}..${m.right} of ${m.innerW}`);
+    check('nothing overflows the label: no hidden text', m.scrollW <= m.clientW + 1, `scrollWidth ${m.scrollW} > clientWidth ${m.clientW}`);
+    check('the label is inside the 390 px screen', m.left >= 0 && m.right <= m.innerW + 0.5, `${m.left}..${m.right} of ${m.innerW}`);
     check('the page does not scroll sideways', m.docScrollW <= m.innerW, `scrollWidth ${m.docScrollW}`);
     check('no ellipsis and no forced single line', !/ellipsis/.test(m.overflow) && !/nowrap/.test(m.overflow), m.overflow);
   }
