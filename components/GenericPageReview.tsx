@@ -9,6 +9,7 @@ import {
   partDisplayLabel, problemsOf,
 } from '../services/genericSheet';
 import { GENERIC_WORDING as W } from '../services/genericWording';
+import SwipeDeck from './SwipeDeck';
 
 /**
  * The review step on the generic answer page, where it is also the labelling
@@ -25,8 +26,9 @@ import { GENERIC_WORDING as W } from '../services/genericWording';
  * Parts of two problems still never share a page (`assignGenericPart`).
  *
  * **2. Check each page.** Only the cut-out box, the picture that is collected
- * and read, for each page in turn, with "Looks right" and "Something is wrong"
- * as before.
+ * and read, one page at a time in a swipe deck
+ * (`SwipeDeck.tsx`): right for "Looks right", left for "Something is wrong",
+ * up for "Not sure yet". The arrow keys do the same.
  *
  * Above both steps, what the labels add up to: parts with no page, a part with
  * several pages while another has none, pages with no part, pages that look
@@ -489,82 +491,81 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
 
   // ---- Step 2: one page at a time ------------------------------------------
   const checkStep = (
-    <ul className="max-w-3xl mx-auto divide-y divide-gray-200">
-      {ordered.map(c => {
-        const url = cropUrls[c.regionId];
-        const n = photoNumber(c);
-        const ids = partsOf.get(c.regionId) ?? [];
-        const isBusy = busy === c.regionId || busy === `page-${c.fromPage}`;
-        return (
-          <li key={c.regionId} className="py-5">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="font-semibold text-gray-900">{W.photoHeading(n)}</span>
-              {partChips(c)}
-            </div>
-            {ids.length > 0 && (
-              <p className="mb-2 text-sm text-gray-800 break-words">
-                {parts.filter(p => ids.includes(p.part_id)).map(shown).join(' · ')}
-              </p>
-            )}
-            {ids.length === 0 && (
-              <p className="mb-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded px-3 py-2">{W.unlabelledNote}</p>
-            )}
-            {/* Only the box: exactly the picture that is collected and read.
-                The header strip is for matching, in step 1, and is not here. */}
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
-              {url ? (
-                <img src={url} draggable={false}
-                  alt={`${W.photoHeading(n)}${parts.filter(p => ids.includes(p.part_id)).map(p => `, ${shown(p)}`).join('')}`}
-                  className="w-full h-auto max-h-[50vh] object-contain bg-white" />
-              ) : (
-                <div className="p-6 text-center text-sm text-gray-500"><RefreshCw className="w-4 h-4 animate-spin inline" /></div>
+    <div className="max-w-xl mx-auto">
+      <SwipeDeck
+        cards={ordered.map(c => ({ ...c, key: c.regionId }))}
+        cardName={(c) => W.photoHeading(photoNumber(c))}
+        disabled={(c) => busy === c.regionId || busy === `page-${c.fromPage}`}
+        onReview={onReview}
+        wording={{
+          hint: W.deckHint, looksRight: 'Looks right', somethingWrong: 'Something is wrong',
+          notSure: W.notSure, undo: W.undo, progress: W.deckProgress, done: W.deckDone,
+          againUnsure: W.deckAgainUnsure, againAll: W.deckAgainAll, jump: W.deckJump,
+        }}
+        renderThumb={(c) => {
+          const url = cropUrls[c.regionId];
+          return url ? <img src={url} alt="" draggable={false} className="w-full aspect-square object-cover" />
+            : <div className="w-full aspect-square bg-gray-100" />;
+        }}
+        renderCard={(c) => {
+          const url = cropUrls[c.regionId];
+          const n = photoNumber(c);
+          const ids = partsOf.get(c.regionId) ?? [];
+          return (
+            <div>
+              <div className="px-4 py-3 flex flex-wrap items-center gap-2 border-b border-gray-100">
+                <span className="font-semibold text-gray-900">{W.photoHeading(n)}</span>
+                {partChips(c)}
+              </div>
+              {ids.length > 0 && (
+                <p className="px-4 pt-2 text-sm text-gray-800 break-words">
+                  {parts.filter(p => ids.includes(p.part_id)).map(shown).join(' · ')}
+                </p>
               )}
+              {ids.length === 0 && (
+                <p className="mx-4 mt-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded px-3 py-2">{W.unlabelledNote}</p>
+              )}
+              <div className="p-3">
+                {/* Only the box: exactly the picture that is collected and read.
+                    The header strip is for matching, in step 1, and is not here. */}
+                <div className="rounded-lg border border-gray-200 overflow-hidden">
+                  {url ? (
+                    <img src={url} draggable={false}
+                      alt={`${W.photoHeading(n)}${parts.filter(p => ids.includes(p.part_id)).map(p => `, ${shown(p)}`).join('')}`}
+                      className="w-full h-auto max-h-[50vh] object-contain bg-white" />
+                  ) : (
+                    <div className="p-6 text-center text-sm text-gray-500"><RefreshCw className="w-4 h-4 animate-spin inline" /></div>
+                  )}
+                </div>
+                {c.qualityFlags.length > 0 && (
+                  <ul className="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded px-3 py-2 space-y-1">
+                    {c.qualityFlags.map((flag) => (
+                      <li key={flag} className="flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>
+                          {flag === 'looks-empty'
+                            ? 'This looks blank. If you wrote an answer here, check the picture above shows it.'
+                            : flag}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button
+                  type="button"
+                  disabled={busy === c.regionId || busy === `page-${c.fromPage}` || !c.fromPage}
+                  onClick={() => { retakeTarget.current = c.fromPage ?? null; retakeRef.current?.click(); }}
+                  className="mt-3 min-h-[40px] px-3 rounded-lg text-sm font-medium flex items-center gap-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  {hasCamera ? <Camera className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                  {W.retakeThisPage}
+                </button>
+              </div>
             </div>
-            {c.qualityFlags.length > 0 && (
-              <ul className="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded px-3 py-2 space-y-1">
-                {c.qualityFlags.map((flag) => (
-                  <li key={flag} className="flex items-start gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                    <span>
-                      {flag === 'looks-empty'
-                        ? 'This looks blank. If you wrote an answer here, check the picture above shows it.'
-                        : flag}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button" disabled={isBusy} onClick={() => onReview(c.regionId, 'signed_off')}
-                className={`min-h-[44px] px-4 rounded-lg text-sm font-medium flex items-center gap-2 border transition-colors disabled:opacity-40 ${
-                  c.review === 'signed_off' ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-300 text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4" /> Looks right
-              </button>
-              <button
-                type="button" disabled={isBusy} onClick={() => onReview(c.regionId, 'flagged')}
-                className={`min-h-[44px] px-4 rounded-lg text-sm font-medium flex items-center gap-2 border transition-colors disabled:opacity-40 ${
-                  c.review === 'flagged' ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-gray-300 text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                <Flag className="w-4 h-4" /> Something is wrong
-              </button>
-              <button
-                type="button"
-                disabled={isBusy || !c.fromPage}
-                onClick={() => { retakeTarget.current = c.fromPage ?? null; retakeRef.current?.click(); }}
-                className="min-h-[44px] px-4 rounded-lg text-sm font-medium flex items-center gap-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-              >
-                {hasCamera ? <Camera className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                {W.retakeThisPage}
-              </button>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+          );
+        }}
+      />
+    </div>
   );
 
   return (

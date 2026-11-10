@@ -112,6 +112,17 @@ export const GENERIC_WORDING = {
   goToCheck: 'Next: check each page',
   /** Under each part of the question list, once pages carry it. */
   matchedPagesLabel: (n: number): string => (n === 1 ? 'Matched page' : `Matched pages (${n})`),
+  /** The one-at-a-time check. */
+  deckHint:
+    'Swipe right, or press →, if it looks right. Swipe left, or press ←, if something is wrong. ' +
+    'Swipe up, or press ↑, if you are not sure; it comes back at the end.',
+  notSure: 'Not sure yet',
+  undo: 'Undo',
+  deckProgress: (done: number, total: number): string => `${done} of ${total} done`,
+  deckDone: 'You have been through every page.',
+  deckAgainUnsure: 'Go through the pages you were not sure about',
+  deckAgainAll: 'Go through every page again',
+  deckJump: 'Jump to a page',
   // ---- end of PROPOSED ------------------------------------------------------
 
   /** Loading a generic-sheet file that is not well formed. */
