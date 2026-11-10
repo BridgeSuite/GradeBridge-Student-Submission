@@ -712,7 +712,7 @@ await build({
       import PageUploader from './components/PageUploader';
       const noop = () => {}, anoop = async () => {};
       export const renderReview = (props) => renderToStaticMarkup(React.createElement(GenericPageReview,
-        { onChooseProblem: noop, onTogglePart: noop, onReview: noop, onRetakePage: anoop, busy: null, cropUrls: {}, ...props }));
+        { onAssignPart: noop, onReview: noop, onRetakePage: anoop, busy: null, cropUrls: {}, ...props }));
       export const renderUploader = (props) => renderToStaticMarkup(React.createElement(PageUploader,
         { pages: [], pageUrls: {}, onAddPage: anoop, onReplacePage: anoop, onRemovePage: noop,
           onMovePage: noop, onRotatePage: anoop, ...props }));
@@ -736,38 +736,58 @@ const { renderReview, renderUploader } = await import(pathToFileURL(harnessFile)
 const textOf = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 const html = renderReview({ parts, crops, pages });
-// Since `WORKORDER_SS_MULTIPART_PAGES_2026-10-07` S1 the page is labelled by
-// problem, then by tick boxes for the parts of a multi-part problem.
-const rows = html.split(/<li /).slice(1);
-const ticksOf = (row) => [...row.matchAll(/<input[^>]*type="checkbox"[^>]*>/g)]
-  .map(m => [(/value="([^"]*)"/.exec(m[0]) ?? [])[1], /checked=""/.test(m[0])]);
-check('every page gets a problem choice offering every problem, by its label', () => {
-  const selects = html.match(/<select[\s\S]*?<\/select>/g) ?? [];
-  assert(selects.length === 4, `${selects.length} selects for 4 pages`);
-  for (const s of selects) {
-    assert(s.includes('>Problem 1<') && s.includes('>Problem 2<'), 'a problem is not offered');
-  }
+// Since 2026-11-04 the page is labelled part first: the parts are a list, each
+// photographed page is a card in a grid, and a click puts the chosen part on a
+// page. The card says which parts the page carries.
+const cardsOf = (h) => [...h.matchAll(/<li[^>]*data-page-card="([^"]*)"[^>]*data-parts="([^"]*)"/g)].map(m => [m[1], m[2]]);
+const railOf = (h) => [...h.matchAll(/<button[^>]*data-part-id="([^"]*)"[^>]*data-count="([^"]*)"/g)].map(m => [m[1], Number(m[2])]);
+check('every page is a card in the matching grid, and every part is in the list', () => {
+  assertEqual(cardsOf(html).map(c => c[0]), pages.map(p => P.genericCropKey('gen', p.id)), 'one card per photo, in page order');
+  assertEqual(railOf(html).map(r => r[0]), parts.map(p => p.part_id), 'every part listed, in the file\'s order');
 });
-check('the choice shows what the student chose, beside the crop', () => {
-  const selects = html.match(/<select[\s\S]*?<\/select>/g);
-  assert(/value="1" selected=""/.test(selects[0]), 'photo 1 does not show Problem 1');
-  assert(/value="1" selected=""/.test(selects[1]), 'photo 2 does not show Problem 1');
-  assert(/value="" selected=""/.test(selects[3]), 'photo 4 does not show as unchosen');
-  assertEqual(ticksOf(rows[0]), [['1(a)', true], ['1(b)', false]], 'photo 1 ticks');
-  assertEqual(ticksOf(rows[1]), [['1(a)', false], ['1(b)', true]], 'photo 2 ticks');
-  assertEqual(ticksOf(rows[3]), [], 'photo 4 has a problem to tick');
+check('each card says what the student chose, and the list counts it', () => {
+  assertEqual(cardsOf(html).map(c => c[1]), ['1(a)', '1(b)', '1(a)', ''], 'parts per card');
+  assertEqual(railOf(html), [['1(a)', 2], ['1(b)', 1], ['2', 0]], 'pages per part');
 });
-check('a one-part problem shows no tick boxes', () => {
-  const k = P.genericCropKey('gen', 'pgD');
-  const one = renderReview({ parts, crops: P.chooseGenericProblem(crops, k, 2, parts), pages });
-  assertEqual(ticksOf(one.split(/<li /)[4]), [], 'Problem 2 ticks');
-  assert(/value="2" selected=""/.test(one.match(/<select[\s\S]*?<\/select>/g)[3]), 'photo 4 does not show Problem 2');
+check('no dropdown and no tick boxes: nothing is ticked for the student', () => {
+  assert(!/<select/.test(html), 'a dropdown is still rendered');
+  // A part's tick box carried its part id as its value. The "Hide matched
+  // pages" switch is a checkbox too, and has none.
+  assert(!/<input[^>]*type="checkbox"[^>]*value=/.test(html), 'tick boxes are still rendered');
+});
+check('the list starts on the first part with no page', () =>
+  assert(/<button[^>]*data-part-id="2"[^>]*aria-pressed="true"/.test(html), 'part 2 is not the one chosen'));
+check('a page that carries the chosen part is shown pressed, and no other', () => {
+  // Once every part has a page, the list starts on the first part, 1(a).
+  const on = renderReview({ parts, crops: P.assignGenericPart(crops, [P.genericCropKey('gen', 'pgD')], '2', parts, true), pages });
+  assert(/data-page-card="gen@pgD"[^>]*data-parts="2"/.test(on), 'photo 4 does not carry part 2');
+  assert(/<button[^>]*data-part-id="1\(a\)"[^>]*aria-pressed="true"/.test(on), 'part 1(a) is not the one chosen');
+  const pressed = (id) => { const card = on.split(`data-page-card="gen@${id}"`)[1]; return /aria-pressed="true"/.test(card.slice(0, card.indexOf('</button>'))); };
+  assertEqual(['pgA', 'pgB', 'pgC', 'pgD'].map(pressed), [true, false, true, false], 'pressed pages');
+});
+check('assignGenericPart adds only the part clicked, and a part of another problem moves the page', () => {
+  const kA = P.genericCropKey('gen', 'pgA'), kD = P.genericCropKey('gen', 'pgD');
+  const fresh = P.assignGenericPart(crops, [kD], '1(b)', parts, true);
+  assertEqual(P.chosenPartIds(fresh[kD], parts), ['1(b)'], 'an unlabelled page gets only the part clicked');
+  const both = P.assignGenericPart(fresh, [kD], '1(a)', parts, true);
+  assertEqual(P.chosenPartIds(both[kD], parts), ['1(a)', '1(b)'], 'a second part of the same problem is added, in order');
+  const moved = P.assignGenericPart(both, [kD], '2', parts, true);
+  assertEqual(P.chosenPartIds(moved[kD], parts), ['2'], 'a part of another problem replaces the old ones');
+  assert(P.chosenProblemNumber(moved[kD], parts) === 2, 'the problem did not move');
+  const off = P.assignGenericPart(moved, [kD], '2', parts, false);
+  assertEqual(P.chosenPartIds(off[kD], parts), [], 'the part did not come off');
+  assert(P.chosenProblemNumber(off[kD], parts) === null, 'a page with no part still names a problem');
+  assert(off[kD].captureId === crops[kD].captureId && off[kD].review === crops[kD].review, 'the picture state moved');
+  const range = P.assignGenericPart(crops, [kA, kD], '1(b)', parts, true);
+  assertEqual([kA, kD].map(k => P.chosenPartIds(range[k], parts)), [['1(a)', '1(b)'], ['1(b)']], 'a range');
+  assert(P.assignGenericPart(crops, [kA], '1(a)', parts, true) === crops, 'a no-op made a new object');
+  assert(P.assignGenericPart(crops, [kA], 'nope', parts, true) === crops, 'an unknown part changed something');
 });
 check('the review names what is missing and never says it blocks', () => {
   const t = textOf(html);
   assert(t.includes(P.GENERIC_WORDING.coverageMissing) && t.includes('Problem 2'), 'missing part not named');
   assert(t.includes(P.GENERIC_WORDING.coverageNeverBlocks), 'does not say it never blocks');
-  assert(t.includes(P.GENERIC_WORDING.unlabelledNote), 'unlabelled page not marked');
+  assert(t.includes(P.GENERIC_WORDING.pageNoPart), 'unlabelled page not marked');
   assert(!PLATFORM.test(t), 'names a platform');
 });
 check('the uploader shows the identity reminder on the generic sheet, and only there', () => {
@@ -792,13 +812,17 @@ rmSync(outDir, { recursive: true, force: true });
 
 const codeOnly = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const APP = codeOnly(readFileSync(join(REPO, 'App.tsx'), 'utf8'));
-check('App: the review\'s problem choice and tick boxes are wired to chooseGenericProblem and toggleGenericPart', () => {
-  assert(/onChooseProblem=\{handleChooseProblem\}/.test(APP), 'GenericPageReview is not given the problem handler');
-  assert(/onTogglePart=\{handleTogglePart\}/.test(APP), 'GenericPageReview is not given the tick handler');
-  assert(/const handleChooseProblem = [\s\S]{0,200}?chooseGenericProblem\(prev\.crops, key, problemNumber, prev\.assignment\?\.parts \?\? \[\]\)/.test(APP),
-    'the problem handler does not choose');
-  assert(/const handleTogglePart = [\s\S]{0,200}?toggleGenericPart\(prev\.crops, key, partId, prev\.assignment\?\.parts \?\? \[\]\)/.test(APP),
-    'the tick handler does not tick');
+check('App: the matching grid is wired to assignGenericPart', () => {
+  assert(/onAssignPart=\{handleAssignPart\}/.test(APP), 'GenericPageReview is not given the assign handler');
+  assert(/const handleAssignPart = [\s\S]{0,200}?assignGenericPart\(prev\.crops, keys, partId, prev\.assignment\?\.parts \?\? \[\], on\)/.test(APP),
+    'the assign handler does not assign');
+});
+check('App: the header strip is stored under its own key and never packaged', () => {
+  assert(/putPageBlob\(headerStripKey\(pageId\), result\.headerStrip\)/.test(APP), 'the strip is not stored');
+  const PKG = codeOnly(readFileSync(join(REPO, 'services', 'submissionPackage.ts'), 'utf8'));
+  assert(!/header/i.test(PKG), 'the package reads a header strip');
+  assert(!/headerStripKey|headerUrls/.test(APP.slice(APP.indexOf('const handleExportWork'), APP.indexOf('const handleExportWork') + 4000)),
+    'the backup carries header strips');
 });
 check('App: generic pages are cut as the generic sheet, and re-cuts keep their labels', () => {
   assert(/registerAndCropPage\(blob, layout, \{ generic \}\)/.test(APP), 'registration not told');

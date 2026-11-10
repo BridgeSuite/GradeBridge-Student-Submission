@@ -79,6 +79,52 @@ export const GENERIC_WORDING = {
   coverageNeverBlocks: 'None of this stops you downloading.',
   chipUnlabelled: (n: number): string => `${n} without a part`,
 
+  // ---- PROPOSED, NOT YET APPROVED ------------------------------------------
+  // The part-first matching grid and the check step that replace the per-page
+  // dropdown and tick boxes, and the matched pages shown under each part. Every
+  // string below needs approval before it ships, as the header of this file says.
+
+  /** The two steps of the review section. */
+  stepMatch: '1. Match pages to parts',
+  stepCheck: '2. Check each page',
+  /** Above the matching grid. */
+  matchIntro:
+    'Choose a part from the list, then click every page that has it. Click a page again to take the part off. ' +
+    'Ctrl-click (⌘-click on a Mac) also adds or removes one page, and Shift-click selects, or unselects, every page between. ' +
+    'Drag a box around pages to select them all; start the box on a selected page to unselect, or hold Ctrl (⌘) to flip each one.',
+  partsListHeading: 'Parts',
+  matchActive: (label: string): string => `Pages for ${label}`,
+  matchPickPartFirst: 'Choose a part from the list first.',
+  partPageCount: (n: number): string => (n === 1 ? '1 page' : `${n} pages`),
+  partNoPage: 'No page yet',
+  nextPart: 'Next part',
+  previousPart: 'Back',
+  nextPartKeys: 'Next part (N or ])',
+  previousPartKeys: 'Previous part (B or [)',
+  unselectAll: (n: number): string => (n === 0 ? 'Unselect all' : `Unselect all (${n})`),
+  pageNoPart: 'No part yet',
+  headerMissing: 'The top of this page could not be cut out.',
+  sizeLabel: 'Size',
+  sizeCompact: 'Compact',
+  sizeLarge: 'Large',
+  sizeExtraLarge: 'Extra large',
+  hideMatched: 'Hide matched pages',
+  goToCheck: 'Next: check each page',
+  /** Under each part of the question list, once pages carry it. */
+  matchedPagesLabel: (n: number): string => (n === 1 ? 'Matched page' : `Matched pages (${n})`),
+  /** The one-at-a-time check. */
+  deckHint:
+    'Swipe right, or press →, if it looks right. Swipe left, or press ←, if something is wrong. ' +
+    'Swipe up, or press ↑, if you are not sure; it comes back at the end.',
+  notSure: 'Not sure yet',
+  undo: 'Undo',
+  deckProgress: (done: number, total: number): string => `${done} of ${total} done`,
+  deckDone: 'You have been through every page.',
+  deckAgainUnsure: 'Go through the pages you were not sure about',
+  deckAgainAll: 'Go through every page again',
+  deckJump: 'Jump to a page',
+  // ---- end of PROPOSED ------------------------------------------------------
+
   /** Loading a generic-sheet file that is not well formed. */
   badGenericFile:
     'This assignment file is incomplete, or was made by a newer version of the app. ' +

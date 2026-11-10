@@ -23,8 +23,13 @@ const REPO = resolve(HERE, '..');
 
 /** The download check, held byte for byte since cbb0569. Its `review` is no longer compared. */
 export const PART_TITLE_GOLDEN_PATH = join(HERE, 'fixtures', 'part_title_golden_cbb0569.json');
-/** The review, at the commit carrying the approved multi-part wording (`tests/make-review-golden.mjs`). */
-export const REVIEW_GOLDEN_PATH = join(HERE, 'fixtures', 'review_golden_f8ab9d8.json');
+/**
+ * The review, at the commit that replaced the dropdown and tick boxes with the
+ * part-first matching grid (cdd11ee, `tests/make-review-golden.mjs`). Its new
+ * strings are PROPOSED in services/genericWording.ts and not yet approved; the
+ * golden says the review is what that commit wrote, not that it was approved.
+ */
+export const REVIEW_GOLDEN_PATH = join(HERE, 'fixtures', 'review_golden_cdd11ee.json');
 
 const cryptoSvc = await loadModule('cryptoService.ts', 'pt_crypto.mjs');
 export const sample = await cryptoSvc.decryptJson(readFileSync(join(HERE, 'fixtures', 'generic_sheet_sample.json'), 'utf8').trim());
