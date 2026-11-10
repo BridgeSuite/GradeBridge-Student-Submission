@@ -68,10 +68,10 @@ const ProblemRenderer: React.FC<ProblemRendererProps> = ({ problem, problemIndex
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8 transition-all hover:shadow-md">
       {/* Problem Header */}
       <div className="bg-slate-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-lg font-bold text-slate-800">
+        <h2 className="text-lg font-bold text-aggie-900">
           Problem {problemIndex + 1}{problem.name ? `: ${problem.name}` : ''}
         </h2>
-        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full border border-blue-200">
+        <span className="bg-aggie-100 text-aggie-800 text-xs font-medium px-2.5 py-0.5 rounded-full border border-aggie-200">
           {problemPoints} Points
         </span>
       </div>

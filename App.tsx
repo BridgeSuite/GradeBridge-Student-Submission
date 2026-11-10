@@ -1426,7 +1426,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-5 w-80 text-center">
             {/* Spinner */}
-            <svg className="animate-spin w-12 h-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin w-12 h-12 text-aggie-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
             </svg>
@@ -1438,12 +1438,12 @@ const App: React.FC = () => {
             </div>
             {/* Step indicators */}
             <div className="w-full flex items-center gap-2 text-xs">
-              <div className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded ${pdfProgress.phase === 'pdf' ? 'bg-blue-50 text-blue-700 font-semibold' : 'bg-green-50 text-green-700'}`}>
+              <div className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded ${pdfProgress.phase === 'pdf' ? 'bg-aggie-50 text-aggie-700 font-semibold' : 'bg-green-50 text-green-700'}`}>
                 <span>{pdfProgress.phase === 'pdf' ? '⏳' : '✓'}</span>
                 <span>Rendering PDF</span>
               </div>
               <div className="text-gray-300">→</div>
-              <div className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded ${pdfProgress.phase === 'packaging' ? 'bg-blue-50 text-blue-700 font-semibold' : 'bg-gray-50 text-gray-400'}`}>
+              <div className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded ${pdfProgress.phase === 'packaging' ? 'bg-aggie-50 text-aggie-700 font-semibold' : 'bg-gray-50 text-gray-400'}`}>
                 <span>{pdfProgress.phase === 'packaging' ? '⏳' : '○'}</span>
                 <span>Building ZIP</span>
               </div>
@@ -1452,7 +1452,7 @@ const App: React.FC = () => {
               <>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div
-                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                    className="bg-aggie-600 h-2.5 rounded-full transition-all duration-300"
                     style={{ width: `${Math.round((pdfProgress.current / pdfProgress.total) * 100)}%` }}
                   />
                 </div>
@@ -1527,11 +1527,11 @@ const App: React.FC = () => {
                 </h2>
 
                 {/* How-To Guide */}
-                <div className="max-w-lg mb-8 text-left bg-blue-50 border border-blue-200 rounded-lg p-5 shadow-sm">
-                  <h3 className="font-bold text-blue-800 mb-3 text-center">How to Submit Your Assignment</h3>
-                  <ol className="space-y-3 text-sm text-blue-900">
-                    <li className={`flex items-start gap-3 p-2 rounded ${state.assignment ? 'bg-green-50' : 'bg-blue-100'}`}>
-                      <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 ${state.assignment ? 'bg-green-500 text-white' : 'bg-blue-600 text-white animate-pulse'}`}>1</span>
+                <div className="max-w-lg mb-8 text-left bg-aggie-50 border border-aggie-200 rounded-lg p-5 shadow-sm">
+                  <h3 className="font-bold text-aggie-800 mb-3 text-center">How to Submit Your Assignment</h3>
+                  <ol className="space-y-3 text-sm text-aggie-900">
+                    <li className={`flex items-start gap-3 p-2 rounded ${state.assignment ? 'bg-green-50' : 'bg-aggie-100'}`}>
+                      <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 ${state.assignment ? 'bg-green-500 text-white' : 'bg-aggie-600 text-white animate-pulse'}`}>1</span>
                       <span><strong>Load assignment</strong> - Upload the assignment file your instructor provided — the zip you printed your pages from (or try the demo)</span>
                     </li>
                     <li className="flex items-start gap-3 p-2 rounded bg-gray-50">
@@ -1552,7 +1552,7 @@ const App: React.FC = () => {
                     <p className="text-sm text-gray-600 font-medium">Upload your assignment file from the sidebar, or try the demo:</p>
                     <button
                       onClick={handleLoadDemo}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg shadow-lg transition-all font-medium"
+                      className="flex items-center gap-2 px-6 py-3 bg-gold-500 hover:bg-gold-400 text-aggie-900 rounded-md transition-all font-bold"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -1567,10 +1567,11 @@ const App: React.FC = () => {
             ) : (
               <>
                  <div className="mb-8 border-b border-gray-200 pb-6">
-                    <div className="text-sm font-bold text-blue-800 uppercase tracking-wide mb-1">{state.assignment.courseCode}</div>
-                    <h1 className="text-3xl font-serif font-bold text-gray-900 mb-4">{state.assignment.title}</h1>
+                    <div className="text-sm font-bold text-aggie-900 uppercase tracking-wide mb-1">{state.assignment.courseCode}</div>
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-aggie-500 mb-3">{state.assignment.title}</h1>
+                    <div className="flex gap-1.5 mb-4" aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full bg-gold-500" />)}</div>
                     {state.assignment.preamble && (
-                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-blue-900 text-sm leading-relaxed">
+                        <div className="bg-aggie-50 p-4 rounded-lg border border-aggie-100 text-aggie-900 text-sm leading-relaxed">
                             <strong>Instructions:</strong> {state.assignment.preamble}
                         </div>
                     )}
@@ -1661,28 +1662,28 @@ const App: React.FC = () => {
 
                  {/* Floating Bottom Bar — wraps to two rows on a phone rather
                      than letting the buttons spill outside the bar. */}
-                 <div className="fixed bottom-0 left-0 right-0 lg:left-[320px] bg-gradient-to-t from-slate-900 to-slate-800 border-t border-slate-700 shadow-2xl z-40 min-h-[5rem] flex items-center pb-safe">
+                 <div className="fixed bottom-0 left-0 right-0 lg:left-[320px] bg-aggie-600 border-t-4 border-gold-500 shadow-2xl z-40 min-h-[5rem] flex items-center pb-safe">
                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-3xl mx-auto w-full px-4 py-3">
                      <button
                        onClick={handleExportWork}
-                       className="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all text-sm"
+                       className="py-2 px-3 bg-aggie-900 hover:bg-aggie-800 text-white rounded-md font-bold flex items-center justify-center gap-2 transition-all text-sm"
                      >
                        <Save className="w-4 h-4" />
                        Save Backup
                      </button>
-                     <p className="hidden sm:block text-amber-300 text-xs font-medium px-1 text-center">
+                     <p className="hidden sm:block text-gold-300 text-xs font-medium px-1 text-center">
                        Ready to submit?
                      </p>
                      <button
                        onClick={handleDownloadForGradescope}
-                       className="py-3 px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-xl"
+                       className="py-3 px-5 bg-gold-500 hover:bg-gold-400 text-aggie-900 rounded-md font-bold flex items-center justify-center gap-2 transition-all shadow-xl"
                      >
                        <Download className="w-5 h-5" />
                        Download submission
                      </button>
                      <button
                        onClick={() => setState(s => ({ ...s, viewMode: 'print' }))}
-                       className="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all text-sm"
+                       className="py-2 px-3 bg-aggie-900 hover:bg-aggie-800 text-white rounded-md font-bold flex items-center justify-center gap-2 transition-all text-sm"
                      >
                        <ChevronLeft className="w-4 h-4 rotate-180" />
                        Preview
@@ -1715,18 +1716,18 @@ const App: React.FC = () => {
                    </div>
 
                    {/* Fixed Download Bar - Always visible at bottom */}
-                   <div className="fixed bottom-0 left-0 right-0 lg:left-[320px] bg-gradient-to-t from-slate-900 to-slate-800 border-t border-slate-700 shadow-2xl z-40 min-h-[5rem] flex items-center pb-safe">
+                   <div className="fixed bottom-0 left-0 right-0 lg:left-[320px] bg-aggie-600 border-t-4 border-gold-500 shadow-2xl z-40 min-h-[5rem] flex items-center pb-safe">
                      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-3xl mx-auto w-full px-4 py-3">
                        <button
                          onClick={() => setState(s => ({ ...s, viewMode: 'edit' }))}
-                         className="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-all text-sm"
+                         className="py-2 px-3 bg-aggie-900 hover:bg-aggie-800 text-white rounded-md font-bold flex items-center justify-center gap-2 transition-all text-sm"
                        >
                          <ChevronLeft className="w-4 h-4" />
                          Back
                        </button>
                        <button
                          onClick={handleDownloadForGradescope}
-                         className="py-3 px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-xl"
+                         className="py-3 px-5 bg-gold-500 hover:bg-gold-400 text-aggie-900 rounded-md font-bold flex items-center justify-center gap-2 transition-all shadow-xl"
                        >
                          <Download className="w-5 h-5" />
                          Download submission

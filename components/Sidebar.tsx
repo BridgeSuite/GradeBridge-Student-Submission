@@ -38,15 +38,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   // viewport-height column beside the content (lg and up). Stacked above the
   // content on a phone it sizes to its own content and scrolls with the page.
   return (
-    <div className="w-full lg:w-[320px] lg:flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col lg:h-full lg:overflow-y-auto shadow-2xl z-20">
-      <div className="p-6 border-b border-slate-700 bg-slate-950">
+    <div className="w-full lg:w-[320px] lg:flex-shrink-0 bg-aggie-600 text-aggie-50 flex flex-col lg:h-full lg:overflow-y-auto shadow-2xl z-20">
+      <div className="p-6 bg-aggie-500">
         <div className="flex items-center gap-3 mb-2">
           <div>
-            <h1 className="text-lg font-bold text-white"><span className="text-[#00A4E4]">B</span>ridgeSuite</h1>
-            <div className="text-xs text-slate-400">Student Submission</div>
+            <h1 className="text-lg font-extrabold text-gold-500">BridgeSuite</h1>
+            <div className="text-xs text-aggie-200">Student Submission</div>
           </div>
         </div>
-        <div className="text-[10px] text-slate-600 mt-1 font-mono">{VERSION}</div>
+        <div className="text-[10px] text-aggie-200 mt-1 font-mono">{VERSION}</div>
       </div>
 
       <div className="p-6 space-y-8 flex-1">
@@ -67,8 +67,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <span className={`w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${state.assignment ? 'bg-green-500 text-white' : 'bg-blue-500 text-white animate-pulse'}`}>1</span>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Assignment</h3>
+            <span className={`w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${state.assignment ? 'bg-green-500 text-white' : 'bg-aggie-500 text-white animate-pulse'}`}>1</span>
+            <h3 className="text-xs font-bold text-aggie-200 uppercase tracking-widest">Assignment</h3>
             {state.assignment && <span className="text-green-400 text-xs">Loaded</span>}
           </div>
 
@@ -76,38 +76,38 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="space-y-3">
               <button
                 onClick={handleAssignmentClick}
-                className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-600 rounded-lg hover:border-blue-500 hover:bg-slate-800 transition-all text-slate-300 group"
+                className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-aggie-600 rounded-lg hover:border-aggie-500 hover:bg-aggie-800 transition-all text-aggie-50 group"
               >
-                <Upload className="w-5 h-5 group-hover:text-blue-400" />
+                <Upload className="w-5 h-5 group-hover:text-aggie-400" />
                 <span className="text-sm font-medium">Upload assignment</span>
               </button>
 
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-px bg-slate-700"></div>
-                <span className="text-xs text-slate-500">or</span>
-                <div className="flex-1 h-px bg-slate-700"></div>
+                <div className="flex-1 h-px bg-aggie-700"></div>
+                <span className="text-xs text-aggie-200">or</span>
+                <div className="flex-1 h-px bg-aggie-700"></div>
               </div>
 
               <button
                 onClick={onLoadDemo}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-lg transition-all text-white group shadow-lg"
+                className="w-full flex items-center justify-center gap-2 p-3 bg-gold-500 hover:bg-gold-400 rounded-md font-bold transition-all text-aggie-900 group"
               >
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm font-medium">Try Demo Assignment</span>
               </button>
-              <p className="text-[10px] text-slate-500 text-center">
+              <p className="text-[10px] text-aggie-200 text-center">
                 No file needed - explore all features instantly
               </p>
             </div>
           ) : (
-             <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 shadow-sm">
+             <div className="bg-aggie-500 rounded-xl p-5 shadow-sm">
               <div className="flex justify-between items-start mb-2">
                  <span className="bg-green-900 text-green-300 text-[10px] px-2 py-0.5 rounded border border-green-800">Loaded</span>
-                 <button onClick={handleAssignmentClick} className="text-xs text-blue-400 hover:text-blue-300 hover:underline">Change</button>
+                 <button onClick={handleAssignmentClick} className="text-xs text-aggie-400 hover:text-aggie-300 hover:underline">Change</button>
               </div>
               <h4 className="font-bold text-white text-sm mb-1">{state.assignment.courseCode}</h4>
-              <p className="text-xs text-slate-300 line-clamp-2">{state.assignment.title}</p>
-              <div className="mt-3 pt-3 border-t border-slate-700 text-xs flex justify-between text-slate-400">
+              <p className="text-xs text-aggie-50 line-clamp-2">{state.assignment.title}</p>
+              <div className="mt-3 pt-3 border-t border-aggie-700 text-xs flex justify-between text-aggie-200">
                  <span>{state.assignment.problems.length} Problems</span>
                  <span>{state.assignment.problems.reduce((sum, p) => sum + p.subsections.reduce((s, sub) => s + sub.points, 0), 0)} Pts</span>
               </div>
@@ -121,12 +121,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Actions */}
         <div className="space-y-4">
-           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Data Management</h3>
+           <h3 className="text-xs font-bold text-aggie-200 uppercase tracking-widest">Data Management</h3>
            <div className="grid grid-cols-2 gap-2">
-             <button onClick={onExportWork} disabled={!state.assignment} className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2 rounded border border-slate-700 text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-slate-200">
+             <button onClick={onExportWork} disabled={!state.assignment} className="flex items-center justify-center gap-2 bg-aggie-900 hover:bg-aggie-800 p-2 rounded-md font-semibold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-aggie-50">
                 <Save className="w-4 h-4" /> Save Backup
              </button>
-             <button onClick={handleWorkClick} className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2 rounded border border-slate-700 text-xs transition-colors text-slate-200">
+             <button onClick={handleWorkClick} className="flex items-center justify-center gap-2 bg-aggie-900 hover:bg-aggie-800 p-2 rounded-md font-semibold text-xs transition-colors text-aggie-50">
                 <FileJson className="w-4 h-4" /> Load Work
              </button>
            </div>
@@ -138,21 +138,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* LaTeX Equation Help */}
-        <div className="pt-4 border-t border-slate-700">
+        <div className="pt-4 border-t border-aggie-700">
            <button
               onClick={() => setShowLatexHelp(true)}
-              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-3 rounded border border-slate-700 text-sm transition-colors text-slate-200"
+              className="w-full flex items-center justify-center gap-2 bg-aggie-900 hover:bg-aggie-800 p-3 rounded-md font-semibold text-sm transition-colors text-aggie-50"
             >
-              <HelpCircle className="w-4 h-4 text-blue-400" /> Math Equation Format Help
+              <HelpCircle className="w-4 h-4 text-aggie-400" /> Math Equation Format Help
            </button>
-           <p className="text-[10px] text-slate-500 text-center mt-1">
+           <p className="text-[10px] text-aggie-200 text-center mt-1">
              Use LaTeX notation for mathematical equations
            </p>
         </div>
 
         {/* Back to Edit (only shown in print mode) */}
         {state.viewMode === 'print' && (
-          <div className="pt-4 border-t border-slate-700">
+          <div className="pt-4 border-t border-aggie-700">
             <div className="bg-green-900/30 border border-green-700/50 rounded-lg p-3 mb-3">
               <p className="text-sm text-green-300 text-center">
                 <strong>Preview Mode</strong>
@@ -160,7 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <button
               onClick={onToggleView}
-              className="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium flex items-center justify-center gap-2 transition-all text-sm"
+              className="w-full py-2 px-4 bg-aggie-700 hover:bg-aggie-600 text-white rounded font-medium flex items-center justify-center gap-2 transition-all text-sm"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Edit
             </button>
@@ -169,10 +169,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer Status */}
-      <div className="p-4 bg-slate-950 border-t border-slate-800 text-[10px] text-slate-500 flex justify-between items-center">
+      <div className="p-4 bg-aggie-900 border-t border-aggie-800 text-[10px] text-aggie-200 flex justify-between items-center">
         <div className="flex items-center gap-2">
            {statusMessage ? (
-             <span className="text-blue-400 animate-pulse">{statusMessage}</span>
+             <span className="text-aggie-400 animate-pulse">{statusMessage}</span>
            ) : state.lastSaved ? (
              <span className="text-green-500 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Saved {new Date(state.lastSaved).toLocaleTimeString()}</span>
            ) : (

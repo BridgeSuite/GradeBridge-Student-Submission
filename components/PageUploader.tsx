@@ -234,14 +234,14 @@ const PageUploader: React.FC<PageUploaderProps> = ({
   return (
     <section className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8" aria-labelledby="pages-heading">
       <div className="bg-slate-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center gap-3 flex-wrap">
-        <h2 id="pages-heading" className="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <h2 id="pages-heading" className="text-lg font-bold text-aggie-900 flex items-center gap-2">
           <FileImage className="w-5 h-5 text-slate-500" />
           Your Pages
         </h2>
         <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${
           overBudget
             ? 'bg-amber-100 text-amber-900 border-amber-300'
-            : 'bg-blue-100 text-blue-800 border-blue-200'
+            : 'bg-aggie-100 text-aggie-800 border-aggie-200'
         }`}>
           {pages.length} {pages.length === 1 ? 'page' : 'pages'} · {formatBytes(totalBytes)}
         </span>
@@ -257,7 +257,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
             prints this, but one collected weeks ago may not have been read.
             One line, in addition to the confirmation before download. */}
         {genericSheet && (
-          <p className="text-sm font-semibold text-slate-900 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-start gap-2">
+          <p className="text-sm font-semibold text-aggie-900 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
             <span>{GENERIC_WORDING.noIdentityReminder}</span>
           </p>
@@ -275,7 +275,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
         {/* --- Upload controls --- */}
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-            dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+            dragActive ? 'border-aggie-500 bg-aggie-50' : 'border-gray-300 hover:border-gray-400'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -328,7 +328,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                   type="button"
                   onClick={() => cameraRef.current?.click()}
                   disabled={busy !== null}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 text-white rounded-lg font-medium text-sm transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-aggie-600 hover:bg-aggie-500 disabled:bg-aggie-300 text-white rounded-lg font-medium text-sm transition-colors"
                 >
                   <Camera className="w-4 h-4" />
                   Take photo
@@ -340,8 +340,8 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                 disabled={busy !== null}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
                   hasCamera
-                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
-                    : 'bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 text-white'
+                    ? 'bg-slate-100 hover:bg-slate-200 text-aggie-900 border border-slate-300'
+                    : 'bg-aggie-600 hover:bg-aggie-500 disabled:bg-aggie-300 text-white'
                 }`}
               >
                 <Upload className="w-4 h-4" />
@@ -358,7 +358,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
 
         {/* --- Progress --- */}
         {busy && (
-          <div className="flex items-center gap-3 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-3 text-sm text-aggie-800 bg-aggie-50 border border-aggie-200 rounded-lg px-4 py-3">
             <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" />
             <span>
               Processing page {busy.current} of {busy.total} — <span className="font-medium">{busy.name}</span>
@@ -463,7 +463,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
 
         {/* --- Pages the assignment has that are not here yet --- */}
         {missingK.length > 0 && (
-          <p className="text-sm text-blue-900 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <p className="text-sm text-aggie-900 bg-aggie-50 border border-aggie-200 rounded-lg px-4 py-3">
             This assignment has {declaredN} pages. You have not photographed{' '}
             {missingK.length === 1 ? 'page' : 'pages'} {missingK.join(', ')} yet. If you left a page
             blank on purpose you can still submit.
@@ -505,7 +505,7 @@ const PageUploader: React.FC<PageUploaderProps> = ({
                         <button
                           type="button"
                           onClick={() => startReplace(page.id)}
-                          className="text-xs font-medium text-blue-700 hover:text-blue-600 underline"
+                          className="text-xs font-medium text-aggie-700 hover:text-aggie-600 underline"
                         >
                           Re-upload page {idx + 1}
                         </button>

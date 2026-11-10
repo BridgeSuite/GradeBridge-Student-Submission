@@ -106,7 +106,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
       />
 
       <div className="bg-slate-50 px-4 sm:px-6 py-4 border-b border-gray-200">
-        <h2 id="generic-review-heading" className="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <h2 id="generic-review-heading" className="text-lg font-bold text-aggie-900 flex items-center gap-2">
           <ImageIcon className="w-5 h-5 text-slate-500 flex-shrink-0" />
           {W.reviewHeading}
         </h2>
