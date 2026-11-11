@@ -101,7 +101,10 @@ check('whitespace inside a title is tidied, not left to break the line oddly', (
 //   the commit carrying the approved multi-part wording
 //   (`FINDINGS_SS_MULTIPART_PAGES_2026-10-07` §4, rulings A and B). The
 //   cbb0569 review could not survive the change to labelling by problem, which
-//   moved the markup for every assignment; it is no longer compared.
+//   moved the markup for every assignment; it is no longer compared. AMENDED
+//   once, 11 Nov 2026, in place and not regenerated: the parts prompt's second
+//   sentence became "Tick each one." (cleared by André Knoesen, 15:10), both
+//   occurrences, and nothing else.
 // - the PROPERTY check: without titles every problem and part shows its formal
 //   label alone. A golden says nothing changed; this says what is right, and
 //   still holds if a later, approved change writes a new golden.
@@ -113,6 +116,8 @@ check('the review golden is the one written at f8ab9d8, with the approved wordin
   eq(reviewGolden.builtAt, 'f8ab9d8', 'builtAt');
   for (const k of ['noTitles', 'withTitles']) {
     assert(reviewGolden[k].includes('>Which problem is this page for?<'), `${k} lacks the approved prompt`);
+    assert(reviewGolden[k].includes('>Which parts of it are on this page? Tick each one.<'), `${k} lacks the cleared parts prompt`);
+    assert(!reviewGolden[k].includes('Untick any that are not'), `${k} still carries the old parts prompt`);
   }
 });
 const sameAs = (now, want, what) => {
