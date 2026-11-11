@@ -1485,8 +1485,8 @@ const App: React.FC = () => {
 
       {/* Phase 1.10: this tab is older than the live build. */}
       {staleOnLoad && (
-        <div className="bg-amber-50 border-b border-amber-300 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center gap-3" role="status" data-stale-banner>
-          <span className="flex-1 min-w-0">{FRESHNESS_WORDING.banner}</span>
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 text-sm text-slate-800 flex flex-wrap items-center gap-3" role="status" data-stale-banner>
+          <span className="flex-1 min-w-0">{FRESHNESS_WORDING.message}</span>
           <button
             type="button"
             onClick={reloadKeepingWork}

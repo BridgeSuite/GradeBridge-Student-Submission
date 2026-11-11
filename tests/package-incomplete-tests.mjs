@@ -158,7 +158,8 @@ try {
   await checkAsync('the panel says nothing was saved, keeps the work, and offers Try again', async () => {
     const text = html.replace(/<[^>]+>/g, ' ');
     assert(text.includes(W.heading) && text.includes(W.tryAgain) && text.includes(W.close), 'text missing');
-    assert(/nothing was saved or downloaded/.test(W.body) && /still here/.test(W.body), W.body);
+    assert(/saved and will still be here/.test(W.body) && /download once more/.test(W.body), W.body);
+    assert(!/wrong|error|fail/i.test(W.heading + W.body), 'sounds like an error');
     assert(/role="dialog"/.test(html) && /data-package-incomplete/.test(html), 'not an in-page panel');
   });
 } finally { rmSync(outDir, { recursive: true, force: true }); }

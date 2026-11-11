@@ -36,12 +36,11 @@ const StaleVersion: React.FC<StaleVersionProps> = ({ onReload, onClose }) => {
             ref={headingRef}
             tabIndex={-1}
             id="stale-version-heading"
-            className="text-lg font-bold text-slate-900 flex items-center gap-2 outline-none"
+            className="text-base font-medium text-slate-900 flex items-center gap-2 outline-none"
           >
             <RefreshCw className="w-5 h-5 text-blue-600 flex-shrink-0" />
-            {W.heading}
+            {W.message}
           </h2>
-          <p className="mt-2 text-sm text-gray-700">{W.body}</p>
         </div>
         <div className="px-6 py-4 border-t border-gray-200 bg-slate-50 rounded-b-2xl flex flex-col sm:flex-row gap-3">
           <button

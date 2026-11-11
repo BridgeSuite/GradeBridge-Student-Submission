@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, RefreshCw } from 'lucide-react';
 import { SELF_CHECK_WORDING as W, SelfCheckResult } from '../services/selfCheck';
 
 /**
@@ -44,16 +44,16 @@ const SelfCheckPanel: React.FC<SelfCheckPanelProps> = ({ result, onClose }) => {
           >
             {result.ok
               ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-              : <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />}
+              : <RefreshCw className="w-5 h-5 text-blue-600 flex-shrink-0" />}
             {heading}
           </h2>
           {!result.ok && (
-            <>
-              <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
-                {result.problems.map(p => <li key={p}>{p}</li>)}
-              </ul>
-              <p className="mt-3 text-sm text-gray-700">{W.incompleteAdvice}</p>
-            </>
+            // Which part is missing is not shown: minimum wording (ruling, 11 Nov
+            // 15:05). It stays in `result.problems` and on the element for anyone
+            // inspecting the page.
+            <p className="mt-2 text-sm text-gray-700" data-self-check-problems={result.problems.join(' | ')}>
+              {W.incompleteAdvice}
+            </p>
           )}
         </div>
         <div className="px-6 py-4 border-t border-gray-200 bg-slate-50 rounded-b-2xl flex">

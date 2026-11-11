@@ -146,7 +146,9 @@ try {
   await checkAsync('incomplete: every problem listed, and what to do', async () => {
     const h = render({ ok: false, pages: 1, problems: [W.noAnswersPdf, W.noFilesMap] });
     const t = text(h);
-    assert(t.includes(W.incomplete) && t.includes(W.noAnswersPdf) && t.includes(W.noFilesMap) && t.includes(W.incompleteAdvice), t);
+    assert(t.includes(W.incomplete) && t.includes(W.incompleteAdvice), t);
+    // Minimum wording (11 Nov 15:05): which part is missing is not shown to the student.
+    assert(!t.includes(W.noAnswersPdf) && !t.includes(W.noFilesMap), t);
   });
 } finally { rmSync(outDir, { recursive: true, force: true }); }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 /**
  * What a student sees when their submission file could not be made whole:
@@ -14,13 +14,14 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
  * tries again; nothing the student made is lost by closing it.
  *
  * WORDING: PROPOSED, NOT YET CLEARED by Andre Knoesen (`PACKAGE_INCOMPLETE_WORDING`).
+ * Kept quiet by André Knoesen's ruling of 11 Nov 15:05: minimum wording, calm,
+ * never sounding like an error.
  */
 export const PACKAGE_INCOMPLETE_WORDING = {
-  heading: 'Your submission file was not made',
+  heading: 'Please try again',
   body:
-    'Something went wrong while making your submission file, so nothing was saved or downloaded. ' +
-    'Your pages and answers are all still here. Press Try again. If it fails again, reload this page ' +
-    'and press Download once more.',
+    'Your submission file could not be made just now. Your work is saved and will still be here. ' +
+    'If this happens again, reload this page and download once more.',
   tryAgain: 'Try again',
   close: 'Close',
 } as const;
@@ -59,7 +60,7 @@ const PackageIncomplete: React.FC<PackageIncompleteProps> = ({ onTryAgain, onClo
             id="package-incomplete-heading"
             className="text-lg font-bold text-slate-900 flex items-center gap-2 outline-none"
           >
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <RefreshCw className="w-5 h-5 text-blue-600 flex-shrink-0" />
             {W.heading}
           </h2>
           <p className="mt-2 text-sm text-gray-700">{W.body}</p>

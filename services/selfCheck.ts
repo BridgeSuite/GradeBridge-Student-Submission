@@ -15,7 +15,12 @@
  * It reads the archive's bytes, not the builder's account of them, so it
  * checks what the student is about to upload.
  *
- * WORDING: every sentence in `SELF_CHECK_WORDING` is PROPOSED, NOT YET CLEARED.
+ * WORDING: the four sentences the student sees (`completeWithPages`,
+ * `complete`, `incomplete`, `incompleteAdvice`) are PROPOSED, NOT YET CLEARED.
+ * Kept quiet by André Knoesen's ruling of 11 Nov 15:05: minimum wording, calm,
+ * never sounding like an error.
+ * The rest name each problem for tests and for anyone reading the result;
+ * they are not shown to the student.
  */
 
 import JSZip from 'jszip';
@@ -23,9 +28,9 @@ import JSZip from 'jszip';
 export const SELF_CHECK_WORDING = {
   completeWithPages: (n: number): string => `Your submission file is complete: ${n} pages.`,
   complete: 'Your submission file is complete.',
-  incomplete: 'Your submission file is not complete:',
+  incomplete: 'Please press Download submission once more.',
   incompleteAdvice:
-    'Press Download submission again. If this message comes back, tell your instructor before the deadline.',
+    'The file just saved is not quite complete. Your work is saved. If you see this again, tell your instructor.',
   unreadable: 'The file could not be opened.',
   noPayload: 'The submission data is missing.',
   noFixedLayout: 'The description of the answers PDF is missing.',
