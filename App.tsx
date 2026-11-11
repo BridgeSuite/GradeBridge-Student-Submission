@@ -43,8 +43,9 @@ import { assignmentLoadRefusal, type LoadRefusal } from './services/loadRefusal'
 import LoadRefusalPanel from './components/LoadRefusalPanel';
 import { initQrReader } from './services/qrDecode';
 import {
-  SUBMISSION_ZIP_OPTIONS, buildSubmissionPackage, cropBlobKey, cropList, submissionBaseName,
+  PACKAGE_INCOMPLETE, SUBMISSION_ZIP_OPTIONS, buildSubmissionPackage, cropBlobKey, cropList, submissionBaseName,
 } from './services/submissionPackage';
+import PackageIncomplete from './components/PackageIncomplete';
 
 function downsampleImage(dataUri: string, maxPx = 1920, quality = 0.82): Promise<string> {
   return new Promise((resolve) => {
@@ -194,6 +195,9 @@ const App: React.FC = () => {
     useState<PersonalInfoConfirmationState>(INITIAL_PERSONAL_INFO_CONFIRMATION);
   /** Download was pressed without a current confirmation. */
   const [personalInfoPrompt, setPersonalInfoPrompt] = useState(false);
+  // The submission file could not be made whole, so nothing was saved (Phase
+  // 1.5). Holds the acknowledgements of the attempt, so Try again repeats it.
+  const [packageIncomplete, setPackageIncomplete] = useState<DownloadAcks | null>(null);
 
   /** region_id currently being re-cut, so the review row can say so. */
   const [cropBusy, setCropBusy] = useState<string | null>(null);
@@ -1207,7 +1211,13 @@ const App: React.FC = () => {
           setPdfProgress({ active: true, phase: 'pdf', current, total });
           setStatusMessage(`Generating PDF... Page ${current} of ${total}`);
         });
-        if (!rendered) return;
+        // No PDF means no file: say so in the page and offer to try again,
+        // rather than stopping with nothing on screen (Phase 1.5).
+        if (!rendered) {
+          setStatusMessage('');
+          setPackageIncomplete(ack);
+          return;
+        }
         pdfBytes = rendered;
       }
 
@@ -1337,6 +1347,12 @@ const App: React.FC = () => {
       if (error instanceof Error && error.name === PERSONAL_INFO_UNCONFIRMED) {
         setStatusMessage('');
         setPersonalInfoPrompt(true);
+      } else if (error instanceof Error && error.name === PACKAGE_INCOMPLETE) {
+        // The answers PDF or `fixed_layout` (or the electronic PDF) did not
+        // build, and the builder handed back no archive: nothing was saved.
+        // Said in the page, with a way to try again (Phase 1.5).
+        setStatusMessage('');
+        setPackageIncomplete(ack);
       } else {
         setStatusMessage("Error generating submission.");
         alert(`There was an error generating your submission:\n\n${msg}\n\nPlease refresh the page and try again.`);
@@ -1427,6 +1443,14 @@ const App: React.FC = () => {
           notice={fitGate}
           onDownloadAnyway={handleAcceptFit}
           onGoBack={handleGoBackToRewrite}
+        />
+      )}
+
+      {/* The submission file could not be made whole; nothing was saved. */}
+      {packageIncomplete && (
+        <PackageIncomplete
+          onTryAgain={() => { const again = packageIncomplete; setPackageIncomplete(null); void runSubmissionDownload(again); }}
+          onClose={() => setPackageIncomplete(null)}
         />
       )}
 

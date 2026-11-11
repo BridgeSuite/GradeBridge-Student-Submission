@@ -342,7 +342,48 @@ export interface PackageAssets {
    * assignment has `Image` or `Text and Image` parts.
    */
   downsampleImage: (dataUri: string) => Promise<string>;
+  /**
+   * Tests only: stands in for `drawFixedLayout`, so a test can make the
+   * answers PDF fail to build. The app never passes it.
+   */
+  drawAnswers?: typeof drawFixedLayout;
 }
+
+/**
+ * The name of the error thrown when a suitcase would be incomplete: the
+ * answers PDF or `fixed_layout` on the generic page, or the PDF on the
+ * electronic path, failed to build. **No archive is returned with it**, so
+ * nothing can be saved or downloaded (Phase 1.5 of
+ * `PLAN_SUBMISSION_APP_FIXES_AND_REVAMP_2026-11-08`). Four ENG 17 HW4 files
+ * arrived holding the photographs and the payload but neither the answers PDF
+ * nor `fixed_layout`, and could not be numbered.
+ */
+export const PACKAGE_INCOMPLETE = 'PackageIncomplete';
+
+export const packageIncompleteError = (what: string): Error => {
+  const e = new Error(`The submission was not built: ${what}`);
+  e.name = PACKAGE_INCOMPLETE;
+  return e;
+};
+
+/**
+ * What a built archive is missing that it must carry, or null. Checked on
+ * every build before the archive is handed back, whatever built it.
+ */
+export const incompletePackageProblem = (
+  isHandwritten: boolean, isGeneric: boolean, entries: readonly string[],
+  submissionJson: Record<string, unknown>, baseName: string,
+): string | null => {
+  if (!isHandwritten) {
+    return entries.includes(`${baseName}.pdf`) ? null : 'the PDF of your answers is missing.';
+  }
+  if (!isGeneric) return null;
+  const fixed = submissionJson.fixed_layout as { file?: unknown; pages?: unknown } | undefined;
+  if (!fixed || typeof fixed.file !== 'string') return 'the description of the answers PDF (fixed_layout) is missing.';
+  if (!entries.includes(fixed.file)) return 'the answers PDF is missing.';
+  if (typeof fixed.pages !== 'number' || fixed.pages < 1) return 'the answers PDF has no pages.';
+  return null;
+};
 
 export interface BuiltPackage {
   zip: JSZip;
@@ -513,8 +554,8 @@ export const buildSubmissionPackage = async (
   const rest: PackageEntry[] = [];
 
   if (!sources.isHandwritten) {
-    if (!assets.pdfBytes) {
-      throw new Error('An electronic submission needs a PDF, and none was supplied.');
+    if (!assets.pdfBytes || assets.pdfBytes.length === 0) {
+      throw packageIncompleteError('the PDF of your answers could not be made.');
     }
     rest.push({ name: `${baseName}.pdf`, data: assets.pdfBytes });
   }
@@ -587,13 +628,22 @@ export const buildSubmissionPackage = async (
       }));
     const plan = planFixedLayout(sources.assignment.parts ?? [], placed);
     const answers = `${baseName}_answers.pdf`;
-    const drawn = drawFixedLayout(plan, {
-      assignmentId,
-      imageFor: (key: string) => genericImages.get(key) ?? null,
-      // The pinned moment, not the clock: the same work downloaded twice has to
-      // produce the same bytes, and jsPDF stamps a creation date otherwise.
-      createdAt: lastSaved,
-    });
+    let drawn: ReturnType<typeof drawFixedLayout>;
+    try {
+      drawn = (assets.drawAnswers ?? drawFixedLayout)(plan, {
+        assignmentId,
+        imageFor: (key: string) => genericImages.get(key) ?? null,
+        // The pinned moment, not the clock: the same work downloaded twice has to
+        // produce the same bytes, and jsPDF stamps a creation date otherwise.
+        createdAt: lastSaved,
+      });
+    } catch (err) {
+      throw packageIncompleteError(
+        `the answers PDF could not be made (${err instanceof Error ? err.message : String(err)}).`);
+    }
+    if (!drawn || !drawn.bytes || drawn.bytes.length === 0 || !(drawn.pages >= 1)) {
+      throw packageIncompleteError('the answers PDF came out empty.');
+    }
     rest.unshift({ name: answers, data: drawn.bytes });
     submissionJson.fixed_layout = {
       file: answers,
@@ -615,6 +665,12 @@ export const buildSubmissionPackage = async (
   for (const entry of rest) {
     add(entry.name, entry.data, entry.base64 ? { base64: true } : undefined);
   }
+
+  // The last word before anything is handed back: a suitcase missing what it
+  // must carry is refused here, whatever above let it through.
+  const missing = incompletePackageProblem(
+    sources.isHandwritten, resolvedGeneric !== null, entries, submissionJson, baseName);
+  if (missing) throw packageIncompleteError(missing);
 
   return { zip, baseName, entries, submissionJson };
 };
