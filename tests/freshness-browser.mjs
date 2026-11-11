@@ -88,7 +88,7 @@ let passed = 0, failed = 0; const results = [];
 const check = (name, ok, detail = '') => { ok ? passed++ : failed++; results.push(`  ${ok ? 'PASS' : 'FAIL'}  ${name}${ok || !detail ? '' : `\n          ${detail}`}`); };
 const STATE = `JSON.parse(localStorage.getItem('gradebridge_submission') || '{}')`;
 const serve = (v) => writeFileSync(VERSION_FILE, JSON.stringify({ app_version: v }) + '\n');
-const tickPersonalInfo = `[...document.querySelectorAll('input[type=checkbox]')].filter(c => /student ID/i.test(c.closest('label,div')?.innerText ?? '')).forEach(c => { if (!c.checked) c.click(); })`;
+const tickPersonalInfo = `(() => { const c = document.querySelector('#personal-info-confirmation input[type=checkbox]'); if (c && !c.checked) c.click(); })()`;
 const clickDownload = `[...document.querySelectorAll('button')].find(x => /Download submission/.test(x.innerText)).click()`;
 
 const b = await openBrowser(9463);
