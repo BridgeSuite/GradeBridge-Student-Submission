@@ -106,10 +106,11 @@ try {
   });
   const { html } = await import(pathToFileURL(harness).href);
   const W = F.FRESHNESS_WORDING;
-  await checkAsync('the panel: nothing was downloaded, the work is kept, and Reload', async () => {
+  await checkAsync("the panel: André Knoesen's sentence, word for word, and Reload", async () => {
     const t = html.replace(/<[^>]+>/g, ' ');
-    assert(t.includes(W.heading) && t.includes(W.body) && t.includes(W.reload), t);
-    assert(/nothing was downloaded/.test(W.body) && /kept/.test(W.body) && /kept/.test(W.banner), 'wording');
+    assert(W.message === 'A newer version of the app is available. Please reload this page. Your work is saved and will still be here.', W.message);
+    assert(t.includes(W.message) && t.includes(W.reload), t);
+    assert(!/error|wrong|fail/i.test(W.message), 'sounds like an error');
     assert(/data-stale-version/.test(html), 'not the in-page panel');
   });
 } finally { rmSync(outDir, { recursive: true, force: true }); }
@@ -136,6 +137,12 @@ await checkAsync('App: Reload saves the work first, then reloads', async () => {
   for (const k of ['assignment', 'submissionData', 'pages', 'layout', 'crops', 'lastSaved', 'STORAGE_KEY']) {
     assert(save.includes(k), `saveNow does not write ${k}`);
   }
+});
+await checkAsync('the README states the one request and its limits (ruling, 11 Nov)', async () => {
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8');
+  const at = readme.indexOf('**The one network request: `version.json`.**');
+  const note = readme.slice(at, at + 1200);
+  assert(at > 0 && /own origin/.test(note) && /no student data/.test(note) && /executes nothing/.test(note), 'README note');
 });
 await checkAsync('the build writes version.json from the same stamp the bundle carries', async () => {
   const cfg = readFileSync(join(REPO, 'vite.config.ts'), 'utf8');

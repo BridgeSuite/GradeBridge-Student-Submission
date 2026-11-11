@@ -378,7 +378,8 @@ See the [Assignment Maker README](https://github.com/BridgeSuite/GradeBridge-Ass
 React 19 + TypeScript + Vite + Tailwind CSS + KaTeX + html2canvas + jsPDF + JSZip + jsqr
 
 **Everything is bundled into `dist/` at build time.** No CDN script tag, no
-runtime `fetch`, no wasm pulled from a URL, no dynamic import from a URL — a
+wasm pulled from a URL, no dynamic import from another site, and one runtime
+`fetch` only, described below — a
 student photographing homework on a phone with no signal must still be able to
 submit. `jsqr` was chosen over the better-known QR decoders for exactly this
 reason: it is pure JavaScript and needs no wasm. (The one `cdnjs` string in the
@@ -392,6 +393,17 @@ app never calls; it is not a request.)
 address; it is fetched only when a HEIC photo arrives that the browser cannot
 read. It replaced `heic2any`. The approach follows an EEC 170 student's pull
 request #1.
+
+**The one network request: `version.json`.** On load, and again before it
+builds a download, the app asks its own address which build is live, so a tab
+left open across a deploy does not build a submission with old code (Phase
+1.10). It is a GET of `version.json` from the app's own origin and nowhere
+else. It carries no student data and no credentials: the address is the app's
+own, plus a timestamp so no cache answers. The file is one small JSON line,
+`{"app_version": "<commit>"}`, written by the same build. The app reads that
+one string and executes nothing from it. If the request fails, is slow, or the
+file is missing or malformed, nothing is blocked. Allowed by André Knoesen,
+11 November 2026, as the one exception to "the app makes no network call".
 
 ### Build & Deploy
 ```bash

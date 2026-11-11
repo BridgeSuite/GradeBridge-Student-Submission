@@ -11,8 +11,9 @@
  * **The one network request the app makes**, and it is narrow: a GET of
  * `version.json` from the app's own address, written by the same build
  * (`vite.config.ts`), sending nothing. Section 3, item 5 of the plan says the
- * app makes no network call; 1.10 cannot be built without this one, and the
- * plan asks for both. Flagged to Andre Knoesen with the commit.
+ * app makes no network call; this one is allowed by André Knoesen (11 Nov
+ * 2026): a GET to the app's own origin only, carrying no student data,
+ * reading one small file and executing nothing from it. Stated in the README.
  *
  * **It fails open** (standing rule, `CLAUDE.md`: a download is constructive,
  * and a guard over it that cannot be sure must let it proceed). No network, a
@@ -56,16 +57,14 @@ export const checkFreshness = async (
 };
 
 /**
- * WORDING: PROPOSED, NOT YET CLEARED by Andre Knoesen.
+ * WORDING: `message` is André Knoesen's own sentence (11 Nov 15:05), shown
+ * both in the banner on load and in the panel when Download is pressed. The
+ * two button labels await clearance.
  */
 export const FRESHNESS_WORDING = {
-  banner:
-    'A newer version of this app is available. Reload this page before you download your submission. ' +
-    'Your work is kept.',
-  heading: 'Reload this page before downloading',
-  body:
-    'A newer version of this app has been published since you opened this page, so nothing was downloaded. ' +
-    'Press Reload: your pages and answers are kept, and you can download straight after.',
+  message:
+    'A newer version of the app is available. Please reload this page. ' +
+    'Your work is saved and will still be here.',
   reload: 'Reload',
   close: 'Close',
 } as const;
