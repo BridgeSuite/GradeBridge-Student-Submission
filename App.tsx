@@ -35,7 +35,7 @@ import { FitNotice, fitNoticeFromPayload } from './services/fitNotice';
 import { LayoutMapError, parseLayoutCsv } from './services/layoutMap';
 import { registerAndCropPage } from './services/pageCrops';
 import {
-  chooseGenericProblem, genericCompletenessNotice, genericCoverage, genericCropRecord, isGenericSheet,
+  chooseGenericProblem, fieldsUrlKey, genericCompletenessNotice, genericCoverage, genericCropRecord, isGenericSheet,
   mergeRecutCrops, toggleGenericPart,
 } from './services/genericSheet';
 import { GENERIC_WORDING } from './services/genericWording';
@@ -89,6 +89,13 @@ const newPageId = (): string =>
  * used so the call sites read as they did.
  */
 const cropKey = cropBlobKey;
+
+/**
+ * The generic page's fields-line strip (Phase 1.2): stored under its own key,
+ * which nothing that builds the package reads, and shown through `cropUrls`
+ * under `fieldsUrlKey`. The package is built from `cropKey` and page ids only.
+ */
+const fieldsKey = (regionId: string): string => `fields_${regionId}`;
 
 const cropFileName = (regionId: string): string =>
   `crops/${regionId.replace(/[^a-z0-9_\-]/gi, '_')}.jpg`;
@@ -285,10 +292,15 @@ const App: React.FC = () => {
     for (const regionId of Object.keys(crops)) {
       const blob = await getPageBlob(cropKey(regionId));
       if (blob) setCropUrl(regionId, blob);
+      if (crops[regionId].partSource === 'student') {
+        const strip = await getPageBlob(fieldsKey(regionId));
+        if (strip) setCropUrl(fieldsUrlKey(regionId), strip);
+      }
     }
     await pruneExcept([
       ...pages.map((p) => p.id),
       ...Object.keys(crops).map(cropKey),
+      ...Object.keys(crops).map(fieldsKey),
     ]);
   }, [setPageUrl, setCropUrl]);
 
@@ -459,6 +471,10 @@ const App: React.FC = () => {
           pageId, pageWarnings, newCaptureId());
         await putPageBlob(cropKey(record.regionId), c.blob);
         setCropUrl(record.regionId, c.blob);
+        if (result.fieldsStrip) {
+          await putPageBlob(fieldsKey(record.regionId), result.fieldsStrip);
+          setCropUrl(fieldsUrlKey(record.regionId), result.fieldsStrip);
+        }
         cut[record.regionId] = record;
         continue;
       }
@@ -589,6 +605,7 @@ const App: React.FC = () => {
       for (const crop of cropList(prev.crops)) {
         if (crop.fromPage === id && crop.cropSource === 'registration') {
           void deletePageBlob(cropKey(crop.regionId));
+          void deletePageBlob(fieldsKey(crop.regionId));
           continue;
         }
         crops[crop.regionId] = crop;

@@ -5,7 +5,7 @@
 export { initQrReader } from '../services/qrDecode';
 export { registeredQrSharpness } from '../services/captureGate';
 export { registerPage } from '../services/registration';
-export { cropGenericBox, cropRegion } from '../services/cropRegions';
+export { cropGenericBox, cropRegion, cutGenericFieldsStrip } from '../services/cropRegions';
 export { measureInk, depthBelowPaper } from '../services/inkBox';
 export { parseLayoutCsv } from '../services/layoutMap';
 export * from '../services/genericSheet';

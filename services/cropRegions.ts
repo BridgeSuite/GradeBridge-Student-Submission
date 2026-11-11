@@ -16,7 +16,8 @@
 
 import { LayoutRow } from './layoutMap';
 import { Matrix3, applyMatrix, localScale } from './homography';
-import { PX_PER_MM, fractionRectToMm } from './pageFormat';
+import { PAGE_H_MM, PAGE_W_MM, PX_PER_MM, fractionRectToMm } from './pageFormat';
+import { GENERIC_FIELDS_STRIP_LONG_EDGE_PX, GENERIC_FIELDS_STRIP_MM } from './genericSheet';
 import { Rgba, sampleRgba } from './raster';
 import { InkBox } from '../types';
 import { BLANK_SHARPNESS_MIN, InkVerdict, measureInk } from './inkBox';
@@ -167,4 +168,18 @@ export const cropGenericBox = (
     inkBox: ink.box,
     inkVerdict: ink.verdict,
   };
+};
+
+/**
+ * The generic page's fields line, cut through the same transform as the box.
+ * Review only; see `GENERIC_FIELDS_STRIP_MM`.
+ */
+export const cutGenericFieldsStrip = (page: Rgba, transform: Matrix3): Rgba => {
+  const r = GENERIC_FIELDS_STRIP_MM;
+  const row: LayoutRow = {
+    assignmentId: '', layoutId: '', regionId: 'fields', partId: '', pageK: 1,
+    x0: r.x0 / PAGE_W_MM, y0: r.y0 / PAGE_H_MM, x1: r.x1 / PAGE_W_MM, y1: r.y1 / PAGE_H_MM,
+    isDrawing: false, maxPoints: 0,
+  };
+  return cropRegion(page, transform, row, GENERIC_FIELDS_STRIP_LONG_EDGE_PX).image;
 };

@@ -63,7 +63,14 @@ export const GENERIC_WORDING = {
   // because a page is not a problem.
   choosePrompt: 'Which problem is this page for?',
   choosePlaceholder: 'Choose a problem',
+  // AWAITING CLEARANCE: since Phase 1.1 (EEC170-120) no part starts ticked,
+  // so the second sentence is no longer true. Proposed replacement, for
+  // Andre Knoesen: "Which parts of it are on this page? Tick each one." It
+  // moves the review golden, so it lands in its own commit once cleared.
   partsPrompt: 'Which parts of it are on this page? Untick any that are not.',
+  // PROPOSED, NOT YET CLEARED (Phase 1.2): the caption over the strip that
+  // shows the fields line the student wrote, Problem / Part / Page.
+  fieldsCaption: 'What you wrote at the top of this page',
   unlabelledNote:
     'No part chosen yet. This page is still submitted, but it will not be filed under any part.',
   retakeThisPage: 'Retake this page',

@@ -10,7 +10,7 @@
 
 import { LayoutMap, LayoutRow, rowsForPage } from './layoutMap';
 import { RegistrationResult, registerPage } from './registration';
-import { CroppedRegion, cropGenericBox, cropRegions } from './cropRegions';
+import { CroppedRegion, cropGenericBox, cropRegions, cutGenericFieldsStrip } from './cropRegions';
 import { GENERIC_CROP_LONG_EDGE_PX } from './genericSheet';
 import { registeredQrSharpness } from './captureGate';
 import { InkBox } from '../types';
@@ -88,6 +88,11 @@ export interface PageCropResult {
   }>;
   /** Set when the page registered but its QR disagrees with the loaded map. */
   layoutMismatch: { onPage: string; inFile: string } | null;
+  /**
+   * Generic sheet only: the fields line as the student wrote it, for the
+   * review. **Never packaged**: it is not a crop, has no row and no record.
+   */
+  fieldsStrip?: Blob;
 }
 
 /**
@@ -136,7 +141,11 @@ export const registerAndCropPage = async (
         width: c.image.width, height: c.image.height, inkBox: c.inkBox, inkVerdict: c.inkVerdict,
       });
     }
-    return { registration, crops, layoutMismatch: null };
+    // Cut after the crops, so their bytes are exactly as before.
+    const fieldsStrip = crops.length
+      ? await rgbaToJpegBlob(cutGenericFieldsStrip(image, registration.transform))
+      : undefined;
+    return { registration, crops, layoutMismatch: null, fieldsStrip };
   }
 
   const cropped: CroppedRegion[] = cropRegions(image, registration.transform, rows);

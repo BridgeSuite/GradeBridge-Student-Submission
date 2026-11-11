@@ -50,6 +50,30 @@ export const GENERIC_LAYOUT_ID = '5F0B10BC';
  */
 export const GENERIC_CROP_LONG_EDGE_PX = 1600;
 
+/**
+ * The fields line, `Problem ___ Part ___ Page ___ of ___`, as a rectangle on
+ * the page, mm. **Shown to the student on the review only, never packaged**
+ * (Phase 1.2 of `PLAN_SUBMISSION_APP_FIXES_AND_REVAMP_2026-11-08`): the crop
+ * is the writing box and excludes this line by design, so pages whose boxes
+ * look alike could not be told apart.
+ *
+ * From the Assignment Maker's `genericAnswerPage.ts`: the line is 12 pt with
+ * its top at y 28.0 and starts at the box's x 12.0; the header above it is at
+ * y 10.0, the next printed line starts at y 37.0, and the QR begins at x 169.9.
+ * The printed line ends near x 136. The strip reaches up to y 21.0 and out
+ * to x 150.0 so a student's handwriting over the blanks is not cut through,
+ * starts at x 9.0 so the first letter is not clipped on a photograph that
+ * registers a little off (the NW corner mark ends at y 17.0, above the strip),
+ * and stops short of the QR and of the next printed line.
+ *
+ * Checked on real photographs of the page with the line filled in, 10 Nov 2026.
+ */
+export const GENERIC_FIELDS_STRIP_MM = { x0: 9.0, y0: 21.0, x1: 150.0, y1: 36.5 } as const;
+/** Where a page's fields strip sits in the review's image URLs (`cropUrls`). */
+export const fieldsUrlKey = (regionId: string): string => `fields:${regionId}`;
+/** The strip's long-edge cap, px. About 7.8 px/mm, as legible as the crop. */
+export const GENERIC_FIELDS_STRIP_LONG_EDGE_PX = 1200;
+
 /** Quality flag on a crop with no part chosen. Advisory, like every flag. */
 export const CROP_FLAG_UNLABELLED = 'unlabelled';
 

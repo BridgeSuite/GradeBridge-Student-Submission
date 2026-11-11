@@ -580,6 +580,88 @@ results.push('  3b. the real frames');
 }
 
 // =====================================================
+// 3c. The fields line, for the review only (Phase 1.2)
+// =====================================================
+// PLAN_SUBMISSION_APP_FIXES_AND_REVAMP_2026-11-08 item 1.2: the review shows
+// the Problem / Part / Page line the student wrote above the box, so pages
+// can be told apart. The crop stays the writing box alone and nothing outside
+// the box enters the package.
+results.push('  3c. the fields line, shown on the review and never packaged');
+/** Per-row count of dark pixels, and where the darkest row is, as a fraction of the height. */
+const rowProfile = (img) => {
+  const rows = [];
+  for (let y = 0; y < img.height; y++) {
+    let n = 0;
+    for (let x = 0; x < img.width; x++) {
+      const i = (y * img.width + x) * 4;
+      if (0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2] < 110) n++;
+    }
+    rows.push(n / img.width);
+  }
+  const max = Math.max(...rows);
+  return { rows, max, at: rows.indexOf(max) / img.height };
+};
+/** The strip is ON the fields line: its underscores are its darkest row, below the middle, and it cuts through no printed line. */
+const assertOnFieldsLine = (strip, what) => {
+  const p = rowProfile(strip);
+  assert(p.max > 0.05, `${what}: no printed line in the strip (darkest row ${p.max.toFixed(3)})`);
+  assert(p.at > 0.4 && p.at < 0.85, `${what}: darkest row at ${p.at.toFixed(2)} of the height, not the underscores`);
+  const edge = Math.max(1, Math.round(strip.height * 0.06));
+  for (const y of [...Array(edge).keys(), ...Array(edge).keys()].map((k, i) => i < edge ? k : strip.height - 1 - k)) {
+    assert(p.rows[y] < 0.02, `${what}: row ${y} of ${strip.height} is printed ink: the strip cuts a line`);
+  }
+};
+check('on the real exported page, photographed: the strip is the fields line, and is not the box', () => {
+  for (const [what, shot] of [['rotated 2 degrees', shotA], ['mild perspective', shotB]]) {
+    const strip = P.cutGenericFieldsStrip(shot.cap.image, shot.reg.transform);
+    assertOnFieldsLine(strip, what);
+    assert(strip.width !== shot.cut.image.width || strip.height !== shot.cut.image.height, `${what}: strip is box-sized`);
+  }
+});
+check('the strip lies wholly above the box and clear of the QR, by its declared rectangle', () => {
+  const s = P.GENERIC_FIELDS_STRIP_MM, box = { y0: row.y0 * 279.4 };
+  assert(s.y1 < box.y0 - 10, `strip ends at ${s.y1}, box starts at ${box.y0}`);
+  assert(s.x1 < 169.9 && s.y0 > 17.0, 'strip reaches the QR or a corner mark');
+});
+check('cutting the strip leaves the box crop byte-identical', () => {
+  const again = P.cropGenericBox(shotA.cap.image, shotA.reg.transform, row,
+    P.GENERIC_CROP_LONG_EDGE_PX, P.registeredQrSharpness(shotA.cap.image, shotA.reg));
+  P.cutGenericFieldsStrip(shotA.cap.image, shotA.reg.transform);
+  assert(Buffer.from(again.image.data).equals(Buffer.from(shotA.cut.image.data)), 'crop pixels moved');
+});
+await checkAsync('a stored strip is never read into the package: same entries, same bytes, no fields key asked for', async () => {
+  const asked = [];
+  const withStrips = { ...blobs };
+  for (const k of Object.keys(crops)) withStrips[`fields_${k}`] = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+  const spy = async (k) => { asked.push(k); return withStrips[k] ?? null; };
+  const plain = await P.buildSubmissionPackage(sourcesFor(crops, pages), { readBlob, downsampleImage: async (u) => u });
+  const seen = await P.buildSubmissionPackage(sourcesFor(crops, pages), { readBlob: spy, downsampleImage: async (u) => u });
+  assert(!asked.some(k => k.startsWith('fields')), `asked for ${asked.filter(k => k.startsWith('fields'))}`);
+  assertEqual(seen.entries, plain.entries, 'entries');
+  for (const name of plain.entries) {
+    const x = await plain.zip.file(name).async('uint8array'), y = await seen.zip.file(name).async('uint8array');
+    assert(Buffer.from(x).equals(Buffer.from(y)), `${name} differs`);
+  }
+});
+{
+  const FRAMES = join(REPO, 'tests', 'captures', 'generic_page');
+  const files = ['01_blank.jpg', '02_pencil_fields_and_outside_box.jpg', '05_pen.jpg', '07_fields_only.jpg'];
+  if (!existsSync(FRAMES)) {
+    skip('on the real frames the strip is the fields line', 'tests/captures/generic_page/ is not here');
+  } else {
+    const { ingestLikeApp } = await import('./realCaptures.mjs');
+    check('on the real frames the strip is the fields line (02 and 07 have it filled in)', () => {
+      for (const f of files) {
+        const image = ingestLikeApp(join(FRAMES, f));
+        const reg = P.registerPage(image);
+        assert(reg.usable, `${f}: ${reg.status}`);
+        assertOnFieldsLine(P.cutGenericFieldsStrip(image, reg.transform), f);
+      }
+    });
+  }
+}
+
+// =====================================================
 // 4. Coverage says, never blocks
 // =====================================================
 results.push('  4. coverage');
@@ -762,6 +844,16 @@ check('a one-part problem shows no tick boxes', () => {
   const one = renderReview({ parts, crops: P.chooseGenericProblem(crops, k, 2, parts), pages });
   assertEqual(ticksOf(one.split(/<li /)[4]), [], 'Problem 2 ticks');
   assert(/value="2" selected=""/.test(one.match(/<select[\s\S]*?<\/select>/g)[3]), 'photo 4 does not show Problem 2');
+});
+check('the review shows the fields strip above the choice, captioned, only when there is one (Phase 1.2)', () => {
+  assert(!html.includes('data-fields-strip'), 'a strip is drawn with no strip to show');
+  const k = P.genericCropKey('gen', 'pgA');
+  const withStrip = renderReview({ parts, crops, pages, cropUrls: { [P.fieldsUrlKey(k)]: 'blob:fields-pgA' } });
+  const r = withStrip.split(/<li /)[1];
+  assert(r.includes('data-fields-strip') && r.includes('src="blob:fields-pgA"'), 'strip not drawn on its page');
+  assert(r.indexOf('data-fields-strip') < r.indexOf('<select'), 'strip is not above the problem choice');
+  assert(textOf(r).includes(P.GENERIC_WORDING.fieldsCaption), 'caption missing');
+  assertEqual((withStrip.match(/data-fields-strip/g) ?? []).length, 1, 'strips drawn');
 });
 check('the review names what is missing and never says it blocks', () => {
   const t = textOf(html);

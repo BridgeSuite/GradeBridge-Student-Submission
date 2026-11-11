@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { CropRef, GenericPart, PageRef, StudentReview } from '../types';
 import {
-  GenericProblem, chosenPartIds, chosenProblemNumber, genericCoverage, genericCropsInPageOrder,
+  GenericProblem, chosenPartIds, chosenProblemNumber, fieldsUrlKey, genericCoverage, genericCropsInPageOrder,
   partDisplayLabel, partSubsectionTitle, problemsOf,
 } from '../services/genericSheet';
 import { GENERIC_WORDING as W } from '../services/genericWording';
@@ -157,6 +157,7 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
         {ordered.map((crop) => {
           const key = crop.regionId;
           const url = cropUrls[key];
+          const fieldsUrl = cropUrls[fieldsUrlKey(key)];
           const isBusy = busy === key || busy === `page-${crop.fromPage}`;
           const n = photoNumber(crop);
           const selectId = `problem-for-${key}`;
@@ -181,6 +182,21 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                   {REVIEW_LABEL[crop.review]}
                 </span>
               </div>
+
+              {/* The fields line the student wrote, Problem / Part / Page, so
+                  pages whose boxes look alike can be told apart (Phase 1.2).
+                  Review only: it is cut from the page photograph and never
+                  packaged; the crop below is still the writing box alone. */}
+              {fieldsUrl && (
+                <figure className="mb-3" data-fields-strip>
+                  <figcaption className="block text-sm font-medium text-gray-800 mb-1">{W.fieldsCaption}</figcaption>
+                  <img
+                    src={fieldsUrl}
+                    alt={`${W.photoHeading(n)}: ${W.fieldsCaption}`}
+                    className="w-full h-auto rounded-lg border border-gray-200 bg-white"
+                  />
+                </figure>
+              )}
 
               <label htmlFor={selectId} className="block text-sm font-medium text-gray-800 mb-1">
                 {W.choosePrompt}
