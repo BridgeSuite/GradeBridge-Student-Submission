@@ -141,6 +141,22 @@ several parts of one problem, added in v7.2 of the ZIP interface on 7 October 20
 page is written once under each part it carries, so the same `page_file` appears under more
 than one crop, with no field added or renamed.
 
+**No part starts ticked.** Choosing a multi-part problem for a page leaves every part
+unticked, and the student ticks the parts the page carries; choosing a one-part problem
+labels the page with that part, since there is nothing to choose between. A problem chosen
+with nothing ticked is packaged as `unlabelled`, never dropped. This reverses ruling 1 of
+the 7 October multi-part work, which ticked every part of the chosen problem; Andre Knoesen
+reversed it on EEC170-120 (7 November 2026), because students had to untick the parts a
+page did not carry. `chooseGenericProblem` in `services/genericSheet.ts` carries the same
+record. Only the labelling changed: no field of the suitcase did.
+
+**The review shows the fields line.** Above each page's problem choice the review shows the
+`Problem ___ Part ___ Page ___ of ___` line the student wrote, cut from the page photograph
+through the same registration as the box (`GENERIC_FIELDS_STRIP_MM`), so pages whose boxes
+look alike can be told apart (Phase 1.2, 10 November 2026). It is for the review only: it is
+stored under its own key in the browser, never read by the package builder, and the crop is
+still the whole writing box and nothing else.
+
 `part_source` is `student` here and `layout` on the app-printed sheet.
 
 `services/genericWording.ts` holds every sentence a student sees on this path and nowhere

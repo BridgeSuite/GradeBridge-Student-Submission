@@ -884,6 +884,11 @@ is added, removed or renamed**; every crop keeps §11.4's seventeen keys. A page
 with exactly one part ticked is packaged exactly as before. A problem chosen
 with every part unticked is an `unlabelled` crop, never dropped.
 
+*Note, 10 November 2026:* the labelling changed and no field did. Choosing a
+multi-part problem now ticks none of its parts and the student ticks what the
+page carries (EEC170-120, reversing ruling 1 of the 7 October work); the
+archive written for the same labels is byte for byte as before.
+
 One page carrying 5(a) to 5(d), as the app writes it (generated from the
 builder by `tests/spec-matches-code.mjs`, which fails if this block and the code
 disagree; not typed):
