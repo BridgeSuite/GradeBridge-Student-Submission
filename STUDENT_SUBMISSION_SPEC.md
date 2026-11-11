@@ -73,7 +73,7 @@ must still be refused, and in what words.
 **A demo assignment** (`demoAssignment.ts`) lets a student try the app with no file.
 
 **Photographs** arrive through `components/PageUploader.tsx` and `imageIngest.ts`, from the
-camera or the file picker, including HEIC via `heic2any`.
+camera or the file picker, including HEIC: the browser's own decoder first, then libheif through `heic-to`, loaded only for a HEIC file.
 
 **A PDF** arrives through `services/pdfIntake.ts`, built under
 `WORKORDER_SS_PDF_INTAKE_2026-10-08` because tablet apps such as GoodNotes and Notability

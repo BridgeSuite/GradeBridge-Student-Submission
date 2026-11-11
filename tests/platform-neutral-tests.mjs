@@ -180,10 +180,10 @@ await build({
   jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"' },
   loader: { '.css': 'empty', '.woff2': 'empty', '.woff': 'empty', '.ttf': 'empty' },
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
-  // heic2any touches `window` as it loads; only image upload uses it, never rendering.
-  plugins: [{ name: 'stub-heic2any', setup(b) {
-    b.onResolve({ filter: /^heic2any$/ }, () => ({ path: 'heic2any', namespace: 'stub' }));
-    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export default () => null;', loader: 'js' }));
+  // heic-to (libheif) is loaded only for a HEIC upload, never by rendering; stubbed so the 3 MB chunk is not bundled.
+  plugins: [{ name: 'stub-heic-to', setup(b) {
+    b.onResolve({ filter: /^heic-to/ }, () => ({ path: 'heic-to', namespace: 'stub' }));
+    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const heicTo = () => null;', loader: 'js' }));
   } }],
   logLevel: 'silent',
 });

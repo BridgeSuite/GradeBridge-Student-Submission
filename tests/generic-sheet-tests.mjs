@@ -812,12 +812,12 @@ await build({
   define: { 'process.env.NODE_ENV': '"production"' },
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   loader: { '.css': 'empty' },
-  // heic2any touches `window` as it loads; only image upload uses it, never rendering.
+  // heic-to (libheif) is loaded only for a HEIC upload, never by rendering; stubbed so the 3 MB chunk is not bundled.
   // `PageUploader` reaches `vendor/zxingReaderWasm.ts` through `services/pageCrops`.
   // Bundling that literal costs tens of GB and kills the runner: see `tests/captureSet.mjs`.
-  plugins: [vendorFromDisk, { name: 'stub-heic2any', setup(b) {
-    b.onResolve({ filter: /^heic2any$/ }, () => ({ path: 'heic2any', namespace: 'stub' }));
-    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export default () => null;', loader: 'js' }));
+  plugins: [vendorFromDisk, { name: 'stub-heic-to', setup(b) {
+    b.onResolve({ filter: /^heic-to/ }, () => ({ path: 'heic-to', namespace: 'stub' }));
+    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const heicTo = () => null;', loader: 'js' }));
   } }],
   logLevel: 'silent',
 });

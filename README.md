@@ -385,6 +385,14 @@ reason: it is pure JavaScript and needs no wasm. (The one `cdnjs` string in the
 built bundle is a literal inside jsPDF's own `pdfobject` viewer path, which this
 app never calls; it is not a request.)
 
+**HEIC photographs** (iPhone) are read by the browser's own decoder when it can
+(Safari). Otherwise the app converts them with libheif, through
+[`heic-to`](https://github.com/hoppergee/heic-to), pinned in `package.json`.
+`heic-to` is bundled into `dist/` as its own chunk and served from the app's
+address; it is fetched only when a HEIC photo arrives that the browser cannot
+read. It replaced `heic2any`. The approach follows an EEC 170 student's pull
+request #1.
+
 ### Build & Deploy
 ```bash
 npm run build      # Production build
@@ -556,6 +564,10 @@ Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 ## License
 
 MIT License - Free for personal and commercial use.
+
+Third-party: `heic-to` and the libheif it carries are **LGPL-3.0**. They are
+used unmodified, loaded as a separate chunk, and their source is at
+https://github.com/hoppergee/heic-to and https://github.com/strukturag/libheif.
 
 ---
 

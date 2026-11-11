@@ -21,7 +21,6 @@
 // image path in SubmissionWidget.tsx / App.tsx is deliberately untouched.
 // =====================================================
 
-import heic2any from 'heic2any';
 import {
   PAGE_MAX_EDGE,
   PAGE_JPEG_QUALITY,
@@ -55,15 +54,59 @@ export const isHeic = (f: File): boolean =>
   /\.heic$/i.test(f.name) || /\.heif$/i.test(f.name);
 
 /**
+ * The browser's own decoder. Safari, and any browser that can read HEIC,
+ * returns the picture here and no library is loaded. Anything else (Chrome
+ * cannot decode HEIC) rejects, and the answer is null, never an error.
+ */
+export const decodeHeicNatively = async (file: Blob, quality: number): Promise<Blob | null> => {
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return null;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return null;
+  }
+  try {
+    if (!bitmap.width || !bitmap.height) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0);
+    const jpeg = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', quality));
+    canvas.width = canvas.height = 1;
+    return jpeg && jpeg.size > 0 ? jpeg : null;
+  } catch {
+    return null;
+  } finally {
+    bitmap.close();
+  }
+};
+
+/**
+ * libheif, through `heic-to` (LGPL-3.0; pinned in package.json). Bundled into
+ * the app and served from the app's own address as a separate chunk, which is
+ * fetched only when a HEIC photo arrives that the browser cannot read: a
+ * student who never uploads one never loads it. The `csp` build is used
+ * because it needs no `eval`.
+ */
+export const convertHeicWithLibheif = async (file: Blob, quality: number): Promise<Blob> => {
+  const { heicTo } = await import('heic-to/csp');
+  return heicTo({ blob: file, type: 'image/jpeg', quality });
+};
+
+/**
  * Converts a HEIC/HEIF file to a JPEG blob. Non-HEIC files pass through.
+ * The browser's decoder is tried first, then libheif. Approach after the EEC
+ * 170 student's pull request #1 (written here, not merged from it).
  * The default quality is the one the per-question image path has always used;
  * page ingest asks for more because the result is downsampled afterwards and
  * intermediate loss shows up in the OCR, not on screen.
  */
 export const convertHeicIfNeeded = async (file: File, quality = 0.85): Promise<Blob> => {
   if (!isHeic(file)) return file;
-  const result = await heic2any({ blob: file, toType: 'image/jpeg', quality });
-  return Array.isArray(result) ? result[0] : (result as Blob);
+  return (await decodeHeicNatively(file, quality)) ?? convertHeicWithLibheif(file, quality);
 };
 
 // ---------- JPEG header: EXIF orientation + raw SOF dimensions ----------

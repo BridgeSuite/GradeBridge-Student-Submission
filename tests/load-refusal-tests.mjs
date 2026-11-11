@@ -255,9 +255,9 @@ await build({
   define: { 'process.env.NODE_ENV': '"production"' },
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   loader: { '.css': 'empty' },
-  plugins: [{ name: 'stub-heic2any', setup(b) {
-    b.onResolve({ filter: /^heic2any$/ }, () => ({ path: 'heic2any', namespace: 'stub' }));
-    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export default () => null;', loader: 'js' }));
+  plugins: [{ name: 'stub-heic-to', setup(b) {
+    b.onResolve({ filter: /^heic-to/ }, () => ({ path: 'heic-to', namespace: 'stub' }));
+    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const heicTo = () => null;', loader: 'js' }));
   } }],
   logLevel: 'silent',
 });
