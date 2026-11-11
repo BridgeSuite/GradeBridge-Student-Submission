@@ -13,7 +13,7 @@ import { RefreshCw } from 'lucide-react';
  * a suppressed dialog would be a silent refusal of a download. Its main button
  * tries again; nothing the student made is lost by closing it.
  *
- * WORDING: PROPOSED, NOT YET CLEARED by Andre Knoesen (`PACKAGE_INCOMPLETE_WORDING`).
+ * WORDING: `PACKAGE_INCOMPLETE_WORDING` CLEARED by André Knoesen, 11 Nov 2026 15:10.
  * Kept quiet by André Knoesen's ruling of 11 Nov 15:05: minimum wording, calm,
  * never sounding like an error.
  */

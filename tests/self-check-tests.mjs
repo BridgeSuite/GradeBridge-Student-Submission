@@ -147,6 +147,7 @@ try {
     const h = render({ ok: false, pages: 1, problems: [W.noAnswersPdf, W.noFilesMap] });
     const t = text(h);
     assert(t.includes(W.incomplete) && t.includes(W.incompleteAdvice), t);
+    assert(W.incompleteAdvice === 'The file just saved is not quite complete. Your work is saved. If you see this again, reload this page and download once more.', W.incompleteAdvice);
     // Minimum wording (11 Nov 15:05): which part is missing is not shown to the student.
     assert(!t.includes(W.noAnswersPdf) && !t.includes(W.noFilesMap), t);
   });

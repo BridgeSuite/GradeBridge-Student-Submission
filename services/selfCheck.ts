@@ -16,7 +16,8 @@
  * checks what the student is about to upload.
  *
  * WORDING: the four sentences the student sees (`completeWithPages`,
- * `complete`, `incomplete`, `incompleteAdvice`) are PROPOSED, NOT YET CLEARED.
+ * `complete`, `incomplete`, `incompleteAdvice`) are CLEARED by André Knoesen, 11 Nov 2026 15:10;
+ * `incompleteAdvice` in the form he set.
  * Kept quiet by André Knoesen's ruling of 11 Nov 15:05: minimum wording, calm,
  * never sounding like an error.
  * The rest name each problem for tests and for anyone reading the result;
@@ -30,7 +31,7 @@ export const SELF_CHECK_WORDING = {
   complete: 'Your submission file is complete.',
   incomplete: 'Please press Download submission once more.',
   incompleteAdvice:
-    'The file just saved is not quite complete. Your work is saved. If you see this again, tell your instructor.',
+    'The file just saved is not quite complete. Your work is saved. If you see this again, reload this page and download once more.',
   unreadable: 'The file could not be opened.',
   noPayload: 'The submission data is missing.',
   noFixedLayout: 'The description of the answers PDF is missing.',

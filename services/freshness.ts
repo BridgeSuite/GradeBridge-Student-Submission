@@ -59,7 +59,7 @@ export const checkFreshness = async (
 /**
  * WORDING: `message` is André Knoesen's own sentence (11 Nov 15:05), shown
  * both in the banner on load and in the panel when Download is pressed. The
- * two button labels await clearance.
+ * button labels: CLEARED by André Knoesen, 11 Nov 2026 15:10.
  */
 export const FRESHNESS_WORDING = {
   message:
