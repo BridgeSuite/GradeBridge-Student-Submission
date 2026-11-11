@@ -147,11 +147,17 @@ const fresh = (ids) => genericPagesAndCrops(P, ids);
     eq([P.chosenProblemNumber(c0[k], MP), P.chosenPartIds(c0[k], MP)], [null, []], 'fresh page');
   });
   const c1 = P.chooseGenericProblem(c0, k, 2, MP);
-  await checkAsync('choosing Problem 2 ticks all four of its parts', async () => {
-    eq(P.chosenPartIds(c1[k], MP), ['2(a)', '2(b)', '2(c)', '2(d)'], 'ticks');
-    eq([c1[k].problemNumber, c1[k].partId], [2, '2(a)'], 'problem, and partId kept as the first part');
+  await checkAsync('choosing Problem 2 ticks none of its parts: the student ticks what the page carries (EEC170-120)', async () => {
+    eq(P.chosenPartIds(c1[k], MP), [], 'ticks');
+    eq([c1[k].problemNumber, c1[k].partId], [2, ''], 'problem chosen, page not yet labelled');
   });
-  const c2 = P.toggleGenericPart(c1, k, '2(b)', MP);
+  let c1all = c1;
+  for (const id of ['2(d)', '2(a)', '2(c)', '2(b)']) c1all = P.toggleGenericPart(c1all, k, id, MP);
+  await checkAsync('ticking all four, in any order, gives them in the file order, partId the first', async () => {
+    eq(P.chosenPartIds(c1all[k], MP), ['2(a)', '2(b)', '2(c)', '2(d)'], 'ticks');
+    eq(c1all[k].partId, '2(a)', 'partId kept as the first part');
+  });
+  const c2 = P.toggleGenericPart(c1all, k, '2(b)', MP);
   await checkAsync('unticking (b) leaves (a), (c) and (d)', async () =>
     eq(P.chosenPartIds(c2[k], MP), ['2(a)', '2(c)', '2(d)'], 'ticks'));
   await checkAsync('ticking (b) again puts it back in the file\'s order, not at the end', async () =>
@@ -161,13 +167,13 @@ const fresh = (ids) => genericPagesAndCrops(P, ids);
   const c3 = P.chooseGenericProblem(c2, k, 1, MP);
   await checkAsync('changing to the one-part Problem 1 gives part 1 alone: nothing to tick', async () =>
     eq([c3[k].problemNumber, P.chosenPartIds(c3[k], MP)], [1, ['1']], 'problem 1'));
-  await checkAsync('changing back to Problem 2 starts all ticked: the earlier untick does not carry over', async () =>
-    eq(P.chosenPartIds(P.chooseGenericProblem(c3, k, 2, MP)[k], MP), ['2(a)', '2(b)', '2(c)', '2(d)'], 'ticks'));
+  await checkAsync('changing back to Problem 2 starts unticked: the earlier ticks do not carry over', async () =>
+    eq(P.chosenPartIds(P.chooseGenericProblem(c3, k, 2, MP)[k], MP), [], 'ticks'));
   await checkAsync('a part of another problem cannot be ticked', async () =>
     eq(P.toggleGenericPart(c2, k, '1', MP), c2, 'crops changed'));
   await checkAsync('a part cannot be ticked before a problem is chosen', async () =>
     eq(P.toggleGenericPart(c0, k, '2(a)', MP), c0, 'crops changed'));
-  let none = c1;
+  let none = c1all;
   for (const id of ['2(a)', '2(b)', '2(c)', '2(d)']) none = P.toggleGenericPart(none, k, id, MP);
   await checkAsync('every part unticked: the problem stays chosen, and the page has no part', async () =>
     eq([none[k].problemNumber, P.chosenPartIds(none[k], MP), none[k].partId], [2, [], ''], 'state'));
@@ -276,13 +282,13 @@ const commonChecks = async (name, r, pagesOf) => {
   await commonChecks('(iii)', r, { 'page_1.jpg': 'pgA', 'page_2.jpg': 'pgB' });
 }
 {
-  // Ruling 2, in a package: a problem chosen with every part unticked.
+  // Ruling 2, in a package: a problem chosen with nothing ticked, which is
+  // now where choosing a multi-part problem leaves a page (EEC170-120).
   const ids = ['pgA'];
   const { pages, crops, blobs } = fresh(ids);
-  let c = P.chooseGenericProblem(crops, key('pgA'), 2, MP);
-  for (const id of ALL4) c = P.toggleGenericPart(c, key('pgA'), id, MP);
+  const c = P.chooseGenericProblem(crops, key('pgA'), 2, MP);
   const r = await buildGeneric(P, multipartAssignment(), pages, c, blobs);
-  await checkAsync('a problem chosen with every part unticked is packaged as unlabelled, never dropped', async () => {
+  await checkAsync('a problem chosen with nothing ticked is packaged as unlabelled, never dropped', async () => {
     eq(Object.keys(r.payload.crops), ['unlabelled_1'], 'crop keys');
     const u = r.payload.crops.unlabelled_1;
     eq([u.part_id, u.page_file, u.part_page, u.part_pages, u.max_points], [null, 'page_1.jpg', null, null, null], 'fields');

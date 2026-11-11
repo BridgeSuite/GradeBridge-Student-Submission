@@ -196,10 +196,17 @@ const withParts = (crop: CropRef, problemNumber: number | undefined, ids: string
 };
 
 /**
- * The student chose the problem a page is, or chose again. **Every part of the
- * new problem starts ticked**, and ticks for another problem do not carry over
- * (ruling 1). Choosing the problem it already is changes nothing, so its ticks
- * survive. A number that is no problem (`0`) clears the choice.
+ * The student chose the problem a page is, or chose again. **No part of a
+ * multi-part problem starts ticked**: the student ticks the parts the page
+ * carries. A one-part problem has nothing to choose between, so choosing it
+ * labels the page with that part. Ticks for another problem do not carry over.
+ * Choosing the problem it already is changes nothing, so its ticks survive. A
+ * number that is no problem (`0`) clears the choice. A problem chosen with
+ * nothing ticked leaves the page unlabelled: still packaged, never dropped.
+ *
+ * This reverses ruling 1 of the 7 October multi-part work, which ticked every
+ * part of the chosen problem. Reversed by Andre Knoesen on EEC170-120
+ * (7 November 2026): students had to untick the parts a page did not carry.
  *
  * **Only the label moves.** The picture, its sign-off and its capture id stay
  * as they are: the student relabelling a page has not retaken it, and the
@@ -216,7 +223,7 @@ export const chooseGenericProblem = (
     return { ...crops, [key]: withParts(crop, undefined, []) };
   }
   if (chosenProblemNumber(crop, parts) === problemNumber) return crops;
-  return { ...crops, [key]: withParts(crop, problemNumber, group.parts.map(p => p.part_id)) };
+  return { ...crops, [key]: withParts(crop, problemNumber, group.parts.length === 1 ? [group.parts[0].part_id] : []) };
 };
 
 /**

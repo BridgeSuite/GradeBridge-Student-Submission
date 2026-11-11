@@ -113,7 +113,9 @@ check('the payload entry shares the archive stem',
     part_id: `5(${l})`, problem_number: 5, subsection_letter: l, label: `Problem 5, part (${l})`, max_points: 25,
   }));
   const { pages, crops, blobs } = genericPagesAndCrops(P, ['pg1']);
-  const shared = P.chooseGenericProblem(crops, P.genericCropKey('gen', 'pg1'), 5, parts);
+  // Choosing the problem ticks nothing (EEC170-120); the student ticks all four.
+  let shared = P.chooseGenericProblem(crops, P.genericCropKey('gen', 'pg1'), 5, parts);
+  for (const p of parts) shared = P.toggleGenericPart(shared, P.genericCropKey('gen', 'pg1'), p.part_id, parts);
   const { payload } = await buildGeneric(P, genericAssignment(parts), pages, shared, blobs);
   const generated = `"crops": ${JSON.stringify(payload.crops, null, 2)}`;
 

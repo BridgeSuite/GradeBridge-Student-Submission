@@ -16,8 +16,9 @@ import { GENERIC_WORDING as W } from '../services/genericWording';
  * One row per photographed page: the whole box, as the grader will see it,
  * with what the student says it is beside it. **The student chooses the
  * problem, then ticks the parts of it the page carries**
- * (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`, S1): every part starts ticked, a
- * one-part problem has nothing to tick, and parts of two problems cannot share
+ * (`WORKORDER_SS_MULTIPART_PAGES_2026-10-07`, S1): no part starts ticked
+ * (EEC170-120, reversing ruling 1, which ticked every part), a one-part
+ * problem has nothing to tick, and parts of two problems cannot share
  * a page. The problem is a native `<select>`, which is the one control every
  * phone renders as a proper picker; the parts are tick boxes at least 44 px
  * tall. Both stay editable: relabelling never needs a retake.
@@ -42,7 +43,7 @@ interface GenericPageReviewProps {
   /** crop key → object URL for the stored crop bitmap. */
   cropUrls: Record<string, string>;
   pages: PageRef[];
-  /** The student chose a page's problem; `0` clears it. Every part of it starts ticked. */
+  /** The student chose a page's problem; `0` clears it. No part starts ticked; a one-part problem labels the page. */
   onChooseProblem: (cropKey: string, problemNumber: number) => void;
   /** The student ticked or unticked one part of the page's problem. */
   onTogglePart: (cropKey: string, partId: string) => void;
@@ -209,8 +210,8 @@ const GenericPageReview: React.FC<GenericPageReviewProps> = ({
                 </p>
               )}
 
-              {/* A multi-part problem: every part starts ticked; untick what is
-                  not on this page. A one-part problem has nothing to tick. */}
+              {/* A multi-part problem: no part starts ticked; the student ticks
+                  what is on this page. A one-part problem has nothing to tick. */}
               {problem && problem.parts.length > 1 && (
                 <fieldset className="mb-3" data-part-ticks>
                   <legend className="block text-sm font-medium text-gray-800 mb-1">{W.partsPrompt}</legend>
