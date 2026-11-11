@@ -47,6 +47,9 @@ import {
 } from './services/submissionPackage';
 import PackageIncomplete from './components/PackageIncomplete';
 import SelfCheckPanel from './components/SelfCheckPanel';
+import StaleVersion from './components/StaleVersion';
+import { FRESHNESS_WORDING, checkFreshness } from './services/freshness';
+import { APP_VERSION } from './services/appVersion';
 import { checkBuiltSuitcase, type SelfCheckResult } from './services/selfCheck';
 
 function downsampleImage(dataUri: string, maxPx = 1920, quality = 0.82): Promise<string> {
@@ -202,6 +205,10 @@ const App: React.FC = () => {
   const [packageIncomplete, setPackageIncomplete] = useState<DownloadAcks | null>(null);
   // The app's own reading of the file it just built (Phase 1.6). Informs only.
   const [selfCheck, setSelfCheck] = useState<SelfCheckResult | null>(null);
+  // Phase 1.10: a newer build is live than the one in this tab. The banner is
+  // set on load; the gate is set when Download is pressed, and nothing is built.
+  const [staleOnLoad, setStaleOnLoad] = useState(false);
+  const [staleGate, setStaleGate] = useState(false);
 
   /** region_id currently being re-cut, so the review row can say so. */
   const [cropBusy, setCropBusy] = useState<string | null>(null);
@@ -325,6 +332,13 @@ const App: React.FC = () => {
     initQrReader().catch(() => {});
   }, []);
 
+  // Phase 1.10: is this tab the live build? Same-origin, sends nothing, and
+  // fails open: only a clear answer naming another build shows the banner.
+  useEffect(() => {
+    void checkFreshness(APP_VERSION, new URL('./', window.location.href).href, fetch)
+      .then(f => { if (f.state === 'stale') setStaleOnLoad(true); });
+  }, []);
+
   // Mobile detection
   useEffect(() => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
@@ -380,6 +394,28 @@ const App: React.FC = () => {
   // Only the small data goes here. Page bitmaps are written to IndexedDB as
   // they are ingested; localStorage keeps their metadata, which is a few
   // hundred bytes a page instead of a few hundred kilobytes.
+  // The latest state, for a save that cannot wait for the debounce: the
+  // Reload of Phase 1.10 writes it first, so a reload loses nothing.
+  const latestState = useRef(state);
+  latestState.current = state;
+  const saveNow = useCallback((): void => {
+    const s = latestState.current;
+    if (Object.keys(s.submissionData).length === 0 && s.pages.length === 0) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        assignment: s.assignment, submissionData: s.submissionData, pages: s.pages,
+        layout: s.layout, crops: s.crops, lastSaved: new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error('Save before reload failed', err);
+    }
+  }, []);
+  /** Phase 1.10: keep the work, then load the live build. Bitmaps are already in IndexedDB. */
+  const reloadKeepingWork = useCallback((): void => {
+    saveNow();
+    window.location.reload();
+  }, [saveNow]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (Object.keys(state.submissionData).length > 0 || state.pages.length > 0) {
@@ -1198,6 +1234,15 @@ const App: React.FC = () => {
       return;
     }
 
+    // Phase 1.10: refuse to build on old code. Asked again here, not only on
+    // load, because a tab can sit open across a deploy. Fails open: no network
+    // or no answer builds as before.
+    const fresh = await checkFreshness(APP_VERSION, new URL('./', window.location.href).href, fetch);
+    if (fresh.state === 'stale') {
+      setStaleGate(true);
+      return;
+    }
+
     setPdfProgress({ active: true, phase: 'pdf', current: 0, total: 0 });
     setStatusMessage("Generating submission package...");
 
@@ -1438,6 +1483,20 @@ const App: React.FC = () => {
     // content on a phone, side by side and pinned to the viewport from lg up.
     <div className="flex min-h-screen flex-col bg-gray-50 font-sans lg:h-screen lg:overflow-hidden">
 
+      {/* Phase 1.10: this tab is older than the live build. */}
+      {staleOnLoad && (
+        <div className="bg-amber-50 border-b border-amber-300 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center gap-3" role="status" data-stale-banner>
+          <span className="flex-1 min-w-0">{FRESHNESS_WORDING.banner}</span>
+          <button
+            type="button"
+            onClick={reloadKeepingWork}
+            className="min-h-[44px] px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium"
+          >
+            {FRESHNESS_WORDING.reload}
+          </button>
+        </div>
+      )}
+
       {/* The completeness gate. In the page, never a dialog — see the component. */}
       {shortfallGate && (
         <CompletenessGate
@@ -1454,6 +1513,11 @@ const App: React.FC = () => {
           onDownloadAnyway={handleAcceptFit}
           onGoBack={handleGoBackToRewrite}
         />
+      )}
+
+      {/* A newer build is live: nothing was built; Reload keeps the work. */}
+      {staleGate && (
+        <StaleVersion onReload={reloadKeepingWork} onClose={() => setStaleGate(false)} />
       )}
 
       {/* The app's reading of the file it just saved: complete, or what is wrong. */}
