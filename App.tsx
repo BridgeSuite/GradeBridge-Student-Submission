@@ -46,6 +46,8 @@ import {
   PACKAGE_INCOMPLETE, SUBMISSION_ZIP_OPTIONS, buildSubmissionPackage, cropBlobKey, cropList, submissionBaseName,
 } from './services/submissionPackage';
 import PackageIncomplete from './components/PackageIncomplete';
+import SelfCheckPanel from './components/SelfCheckPanel';
+import { checkBuiltSuitcase, type SelfCheckResult } from './services/selfCheck';
 
 function downsampleImage(dataUri: string, maxPx = 1920, quality = 0.82): Promise<string> {
   return new Promise((resolve) => {
@@ -198,6 +200,8 @@ const App: React.FC = () => {
   // The submission file could not be made whole, so nothing was saved (Phase
   // 1.5). Holds the acknowledgements of the attempt, so Try again repeats it.
   const [packageIncomplete, setPackageIncomplete] = useState<DownloadAcks | null>(null);
+  // The app's own reading of the file it just built (Phase 1.6). Informs only.
+  const [selfCheck, setSelfCheck] = useState<SelfCheckResult | null>(null);
 
   /** region_id currently being re-cut, so the review row can say so. */
   const [cropBusy, setCropBusy] = useState<string | null>(null);
@@ -1312,7 +1316,13 @@ const App: React.FC = () => {
 
       const zipBlob = await built.zip.generateAsync({ type: 'blob', ...SUBMISSION_ZIP_OPTIONS });
 
+      // Phase 1.6: read back the archive about to be saved, before the student
+      // is told to upload it. It informs and never blocks, so a check that
+      // cannot run is no reason to withhold the file.
+      const checked = await checkBuiltSuitcase(zipBlob, isGeneric).catch(() => null);
+
       downloadBlob(zipBlob, `${baseName}.zip`);
+      if (checked) setSelfCheck(checked);
       // The attempt is over, so the acknowledgements it carried expire with it.
       setGateAcks(NO_ACKS);
 
@@ -1445,6 +1455,9 @@ const App: React.FC = () => {
           onGoBack={handleGoBackToRewrite}
         />
       )}
+
+      {/* The app's reading of the file it just saved: complete, or what is wrong. */}
+      {selfCheck && <SelfCheckPanel result={selfCheck} onClose={() => setSelfCheck(null)} />}
 
       {/* The submission file could not be made whole; nothing was saved. */}
       {packageIncomplete && (
