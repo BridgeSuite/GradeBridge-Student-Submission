@@ -1,7 +1,7 @@
 # GradeBridge — submission ZIP interface
 
-**Version:** v7.3
-**Date:** 2026-10-20
+**Version:** v7.4
+**Date:** 2026-11-11
 **App version:** v4.1.0 (not deployed until the new student-facing wording is approved)
 
 **This file is the only authoritative copy.** It lives in the app's repository because it is
@@ -10,6 +10,18 @@ built from it. Every other copy in the tree is a pointer to this one or history,
 sent by email is a snapshot: check its version and SHA-256 against this file before working
 from it. `Manuals\Submission_Specifications_Where.md` is where the route's documents are
 listed.
+
+> ## v7.4 - additive. `app_version`, which build wrote the archive.
+>
+> One new top-level key, `app_version` (string), written in every payload after
+> `personal_info_wording`: the short commit of the app build that wrote the archive,
+> `-dirty` appended if that build was made from a tree with changes, and `"unknown"`
+> from a build with no stamp. Approved by Andre Knoesen on 9 November 2026 (Phase 1.7 of
+> `PLAN_SUBMISSION_APP_FIXES_AND_REVAMP_2026-11-08`) because three ENG 17 HW4 archives
+> were built by pre-20 October code in a tab left open for weeks, and nothing in them
+> said so. **Absent from every archive built before v7.4.** Nothing else moves. **The
+> relay must accept it before an app writing it is deployed** (its G13 refuses unknown
+> payload fields).
 
 > ## v7.3 - additive. An answers PDF, and a SHA-256 of every other entry.
 >
@@ -278,6 +290,7 @@ the archive.
   "last_saved": "2026-09-21T04:47:04.321Z",
   "personal_info_confirmed": true,
   "personal_info_wording": "pi-1",
+  "app_version": "0ac10db",
   "input_mode": "handwritten",
   "layout_id": "95438EDF",
   "pages": [ … ],
@@ -299,6 +312,7 @@ the archive.
 | `files` | object | §3.4. Added v7.3. Entry name to SHA-256, for every entry except the payload. Absent from any archive built before v7.3. |
 | `personal_info_confirmed` | boolean | **Added v7.0.** The student ticked, over exactly the answers in this archive, that none of them shows their name, student ID, email address or anyone else's. **Always `true`**: the app refuses to build a package otherwise, and the tick stops counting if any answer changes after it is given. Per-submission evidence that the step existed. |
 | `personal_info_wording` | string | **Added v7.0.** Which sentence the student ticked. `"pi-1"` observed. A new wording gets a new value; it does not change what `personal_info_confirmed` means. |
+| `app_version` | string | **Added v7.4.** The short commit of the app build that wrote the archive; `-dirty` if built from a tree with changes; `"unknown"` from an unstamped build. Every path. Absent before v7.4. A claim like every other value. |
 | `input_mode` | string | `"handwritten"` observed. **Absent entirely on an electronic assignment** — its absence is the signal, so test for presence rather than for a value. |
 | `layout_id` | string | The map the app recomputed. Must equal the `layout_id` in every page's QR; the app refuses to crop when it does not. |
 | `pages` | array | §3.2. Handwritten only. |
@@ -312,7 +326,7 @@ appears in the archive.** Open what the payload names.
 assignment is handwritten. An electronic payload carries the other **eight**
 keys — `course_code`, `assignment_id`, `pdf_filename`, `ai_feedback`,
 `submission_data`, `last_saved`, `personal_info_confirmed`,
-`personal_info_wording` — and none of those four. **Both lists are closed**:
+`personal_info_wording` — plus `app_version` (v7.4) and `files` (v7.3), and none of those four. **Both lists are closed**:
 `tests/package-plain-tests.mjs` fails if a key is added, removed or reordered, so
 a new key cannot arrive without someone meaning it.
 

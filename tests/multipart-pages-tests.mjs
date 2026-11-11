@@ -105,10 +105,16 @@ for (const [how, label] of [
     const goldenPayload = JSON.parse(golden.serialised);
     assert('files' in nowPayload, 'the payload carries no files fingerprints');
     assert('fixed_layout' in nowPayload, 'the payload does not describe the fixed-layout PDF');
-    const { files: nowFiles, fixed_layout: nowLayout, ...nowRest } = nowPayload;
-    eq(Object.keys(nowPayload), [...Object.keys(goldenPayload), 'fixed_layout', 'files'],
-      'the payload keys are not the golden\'s plus fixed_layout and files');
-    eq(nowRest, goldenPayload, 'the payload changed outside fixed_layout and files');
+    // `app_version` (Phase 1.7, approved by Andre Knoesen 9 November) is the
+    // third intended difference: which build wrote the file, after
+    // `personal_info_wording`. Nothing else in the payload may move.
+    const { files: nowFiles, fixed_layout: nowLayout, app_version: nowVersion, ...nowRest } = nowPayload;
+    const goldenKeys = Object.keys(goldenPayload);
+    const at = goldenKeys.indexOf('personal_info_wording') + 1;
+    eq(Object.keys(nowPayload), [...goldenKeys.slice(0, at), 'app_version', ...goldenKeys.slice(at), 'fixed_layout', 'files'],
+      'the payload keys are not the golden\'s plus app_version, fixed_layout and files');
+    assert(typeof nowVersion === 'string' && nowVersion.length > 0, 'app_version is not a string');
+    eq(nowRest, goldenPayload, 'the payload changed outside app_version, fixed_layout and files');
 
     // The formatting the byte comparison used to hold: two-space indented, in
     // the order the build wrote the keys.

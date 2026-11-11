@@ -333,10 +333,12 @@ console.log('  4. the payload keys, closed');
 // `files` added 2026-10-19 for work item W3 of the assignment route: the
 // SHA-256 of every archive entry except the payload. It is written last,
 // because it cannot exist until the other entries do.
+// `app_version` added 2026-11-11 (Phase 1.7, approved by Andre Knoesen on 9
+// November): the commit the build was made from, after `personal_info_wording`.
 const TOP_ELECTRONIC = ['course_code', 'assignment_id', 'pdf_filename', 'ai_feedback', 'submission_data',
-  'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'files'];
+  'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'app_version', 'files'];
 const TOP_HANDWRITTEN = ['course_code', 'assignment_id', 'ai_feedback', 'submission_data', 'last_saved',
-  'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops', 'files'];
+  'personal_info_confirmed', 'personal_info_wording', 'app_version', 'input_mode', 'layout_id', 'pages', 'crops', 'files'];
 const ANSWER_KEYS = ['answer', 'images_submitted'];
 const PAGE_KEYS = ['file', 'width', 'height', 'k', 'n', 'registration', 'marks_found', 'marks_detected',
   'marks_declined', 'residual_mm', 'held_out_mm'];
@@ -351,6 +353,18 @@ check('electronic top-level keys are exactly the list', () =>
   assertEqual(Object.keys(electronic.submissionJson), TOP_ELECTRONIC, 'electronic payload keys changed'));
 check('handwritten top-level keys are exactly the list', () =>
   assertEqual(Object.keys(handwritten.submissionJson), TOP_HANDWRITTEN, 'handwritten payload keys changed'));
+// Phase 1.7: every suitcase says which build wrote it. A bundle that is not a
+// Vite build (this harness) has no stamp and must say `unknown`, never nothing.
+check('app_version is in every payload, electronic and handwritten; unstamped here, so "unknown"', () => {
+  for (const b of [electronic, handwritten]) assertEqual(b.submissionJson.app_version, 'unknown', 'app_version');
+});
+check('the Vite build stamps app_version with the commit, and -dirty for a tree with changes', () => {
+  const cfg = readFileSync(join(REPO, 'vite.config.ts'), 'utf8');
+  assert(/__APP_VERSION__: JSON\.stringify\(version\)/.test(cfg), 'vite.config.ts does not define __APP_VERSION__');
+  assert(/git rev-parse --short=7 HEAD/.test(cfg) && /-dirty/.test(cfg), 'the stamp is not the commit');
+  const src = readFileSync(join(REPO, 'services/appVersion.ts'), 'utf8');
+  assert(/typeof __APP_VERSION__ === 'string'/.test(src) && /'unknown'/.test(src), 'appVersion.ts does not fall back');
+});
 check('every answer carries exactly answer and images_submitted', () => {
   for (const b of [electronic, handwritten]) {
     for (const [k, v] of Object.entries(b.submissionJson.submission_data)) {

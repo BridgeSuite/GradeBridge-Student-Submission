@@ -304,7 +304,7 @@ await checkAsync('the payload is otherwise the handwritten payload: same top-lev
   // entry except the payload, written last because it cannot exist until the
   // other entries do.
   assertEqual(Object.keys(two.payload), ['course_code', 'assignment_id', 'ai_feedback', 'submission_data',
-    'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'input_mode', 'layout_id', 'pages', 'crops',
+    'last_saved', 'personal_info_confirmed', 'personal_info_wording', 'app_version', 'input_mode', 'layout_id', 'pages', 'crops',
     'fixed_layout', 'files'],
     'top-level keys');
   assert(two.payload.layout_id === P.GENERIC_LAYOUT_ID, two.payload.layout_id);
@@ -713,7 +713,14 @@ const now = await buildBoth(P, P);
 // entry must still be byte for byte what the deployed builder wrote.
 const withoutPayload = (map, baseName) => Object.fromEntries(
   Object.entries(map).filter(([name]) => name !== `${baseName}.json`));
-const withoutFiles = (json) => { const { files, ...rest } = json; return rest; };
+// `app_version` (Phase 1.7, approved by Andre Knoesen 9 November) is the second
+// intended difference, and is held out with `files`; it is checked to be a
+// string here, and its place in the key order by `tests/package-plain-tests.mjs`.
+const withoutFiles = (json) => {
+  const { files, app_version, ...rest } = json;
+  assert(typeof app_version === 'string' && app_version.length > 0, 'app_version missing');
+  return rest;
+};
 
 check('electronic: every entry, every byte, and the serialised payload are what c72450e wrote', () => {
   assertEqual(now.electronic.entries, golden.electronic.entries, 'entries');

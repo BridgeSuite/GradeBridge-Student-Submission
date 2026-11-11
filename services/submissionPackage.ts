@@ -37,6 +37,7 @@ import { Assignment, CropRef, PageRef, SubmissionData } from '../types';
 import { AI_GRADED_TYPES } from '../constants';
 import { assertNoIdentityKeys } from './identityGuard';
 import { GEOMETRY_ID, PlacedCrop, planFixedLayout } from './fixedLayout';
+import { APP_VERSION } from './appVersion';
 import { CropImage, drawFixedLayout } from './fixedLayoutPdf';
 import {
   PERSONAL_INFO_WORDING_VERSION, PersonalInfoConfirmation, isConfirmationCurrent,
@@ -197,6 +198,10 @@ export const buildSubmissionJson = (s: SubmissionSources): Record<string, unknow
     // evidence that the step existed. Not forwarded to the campus host.
     personal_info_confirmed: isConfirmationCurrent(s.personalInfoConfirmation ?? null, s),
     personal_info_wording: PERSONAL_INFO_WORDING_VERSION,
+    // Which build wrote this file: the deployed commit (Phase 1.7). Approved
+    // by Andre Knoesen on 9 November as the one exception to "the payload
+    // does not change"; RELAY must accept it before it ships.
+    app_version: APP_VERSION,
   };
 
   // Handwritten: the pages, the crops and what the student said about each.
